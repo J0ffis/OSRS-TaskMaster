@@ -1,0 +1,14 @@
+# Private, per-machine data: sync token, synced profiles and goals
+server/data/
+
+# Build output
+plugin/build/
+plugin/.gradle/
+
+# Local tooling and editor files
+.claude/
+.idea/
+.vscode/
+*.iml
+*.log
+Thumbs.db

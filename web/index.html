@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OSRS TaskMaster</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='3' fill='%23e0b04a'/%3E%3Cpath d='M4 13V9h2v4zm3 0V6h2v7zm3 0V3h2v10z' fill='%232b2116'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span>OSRS TaskMaster</span>
+    </div>
+    <form id="lookup" class="lookup" autocomplete="off">
+      <label class="sr" for="name">In-game name</label>
+      <input id="name" name="name" list="known" maxlength="12" placeholder="Your in-game name" required>
+      <datalist id="known"></datalist>
+      <button type="submit" class="btn primary">Load profile</button>
+    </form>
+  </header>
+
+  <main>
+    <section id="intro" class="intro">
+      <h1>What should you grind next?</h1>
+      <p class="lede">Enter your name to get three suggestions drawn from your levels, quests, diaries, combat achievements, collection log, pets and goals. Your data comes from the OSRS TaskMaster RuneLite plugin on this PC, so no outside services are asked for anything. Your bank and wealth are never read.</p>
+      <ol class="steps">
+        <li><b>Run the server.</b> <code>.\start-server.ps1</code> prints a sync token.</li>
+        <li><b>Run the plugin.</b> Paste the token into RuneLite → OSRS TaskMaster → Sync token, then log in.</li>
+        <li><b>Fill in the gaps.</b> Open the collection log in-game and click Search once.</li>
+      </ol>
+      <p class="muted">Want to see it first? <button id="sample" class="link" type="button">Load sample data</button></p>
+      <p id="error" class="error" role="alert" hidden></p>
+    </section>
+
+    <section id="app" hidden>
+      <div id="summary" class="summary"></div>
+
+      <div class="sectionhead">
+        <h2 id="gridtitle">Your next three grinds</h2>
+        <div class="controls">
+          <div class="seg" role="radiogroup" aria-label="Grind style">
+            <button type="button" data-style="quick" role="radio" title="Done in a session or two">Quick wins</button>
+            <button type="button" data-style="balanced" role="radio" title="A few sessions of steady work">Balanced</button>
+            <button type="button" data-style="long" role="radio" title="Weeks of grinding or rare drops">Long haul</button>
+            <button type="button" data-style="mix" role="radio" title="Seven picks across all three tiers">Mixed ✦7</button>
+          </div>
+          <button id="shuffle" type="button" class="btn"><span class="ico" aria-hidden="true">↻</span>Shuffle</button>
+        </div>
+      </div>
+      <p id="tierhint" class="muted small tierhint"></p>
+      <div id="chips" class="chips" aria-label="Categories to include"></div>
+      <div class="optin">
+        <span class="muted small">Also include:</span>
+        <span id="optins" class="optins"></span>
+        <button id="lockedbtn" type="button" class="link small" hidden></button>
+      </div>
+      <dialog id="lockeddlg" class="dlg" aria-labelledby="locked-h">
+        <div class="dlghead">
+          <h3 id="locked-h">Hidden until unlocked</h3>
+          <button type="button" class="x" data-close aria-label="Close">×</button>
+        </div>
+        <p class="muted small">These aren't suggested yet because you can't access them. They'll appear once you meet the requirement.</p>
+        <div id="lockedbody"></div>
+      </dialog>
+      <div id="cards" class="cards"></div>
+
+      <div class="lower">
+        <section class="panel" aria-labelledby="goals-h">
+          <div class="panelhead">
+            <h3 id="goals-h">Goals</h3>
+            <span class="muted small">Goals push matching suggestions to the top.</span>
+          </div>
+          <ul id="goals" class="goals"></ul>
+          <form id="goalform" class="goalform">
+            <select id="gtype" aria-label="Goal type">
+              <option value="skill">Skill level</option>
+              <option value="quest">Quest</option>
+              <option value="diary">Diary tier</option>
+              <option value="ca">CA tier</option>
+              <option value="clog">Collection log page</option>
+              <option value="custom">Custom</option>
+            </select>
+            <span id="gfields" class="gfields"></span>
+            <button class="btn" type="submit">Add goal</button>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="acct-h">
+          <div class="panelhead">
+            <h3 id="acct-h">Account</h3>
+            <div id="tabs" class="tabs" role="tablist"></div>
+          </div>
+          <div id="tabbody" class="tabbody"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot muted small">Drop rates from the <a href="https://oldschool.runescape.wiki/" target="_blank" rel="noopener">Old School RuneScape Wiki</a> (CC BY-NC-SA 3.0), saved locally in this project.</footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
