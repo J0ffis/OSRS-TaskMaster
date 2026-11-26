@@ -31,6 +31,10 @@ import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 
+/**
+ * The sidebar panel: Copy my profile, Open website and Show profile file buttons, plus a status
+ * line. It holds no logic of its own; the buttons call back into {@link TaskMasterPlugin}.
+ */
 class TaskMasterPanel extends PluginPanel
 {
 	interface Actions
@@ -47,7 +51,7 @@ class TaskMasterPanel extends PluginPanel
 	}
 
 	// Tier and category colours match the website (styles.css).
-	private static final String[] TIER_LABELS = {"Quick wins", "Balanced", "Long haul", "Bonus grinds"};
+	private static final String[] TIER_LABELS = {"Quick wins", "Balanced", "Long haul", "Challenges"};
 	private static final Color[] TIER_COLORS = {new Color(0xC4884F), new Color(0x7D86D4), new Color(0x8E2440), new Color(0xD9DDE3)};
 	private static final Map<String, Color> CATEGORY_COLORS = new HashMap<>();
 	private static final Map<String, String> CATEGORY_LABELS = new HashMap<>();

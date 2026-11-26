@@ -11,7 +11,7 @@ import java.util.Map;
 class Picks
 {
 	/** Tier names used by the website and service, in display order. */
-	static final String[] TIERS = {"Quick", "Medium", "Long", "Bonus"};
+	static final String[] TIERS = {"Quick", "Medium", "Long", "Challenge"};
 
 	Map<String, List<Pick>> tiers;
 	String filters;

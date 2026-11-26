@@ -35,6 +35,7 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.ScriptPreFired;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
@@ -62,6 +63,15 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+/**
+ * Entry point of the OSRS TaskMaster plugin.
+ *
+ * <p>Builds a snapshot of the player's progress ({@link SnapshotCollector}), adds what can only be
+ * seen at certain moments (collection log items, kill counts from chat; kept in
+ * {@link ProgressStore}), and hands it to the player: copied to the clipboard, saved to
+ * {@code .runelite/osrs-taskmaster/<name>.json} and, only if the player switches it on, sent to
+ * their own local server. Never reads the bank, inventory or equipment.
+ */
 @Slf4j
 @PluginDescriptor(
 	name = "OSRS TaskMaster",
@@ -174,6 +184,7 @@ public class TaskMasterPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick t)
 	{
+		readSlayerRewards();
 		if (ticksUntilLoginSync > 0 && --ticksUntilLoginSync == 0)
 		{
 			if (config.autoSync())
@@ -295,6 +306,109 @@ public class TaskMasterPlugin extends Plugin
 		else if (msg.startsWith("New item added to your collection log:"))
 		{
 			dirty = true;
+		}
+	}
+
+	// ---- Slayer task ----------------------------------------------------------------------
+
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged e)
+	{
+		// New task, a kill on the current one, or a task stored/swapped: the throttle in
+		// onGameTick keeps this from syncing on every kill.
+		int varp = e.getVarpId();
+		if (varp == VarPlayerID.SLAYER_COUNT || varp == VarPlayerID.SLAYER_TARGET
+			|| varp == VarPlayerID.SLAYER_AREA || varp == VarPlayerID.SLAYER_STORED_VARP)
+		{
+			dirty = true;
+		}
+	}
+
+	private static final Pattern ASSIGNMENT = Pattern.compile("(\\d[\\d,]*)\\s*x\\s+(.+)");
+	private List<String> lastRewardTexts;
+
+	/**
+	 * The stored task's creature and amount never reach the client as varps; the game only shows
+	 * them on the Tasks tab of the Slayer rewards interface. While it's open, remember them.
+	 */
+	private void readSlayerRewards()
+	{
+		if (client.getWidget(InterfaceID.SLAYER_REWARDS, 0) == null)
+		{
+			return;
+		}
+		java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+		for (int c = 0; c < 256; c++)
+		{
+			collectTexts(client.getWidget(InterfaceID.SLAYER_REWARDS, c), seen, 0);
+		}
+		List<String> texts = new ArrayList<>(seen);
+		if (texts.equals(lastRewardTexts))
+		{
+			return;
+		}
+		lastRewardTexts = texts;
+
+		int storedVarp = client.getVarpValue(VarPlayerID.SLAYER_STORED_VARP);
+		if (storedVarp == 0)
+		{
+			return;
+		}
+		// The Tasks tab lists assignments as "37 x Rockslugs", the current one first and the stored
+		// one after it, with no label telling them apart. Drop the line matching the current task.
+		// Skip the current task's line by its creature name: the kill count can be out of step with
+		// the screen for a moment, which once let the current task be saved as the stored one.
+		String current = collector.currentSlayerTaskName();
+		for (String text : texts)
+		{
+			Matcher m = ASSIGNMENT.matcher(text);
+			if (!m.matches())
+			{
+				continue;
+			}
+			int amount = Integer.parseInt(m.group(1).replace(",", ""));
+			if (current == null ? client.getVarpValue(VarPlayerID.SLAYER_COUNT) > 0 : m.group(2).trim().equalsIgnoreCase(current))
+			{
+				// Current task (or one we can't tell apart from it yet): not the stored one.
+				continue;
+			}
+			ProgressStore.StoredTask st = new ProgressStore.StoredTask();
+			st.name = m.group(2).trim();
+			st.amount = amount;
+			st.varp = storedVarp;
+			store.storedSlayer = st;
+			store.save();
+			dirty = true;
+			log.info("OSRS TaskMaster: stored Slayer task is {} x {}", st.amount, st.name);
+			return;
+		}
+	}
+
+	private static void collectTexts(Widget w, java.util.Set<String> out, int depth)
+	{
+		if (w == null || w.isHidden() || depth > 6)
+		{
+			return;
+		}
+		String t = w.getText();
+		if (t != null)
+		{
+			// The game draws many spaces as non-breaking ones.
+			t = Text.removeTags(t.replace("<br>", " ")).replace(' ', ' ').trim();
+			if (!t.isEmpty())
+			{
+				out.add(t);
+			}
+		}
+		for (Widget[] kids : new Widget[][]{w.getDynamicChildren(), w.getNestedChildren()})
+		{
+			if (kids != null)
+			{
+				for (Widget k : kids)
+				{
+					collectTexts(k, out, depth + 1);
+				}
+			}
 		}
 	}
 

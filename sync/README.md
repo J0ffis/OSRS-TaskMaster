@@ -30,9 +30,9 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 | `PUT /v1/picks/:id` | website (`X-Edit-Token`) | save its current top picks per tier |
 | `GET /v1/picks/:id` | plugin | those picks, for the panel's *Your next grinds* list |
 
-**Why picks come from the website:** the recommendation engine (`web/engine.js`) needs about
+**Why picks come from the website:** the recommendation engine (`web/recommender.js`) needs about
 9–12 ms of CPU per run (≈ 30 ms cold), over the free Workers plan's 10 ms per request. So the
-owner's browser works the suggestions out and saves the top 10 per tier (3 Bonus); the plugin
+owner's browser works the suggestions out and saves the top 10 per tier (3 Challenge); the plugin
 only displays them. Picks follow the site's filters and goals and refresh whenever the owner
 opens the website. Running the engine here instead would need the $5/month Workers Paid plan.
 

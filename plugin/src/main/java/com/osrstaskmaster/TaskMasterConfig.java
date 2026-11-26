@@ -6,6 +6,10 @@ import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Range;
 
+/**
+ * Plugin settings shown under Configuration &gt; OSRS TaskMaster. Automatic upload to the
+ * OSRS TaskMaster service ({@code sync/}) is off by default; copy and paste never sends anything.
+ */
 @ConfigGroup(TaskMasterConfig.GROUP)
 public interface TaskMasterConfig extends Config
 {

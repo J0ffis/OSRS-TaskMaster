@@ -14,15 +14,18 @@
 //   PUT    /v1/goals/:id          X-Edit-Token: <token>          replace the goals list
 //   PUT    /v1/picks/:id          X-Edit-Token: <token>          the website's current suggestions
 //   GET    /v1/picks/:id                                        those suggestions (the RuneLite panel)
+//                                                               tiers: Quick, Medium, Long, Challenge
 //
-// Suggestions are worked out by the website (web/engine.js), not here: the engine needs more
+// Suggestions are worked out by the website (web/recommender.js), not here: the engine needs more
 // CPU than the free Workers plan allows per request. The owner's browser saves its picks, and
 // the plugin shows them.
 
 const MAX_PROFILE_BYTES = 1_500_000;
 const MAX_GOALS_BYTES = 64_000;
 const MAX_PICKS_BYTES = 48_000;
-const PICK_TIERS = ["Quick", "Medium", "Long", "Bonus"];
+const PICK_TIERS = ["Quick", "Medium", "Long", "Challenge"];
+// The Challenge tier used to be called "Bonus"; picks saved or sent under the old name still count.
+const withChallenge = (tiers) => (tiers && tiers.Bonus && !tiers.Challenge ? { ...tiers, Challenge: tiers.Bonus } : tiers);
 const MIN_UPLOAD_GAP_MS = 30_000;            // uploads closer together than this are skipped
 const NAME_HOLD_MS = 30 * 24 * 3600 * 1000;  // a public name stays with its account this long after its last upload
 const KEY_RE = /^[A-Za-z0-9_-]{32,128}$/;
@@ -173,8 +176,8 @@ async function savePicks(request, env, id) {
   const raw = await readBody(request, MAX_PICKS_BYTES);
   let body;
   try { body = JSON.parse(raw); } catch { throw new HttpError(400, "Body isn't JSON"); }
-  const tiers = body?.tiers;
-  if (!tiers || typeof tiers !== "object" || Array.isArray(tiers)) throw new HttpError(400, "Picks need a tiers object");
+  if (!body?.tiers || typeof body.tiers !== "object" || Array.isArray(body.tiers)) throw new HttpError(400, "Picks need a tiers object");
+  const tiers = withChallenge(body.tiers);
   const clean = {};
   for (const tier of PICK_TIERS) {
     const list = tiers[tier] ?? [];
@@ -214,7 +217,9 @@ async function readPicks(env, id) {
   if (!ID_RE.test(id)) throw new HttpError(404, "No profile here");
   const row = await env.DB.prepare("SELECT picks, picks_at, updated_at FROM profiles WHERE id = ?").bind(id).first();
   if (!row) throw new HttpError(404, "No profile here");
-  return json({ picks: row.picks ? JSON.parse(row.picks) : null, picksAt: row.picks_at ?? null, uploadedAt: row.updated_at }, 200);
+  const picks = row.picks ? JSON.parse(row.picks) : null;
+  if (picks) picks.tiers = withChallenge(picks.tiers);
+  return json({ picks, picksAt: row.picks_at ?? null, uploadedAt: row.updated_at }, 200);
 }
 
 function profileResponse(row) {

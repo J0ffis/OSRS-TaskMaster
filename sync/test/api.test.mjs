@@ -135,6 +135,16 @@ test("picks: odd input is cleaned or refused", async () => {
   assert.equal(p.tiers.Nonsense, undefined, "unknown tiers dropped");
 });
 
+test("picks: the old 'Bonus' tier name is read as Challenge", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Bonus: [pick("big-log")] } }, headers: { "X-Edit-Token": edit } });
+  const t = (await api("GET", `/v1/picks/${id}`)).data.picks.tiers;
+  assert.deepEqual(t.Challenge.map((p) => p.id), ["big-log"]);
+  assert.equal(t.Challenge[0].effort, "Challenge");
+  assert.equal(t.Bonus, undefined);
+});
+
 test("picks: a new upload keeps them", async () => {
   const key = newKey(), { id, edit } = await ids(key);
   await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });

@@ -20,7 +20,14 @@
   --c-clog: #b48ce0;
   --c-goals: #5fc7b5;
   --c-pets: #e85dd5;
+  --c-slayer: #c94a4a; /* slayer helm red */
 }
+
+/* Current Slayer task: its own card above the picks. */
+.slayerrow { margin: 4px 0 16px; }
+.slayerhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tierbadge.t-Slayer { background: var(--c-slayer); color: #fff; }
+.card.slayer { border-color: color-mix(in srgb, var(--c-slayer) 40%, var(--line)); }
 
 * { box-sizing: border-box; }
 html { color-scheme: dark; }
@@ -44,7 +51,9 @@ code { background: var(--panel-2); padding: 1px 6px; border-radius: 5px; font-si
   background: rgba(21, 17, 12, .85);
   position: sticky; top: 0; z-index: 5; backdrop-filter: blur(6px);
 }
-.brand { display: flex; align-items: center; gap: 10px; font: 600 19px var(--serif); letter-spacing: .3px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 19px var(--serif); letter-spacing: .3px;
+  color: inherit; text-decoration: none; }
+.brand:hover span { color: var(--gold); }
 .mark { width: 26px; height: 26px; display: block; }
 .lookup { display: flex; gap: 8px; }
 input, select {
@@ -180,19 +189,19 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .tierbadge.t-Medium { background: var(--t-Medium); color: var(--t-Medium-ink); }
 .tierbadge.t-Long { background: var(--t-Long); color: var(--t-Long-ink); }
 
-/* Bonus tier, above Long haul: themed after Third age (pale silver with gold trim). It isn't a
-   grind style; one bonus card sits on its own row under the regular picks. */
-:root { --t-Bonus: #d9dde3; --t-Bonus-ink: #1b1f26; --t-Bonus-trim: #e0b04a; }
-.tierbadge.t-Bonus { background: linear-gradient(180deg, #eef0f3, var(--t-Bonus)); color: var(--t-Bonus-ink);
-  box-shadow: inset 0 0 0 1px var(--t-Bonus-trim); }
-.bonusrow { margin-top: 16px; }
-.card.bonus { border-color: color-mix(in srgb, var(--t-Bonus-trim) 45%, var(--line));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--t-Bonus) 7%, var(--panel)), var(--panel) 60%); }
-.card.bonus::before { background: linear-gradient(90deg, var(--t-Bonus-trim), var(--t-Bonus), var(--t-Bonus-trim)); }
-.bonushead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.card.bonus .actions { margin-top: 2px; }
+/* Challenge tier, above Long haul: themed after Third age (pale silver with gold trim). It isn't a
+   grind style; one challenge card sits on its own row under the regular picks. */
+:root { --t-Challenge: #d9dde3; --t-Challenge-ink: #1b1f26; --t-Challenge-trim: #e0b04a; }
+.tierbadge.t-Challenge { background: linear-gradient(180deg, #eef0f3, var(--t-Challenge)); color: var(--t-Challenge-ink);
+  box-shadow: inset 0 0 0 1px var(--t-Challenge-trim); }
+.challengerow { margin-top: 16px; }
+.card.challenge { border-color: color-mix(in srgb, var(--t-Challenge-trim) 45%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--t-Challenge) 7%, var(--panel)), var(--panel) 60%); }
+.card.challenge::before { background: linear-gradient(90deg, var(--t-Challenge-trim), var(--t-Challenge), var(--t-Challenge-trim)); }
+.challengehead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.card.challenge .actions { margin-top: 2px; }
 
-/* Browser mode (hosted site) vs server mode (start-server.ps1): show only the matching help. */
+/* Browser mode (hosted site) vs server mode (Start-LocalServer.ps1): show only the matching help. */
 body.booting .only-static, body.booting .only-server,
 body.static .only-server, body:not(.static) .only-static { display: none !important; }
 
@@ -219,7 +228,7 @@ body.static .only-server, body:not(.static) .only-static { display: none !import
   border-radius: 99px; font-size: 12px; font-weight: 700; letter-spacing: .3px;
   color: #ffd9d2; background: #3a1210; border: 1px solid #b2382c; }
 .wildbadge .skull { font-size: 15px; line-height: 1; color: #f2ede4; font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", sans-serif; }
-.card.bonus .wildbadge { margin-top: -2px; }
+.card.challenge .wildbadge { margin-top: -2px; }
 
 .emptycard { grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; }
 @keyframes rise { from { transform: translateY(6px); } }
@@ -312,13 +321,23 @@ table.list th { color: var(--muted); font-weight: 500; font-size: 12px; text-tra
 .pill { font-size: 11.5px; padding: 1px 8px; border-radius: 99px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
 .pill.ok { color: var(--good); }
 .pill.mid { color: var(--gold); }
-.dots { display: inline-flex; gap: 4px; }
-.dots i { width: 11px; height: 11px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--line); }
-.dots i.on { background: var(--good); border-color: var(--good); }
 .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 
+/* Diaries tab: one centred column per tier, each square a link to that tier on the wiki. */
+.diarytable .tiercell { width: 64px; text-align: center; vertical-align: middle; }
+.diarytable th.tiercell { font-size: 11px; }
+.tierbox { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle;
+  background: var(--panel-2); border: 1px solid var(--line); }
+a.tierbox:hover { outline: 2px solid var(--gold-dim); outline-offset: 1px; }
+.tierbox.done { background: var(--good); border-color: var(--good); }
+.tierbox.started { background: var(--gold); border-color: var(--gold); }
+.legend .tierbox { width: 11px; height: 11px; margin: 0 2px 0 8px; }
+.legend .tierbox:first-child { margin-left: 0; }
+.plainlink { color: inherit; text-decoration: none; }
+.plainlink:hover { color: var(--gold); text-decoration: underline; }
+
 /* Wide screens: Goals move into a column on the left and stay in view while scrolling; the
-   suggestions, bonus and Account panel keep the main column. `.lower` stops being a box of its
+   suggestions, challenge and Account panel keep the main column. `.lower` stops being a box of its
    own so its two panels can be placed separately. Below this width, nothing changes. */
 @media (min-width: 1440px) {
   main:has(> #app:not([hidden])) { max-width: 1560px; }
@@ -335,10 +354,28 @@ table.list th { color: var(--muted); font-weight: 500; font-size: 12px; text-tra
     grid-column: 1;
     grid-row: 1 / span 40;
     position: sticky;
-    top: 16px;
-    max-height: calc(100vh - 32px);
+    top: 84px; /* clear of the sticky header */
+    max-height: calc(100vh - 100px);
     overflow: auto;
   }
+}
+
+/* Very wide screens: the Account panel gets its own column on the right, also kept in view, so
+   the page uses the width instead of growing taller. Its tab list fills the column's height. */
+@media (min-width: 1800px) {
+  main:has(> #app:not([hidden])) { max-width: 2100px; }
+  #app:not([hidden]) { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr) minmax(380px, 460px); }
+  #app .lower > section[aria-labelledby="acct-h"] {
+    grid-column: 3;
+    grid-row: 1 / span 40;
+    margin-top: 0;
+    position: sticky;
+    top: 84px;
+    max-height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+  }
+  #app .lower > section[aria-labelledby="acct-h"] .tabbody { max-height: none; flex: 1; min-height: 0; }
 }
 
 @media (max-width: 900px) {
