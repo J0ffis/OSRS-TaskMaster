@@ -272,8 +272,43 @@ function renderBonus() {
       <div class="actions">
         <button class="btn tiny" data-bonus-swap type="button">Another bonus</button>
         ${toGoal(c) ? `<button class="btn tiny ghost" data-bonus-goal type="button">Make it a goal</button>` : ""}
+        ${wikiLink(c)}
       </div>
     </article>`;
+}
+
+// ---- OSRS Wiki quick links -------------------------------------------------------------------
+// Pages live at /w/Page_name (spaces as underscores). Names that don't always match a page title
+// (collection log pages, combat achievement tasks) use the wiki's "Go" search, which jumps to the
+// page when one matches and lists results otherwise. Links only open when clicked.
+
+const WIKI = "https://oldschool.runescape.wiki";
+const wikiTitle = (t) => String(t).replace(/ /g, " ").trim();
+const wikiPage = (title, section) => `${WIKI}/w/${encodeURIComponent(wikiTitle(title).replace(/ /g, "_"))}${section ? `#${encodeURIComponent(section)}` : ""}`;
+const wikiGo = (term) => `${WIKI}/w/Special:Search?search=${encodeURIComponent(wikiTitle(term))}&go=Go`;
+
+/** The wiki page for a suggestion or goal: { url, name }, or null if there's nothing sensible. */
+function wikiFor(c) {
+  const m = { ...(c.goal ?? {}), ...(c.meta ?? {}) };
+  const type = c.goal?.type;
+  if (m.item) return { url: wikiPage(m.item), name: m.item };
+  if (m.pet) return { url: wikiPage(m.pet), name: m.pet };
+  if (m.items?.length) return { url: wikiGo(m.page ?? m.items[0]), name: m.page ?? m.items[0] };
+  if (m.page) return { url: wikiGo(m.page), name: m.page };
+  if (m.quest) return { url: wikiPage(m.quest), name: m.quest };
+  if (m.region) return { url: wikiPage(`${m.region} Diary`, m.tier ? cap(m.tier) : null), name: `${m.region} Diary` };
+  if (m.skill) return { url: wikiPage(cap(m.skill)), name: cap(m.skill) };
+  if (m.taskName ?? m.name) return { url: wikiGo(m.taskName ?? m.name), name: m.taskName ?? m.name };
+  if (m.monster && m.monster !== "Other") return { url: wikiPage(m.monster), name: m.monster };
+  if (c.id === "quest:cape") return { url: wikiPage("Quest point cape"), name: "Quest point cape" };
+  if (c.category === "combat" || type === "ca") return { url: wikiPage("Combat Achievements"), name: "Combat Achievements" };
+  if (c.category === "clog") return { url: wikiPage("Collection log"), name: "Collection log" };
+  return null;
+}
+
+function wikiLink(c, cls = "btn tiny ghost wiki") {
+  const w = wikiFor(c);
+  return w ? `<a class="${cls}" href="${esc(w.url)}" target="_blank" rel="noopener noreferrer" title="Open ${esc(w.name)} on the OSRS Wiki">Wiki ↗</a>` : "";
 }
 
 function cardHTML(c, i) {
@@ -293,6 +328,7 @@ function cardHTML(c, i) {
       <div class="actions">
         <button class="btn tiny" data-swap="${i}" type="button">Swap</button>
         ${c.category !== "goals" && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
+        ${wikiLink(c)}
       </div>
     </article>`;
 }
@@ -329,10 +365,39 @@ function renderGoals() {
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
       <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}> ` : ""}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
-      <span class="l">${esc(p.label)} <button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button></span>
+      <span class="l">${esc(p.label)} ${wikiLink({ goal: g }, "wikimini")}<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button></span>
+      ${!p.done && goalHint(g) ? `<span class="gd">${esc(goalHint(g))}</span>` : ""}
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
     </li>`;
   }).join("");
+}
+
+/**
+ * A short reminder of what a goal actually asks, for goals whose title doesn't say it:
+ * a combat achievement's requirement, the tasks left in a CA bundle, or the pieces that count
+ * towards "any missing piece" goals. Null when the title already says it all.
+ */
+function goalHint(g) {
+  const tasks = state.snap?.combatAchievements?.tasks ?? [];
+  const list = (names) => `${names.slice(0, 4).join(", ")}${names.length > 4 ? ` and ${names.length - 4} more` : ""}`;
+  switch (g.type) {
+    case "catask": {
+      const t = tasks.find((x) => x.id === g.task);
+      if (!t?.description) return null;
+      return `${t.monster && t.monster !== "Other" ? `${t.monster}: ` : ""}${t.description}`;
+    }
+    case "cabundle": {
+      const left = tasks.filter((t) => t.monster === g.monster && t.tier === g.tier && !t.done).map((t) => t.name);
+      return left.length ? `Still to do: ${list(left)}` : null;
+    }
+    case "family": {
+      const items = itemIndex(state.snap);
+      const missing = (g.items ?? []).filter((n) => !items.get(String(n).toLowerCase())?.owned);
+      return missing.length ? `Any one of: ${list(missing)}` : null;
+    }
+    default:
+      return null;
+  }
 }
 
 /** Only offer goal types that still have something left to achieve. */
