@@ -4,8 +4,8 @@
   Run this by hand after big game updates; the site never contacts the wiki itself.
   It asks only about collection log items, in batches, with a pause between requests.
 
-    .\scripts\fetch-drop-rates.ps1                     # uses the newest synced profile for item names
-    .\scripts\fetch-drop-rates.ps1 -Profile path.json  # or a specific profile
+    .\scripts\Update-DropRates.ps1                     # uses the newest synced profile for item names
+    .\scripts\Update-DropRates.ps1 -Profile path.json  # or a specific profile
 
   Output: web/data/drop-rates.json. Data from the OSRS Wiki, licensed CC BY-NC-SA 3.0.
 #>
@@ -15,6 +15,7 @@ param(
   [int]$PauseMs = 1500
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Format-Json.ps1')   # provides Format-JsonText
 $root = Split-Path $PSScriptRoot -Parent
 $ua = "OSRS-TaskMaster/0.1 (personal collection log planner; one-off drop-rate snapshot)"
 $api = "https://oldschool.runescape.wiki/api.php"
@@ -72,7 +73,7 @@ $out = [ordered]@{
 $dir = Join-Path $root 'web\data'
 New-Item -ItemType Directory -Force $dir | Out-Null
 $path = Join-Path $dir 'drop-rates.json'
-[IO.File]::WriteAllText($path, ($out | ConvertTo-Json -Depth 6 -Compress), (New-Object Text.UTF8Encoding($false)))
+[IO.File]::WriteAllText($path, (Format-JsonText ($out | ConvertTo-Json -Depth 6 -Compress)), (New-Object Text.UTF8Encoding($false)))
 $missing = @($names | Where-Object { -not $items.Contains($_) })
 Write-Host "Saved $($items.Count) items with rates to web\data\drop-rates.json using $requests requests."
 Write-Host "$($missing.Count) items have no drop rows (points shops, guaranteed rewards, quest items and the like)."

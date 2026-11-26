@@ -68,6 +68,28 @@ public class SnapshotCollector
 		DIARY_VARBITS.put("Wilderness", new int[]{VarbitID.WILDERNESS_DIARY_EASY_COMPLETE, VarbitID.WILDERNESS_DIARY_MEDIUM_COMPLETE, VarbitID.WILDERNESS_DIARY_HARD_COMPLETE, VarbitID.WILDERNESS_DIARY_ELITE_COMPLETE});
 	}
 
+	/**
+	 * Set once any task in a region's diary is done: the in-game diary journal shows those regions
+	 * in yellow. It is per region, not per tier.
+	 */
+	private static final Map<String, Integer> DIARY_STARTED_VARBITS = new LinkedHashMap<>();
+
+	static
+	{
+		DIARY_STARTED_VARBITS.put("Ardougne", VarbitID.STARTED_ARDOUGNE_DIARY);
+		DIARY_STARTED_VARBITS.put("Desert", VarbitID.STARTED_DESERT_DIARY);
+		DIARY_STARTED_VARBITS.put("Falador", VarbitID.STARTED_FALADOR_DIARY);
+		DIARY_STARTED_VARBITS.put("Fremennik", VarbitID.STARTED_FREMENNIK_DIARY);
+		DIARY_STARTED_VARBITS.put("Kandarin", VarbitID.STARTED_KANDARIN_DIARY);
+		DIARY_STARTED_VARBITS.put("Karamja", VarbitID.ATJUN_STARTED);
+		DIARY_STARTED_VARBITS.put("Kourend & Kebos", VarbitID.STARTED_KOUREND_DIARY);
+		DIARY_STARTED_VARBITS.put("Lumbridge & Draynor", VarbitID.STARTED_LUMBRIDGE_DIARY);
+		DIARY_STARTED_VARBITS.put("Morytania", VarbitID.STARTED_MORYTANIA_DIARY);
+		DIARY_STARTED_VARBITS.put("Varrock", VarbitID.STARTED_VARROCK_DIARY);
+		DIARY_STARTED_VARBITS.put("Western Provinces", VarbitID.STARTED_WESTERN_DIARY);
+		DIARY_STARTED_VARBITS.put("Wilderness", VarbitID.STARTED_WILDERNESS_DIARY);
+	}
+
 	private static final String[] ACCOUNT_TYPES = {
 		"Normal", "Ironman", "Ultimate Ironman", "Hardcore Ironman",
 		"Group Ironman", "Hardcore Group Ironman", "Unranked Group Ironman"
@@ -75,6 +97,9 @@ public class SnapshotCollector
 
 	@Inject
 	private Client client;
+
+	@Inject
+	private ProgressStore store;
 
 	/** Cached CA task definitions; read from the game cache once per session. */
 	private List<Map<String, Object>> caTaskDefs;
@@ -89,8 +114,127 @@ public class SnapshotCollector
 		s.put("questPoints", client.getVarpValue(VarPlayerID.QP));
 		s.put("quests", quests());
 		s.put("diaries", diaries());
+		s.put("diaryStarted", diaryStarted());
 		s.put("combatAchievements", combatAchievements());
+		s.put("slayer", slayer());
 		return s;
+	}
+
+	// ---- Slayer ---------------------------------------------------------------------------
+	// Task names come from the cache's slayer DB tables, the same way RuneLite's Slayer plugin reads them.
+	private static final int DB_SLAYER_TASK_BY_TARGET = 113; // column 0: target id
+	private static final int DB_SLAYER_BOSS = 116;           // column 1: boss id, column 4: task row
+	private static final int DB_SLAYER_AREA = 115;           // column 0: area id, column 3: name
+	private static final int DB_SLAYER_TASK_NAME_COL = 10;
+	private static final int TARGET_BOSS = 98;
+	private static final int MASTER_KRYSTILIA = 7;
+	private static final int MODIFIER_SIZE = 2;
+
+	private Map<String, Object> slayer()
+	{
+		Map<String, Object> out = new LinkedHashMap<>();
+		out.put("points", client.getVarbitValue(VarbitID.SLAYER_POINTS));
+		out.put("streak", client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED));
+		int master = client.getVarbitValue(VarbitID.SLAYER_MASTER);
+		out.put("masterId", master);
+
+		int remaining = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
+		if (remaining > 0)
+		{
+			Map<String, Object> t = new LinkedHashMap<>();
+			int target = client.getVarpValue(VarPlayerID.SLAYER_TARGET);
+			t.put("name", slayerTaskName(target, client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID)));
+			t.put("boss", target == TARGET_BOSS);
+			t.put("remaining", remaining);
+			int initial = client.getVarpValue(VarPlayerID.SLAYER_COUNT_ORIGINAL);
+			// A task-size modifier changes the assigned amount after the original count was set.
+			if (client.getVarbitValue(VarbitID.SLAYER_MODIFIER_ID) == MODIFIER_SIZE)
+			{
+				int v = client.getVarbitValue(VarbitID.SLAYER_MODIFIER_VALUE);
+				initial += client.getVarbitValue(VarbitID.SLAYER_MODIFIER_NEGATIVE) == 1 ? -v : v;
+			}
+			t.put("initial", Math.max(initial, remaining));
+			t.put("location", slayerArea(client.getVarpValue(VarPlayerID.SLAYER_AREA)));
+			t.put("wilderness", master == MASTER_KRYSTILIA);
+			out.put("task", t);
+		}
+
+		// Task storage (a Slayer reward). SLAYER_STORED_VARP packs the stored master (bits 0-3), boss
+		// id (4-10), partner flags (11, 12, 28) and task-size modifier (13-27); nothing else.
+		Map<String, Object> st = new LinkedHashMap<>();
+		st.put("unlocked", client.getVarbitValue(VarbitID.SLAYER_UNLOCK_STORAGE) > 0);
+		int raw = client.getVarpValue(VarPlayerID.SLAYER_STORED_VARP);
+		st.put("raw", raw);
+		st.put("masterId", client.getVarbitValue(VarbitID.SLAYER_MASTER_STORED));
+		st.put("bossId", client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID_STORED));
+		out.put("storage", st);
+		// The stored creature and amount aren't in any varp the client receives; the game only shows
+		// them in the Slayer rewards interface, where the plugin reads them (see TaskMasterPlugin).
+		ProgressStore.StoredTask seen = store.storedSlayer;
+		// A "stored" task identical to the current one is a misread from an older plugin version.
+		Object cur = out.get("task");
+		boolean sameAsCurrent = seen != null && cur instanceof Map
+			&& seen.name != null && seen.name.equalsIgnoreCase(String.valueOf(((Map<?, ?>) cur).get("name")))
+			&& Integer.valueOf(seen.amount).equals(((Map<?, ?>) cur).get("remaining"));
+		if (seen != null && seen.varp == raw && raw != 0 && !sameAsCurrent)
+		{
+			st.put("name", seen.name);
+			st.put("amount", seen.amount);
+		}
+		if (raw != 0)
+		{
+			log.debug("OSRS TaskMaster: stored slayer varp={} (0x{}), master={}, boss={}", raw, Integer.toHexString(raw),
+				st.get("masterId"), st.get("bossId"));
+		}
+		return out;
+	}
+
+	/** The current Slayer task's creature name, or null without a task. Client thread. */
+	public String currentSlayerTaskName()
+	{
+		if (client.getVarpValue(VarPlayerID.SLAYER_COUNT) <= 0)
+		{
+			return null;
+		}
+		return slayerTaskName(client.getVarpValue(VarPlayerID.SLAYER_TARGET), client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID));
+	}
+
+	private String slayerTaskName(int target, int bossId)
+	{
+		try
+		{
+			List<Integer> rows = target == TARGET_BOSS
+				? client.getDBRowsByValue(DB_SLAYER_BOSS, 1, 0, bossId)
+				: client.getDBRowsByValue(DB_SLAYER_TASK_BY_TARGET, 0, 0, target);
+			if (rows == null || rows.isEmpty())
+			{
+				return null;
+			}
+			int taskRow = target == TARGET_BOSS ? (Integer) client.getDBTableField(rows.get(0), 4, 0)[0] : rows.get(0);
+			return (String) client.getDBTableField(taskRow, DB_SLAYER_TASK_NAME_COL, 0)[0];
+		}
+		catch (Exception ex)
+		{
+			log.warn("OSRS TaskMaster: could not read the slayer task name", ex);
+			return null;
+		}
+	}
+
+	private String slayerArea(int area)
+	{
+		if (area <= 0)
+		{
+			return null;
+		}
+		try
+		{
+			List<Integer> rows = client.getDBRowsByValue(DB_SLAYER_AREA, 0, 0, area);
+			return rows == null || rows.isEmpty() ? null : (String) client.getDBTableField(rows.get(0), 3, 0)[0];
+		}
+		catch (Exception ex)
+		{
+			return null;
+		}
 	}
 
 	private Map<String, Object> player()
@@ -165,6 +309,17 @@ public class SnapshotCollector
 				tiers.put(DIARY_TIERS[i], client.getVarbitValue(d.getValue()[i]) > 0);
 			}
 			out.put(d.getKey(), tiers);
+		}
+		return out;
+	}
+
+	/** Region name to whether any of its diary tasks are done. Kept apart from {@code diaries} so tier counts stay simple. */
+	private Map<String, Object> diaryStarted()
+	{
+		Map<String, Object> out = new LinkedHashMap<>();
+		for (Map.Entry<String, Integer> d : DIARY_STARTED_VARBITS.entrySet())
+		{
+			out.put(d.getKey(), client.getVarbitValue(d.getValue()) > 0);
 		}
 		return out;
 	}

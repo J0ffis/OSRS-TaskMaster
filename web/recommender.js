@@ -7,7 +7,7 @@ import {
   PAGE_EFFORT, MONSTER_EFFORT, PROTECTED_ITEMS, CLUE_PAGE_BASE, KC_REWARDS,
   WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
-} from "./kb.js";
+} from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
 const ITEM_EFFORT_LC = Object.fromEntries(Object.entries(ITEM_EFFORT).map(([k, v]) => [k.toLowerCase(), v]));
@@ -27,14 +27,14 @@ const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").re
  * Prefers sources that match the page ("Callisto" for "Callisto and Artio"); otherwise the best
  * source anywhere, since players farm the easiest one. Returns { p, from, rarity } or null.
  */
-export function dropChance(itemName, page) {
+function dropChance(itemName, page) {
   // "Always" rows are rewards or follow-up mechanics, not the drop you grind for; guaranteed
-  // rewards are handled by the hand rules in kb.js instead.
+  // rewards are handled by the hand rules in knowledge-base.js instead.
   const rows = (DROP_RATES[String(itemName).toLowerCase()] ?? []).filter((r) => r.p > 0 && r.p < 1);
   if (!rows.length) return null;
   const pg = norm(page);
   // A source belongs to the page if one name contains the other ("Callisto" / "Callisto and
-  // Artio") or a rule in kb.js links them ("Unsired" -> "Abyssal Sire").
+  // Artio") or a rule in knowledge-base.js links them ("Unsired" -> "Abyssal Sire").
   const matched = rows.filter((r) => {
     const f = norm(r.from);
     return f && (pg.includes(f) || f.includes(pg) || SOURCE_RULES[r.from]?.page === page);
@@ -53,7 +53,7 @@ function expectedHours(chance, page, tab) {
 const hoursToEffort = (h) => (h <= EFFORT_HOURS.Quick ? "Quick" : h <= EFFORT_HOURS.Medium ? "Medium" : "Long");
 
 /** "very rare", "rare" or null for a collection log item name. */
-export function rarity(name) {
+function rarity(name) {
   return RARE_ITEMS.find((r) => r.match.test(name ?? ""))?.band ?? null;
 }
 // How many "ordinary" slots one missing item is worth when judging how close a log is.
@@ -223,27 +223,27 @@ function questCandidates(snap, a) {
   const unfinished = (snap.quests ?? []).filter((q) => q.state !== "FINISHED");
   const nearCape = unfinished.length > 0 && unfinished.length <= 10;
   for (const q of unfinished) {
-    const kb = QUESTS[q.name];
-    const missing = kb ? a.missingReqs(kb.reqs) : [];
+    const questInfo = QUESTS[q.name];
+    const missing = questInfo ? a.missingReqs(questInfo.reqs) : [];
     const inProgress = q.state === "IN_PROGRESS";
     // Keep the list focused on notable or started quests, unless only a handful are left.
-    if (!kb && !inProgress && !nearCape) continue;
+    if (!questInfo && !inProgress && !nearCape) continue;
     const why = [];
-    if (kb) why.push(kb.why);
+    if (questInfo) why.push(questInfo.why);
     if (inProgress) why.push("You've already started it");
     if (nearCape) why.push(`One of your last ${unfinished.length} unfinished quests and miniquests`);
-    if (kb?.note) why.push(kb.note);
-    let base = (kb?.weight ?? 3) * 5 + (inProgress ? 18 : 0) + (nearCape ? 12 : 0);
+    if (questInfo?.note) why.push(questInfo.note);
+    let base = (questInfo?.weight ?? 3) * 5 + (inProgress ? 18 : 0) + (nearCape ? 12 : 0);
     let detail;
     if (missing.length === 0) {
-      detail = kb ? "You meet the main skill requirements." : inProgress ? "Pick up where you left off." : "Not started yet.";
+      detail = questInfo ? "You meet the main skill requirements." : inProgress ? "Pick up where you left off." : "Not started yet.";
       base += 20;
     } else {
       const gap = missing.reduce((s, m) => s + (m.level - m.have), 0);
       detail = "Needs " + missing.map((m) => `${m.level} ${cap(m.skill)} (you: ${m.have})`).join(", ") + ".";
       base -= Math.min(40, gap * 1.5);
     }
-    const reqCount = kb ? Object.keys(kb.reqs).length : 0;
+    const reqCount = questInfo ? Object.keys(questInfo.reqs).length : 0;
     const progress = reqCount ? (reqCount - missing.length) / reqCount : inProgress ? 0.5 : null;
     out.push({
       id: `quest:${q.name}`,
@@ -271,10 +271,10 @@ function diaryCandidates(snap, a) {
   for (const [region, tiers] of Object.entries(snap.diaries ?? {})) {
     const next = DIARY_TIERS.find((t) => !tiers[t]);
     if (!next) continue;
-    const kb = DIARIES[region] ?? { reward: "diary reward", weight: 5, highlight: "" };
+    const diaryInfo = DIARIES[region] ?? { reward: "diary reward", weight: 5, highlight: "" };
     const idx = DIARY_TIERS.indexOf(next);
     const reach = a.total >= DIARY_TIER_TOTAL[next];
-    const why = [`${kb.reward} ${idx + 1}: ${kb.highlight}`];
+    const why = [`${diaryInfo.reward} ${idx + 1}: ${diaryInfo.highlight}`];
     if (!reach) why.push(`Usually comfortable around ${DIARY_TIER_TOTAL[next]} total level (you: ${a.total})`);
     out.push({
       id: `diary:${region}:${next}`,
@@ -284,12 +284,15 @@ function diaryCandidates(snap, a) {
       why,
       progress: idx / 4,
       effort: next === "easy" ? "Quick" : next === "medium" ? "Medium" : "Long",
-      base: kb.weight * 4 + (reach ? 25 : -15) + (3 - idx) * 6,
+      base: diaryInfo.weight * 4 + (reach ? 25 : -15) + (3 - idx) * 6,
       meta: { region, tier: next },
     });
   }
   return out;
 }
+
+/** "409 more points until the Master reward tier", or null once every tier is reached. */
+const caNextLine = (a) => (a.caNext ? `${a.caNext.gap} more points until the ${a.caNext.tier} reward tier` : null);
 
 function combatCandidates(snap, a) {
   const out = [];
@@ -318,8 +321,9 @@ function combatCandidates(snap, a) {
       id: `cabundle:${key}`,
       category: "combat",
       title: `Finish every ${tier} task at ${monster}`,
-      detail: list.slice(0, 3).map((t) => t.name).join(", ") + (list.length > 3 ? ` and ${list.length - 3} more` : ""),
-      why: [`${list.length} tasks worth ${pts} points`, a.caNext ? `${a.caNext.gap} points to the ${a.caNext.tier} reward tier` : null].filter(Boolean),
+      // Task names are titles ("Let them fight"), so quote them to keep a list of them readable.
+      detail: "Tasks: " + list.slice(0, 3).map((t) => `“${t.name}”`).join(", ") + (list.length > 3 ? ` and ${list.length - 3} more` : ""),
+      why: [`${list.length} tasks, worth ${pts} points together`, caNextLine(a)].filter(Boolean),
       progress: null,
       effort: MONSTER_EFFORT[monster] ?? EFFORTS[Math.min(2, taskEffort + 1)],
       group: monster,
@@ -333,9 +337,9 @@ function combatCandidates(snap, a) {
     const pts = CA_TIER_POINTS[t.tier] ?? 1;
     const tierStats = a.caByTier[t.tier];
     const kcKey = Object.keys(kc).find((k) => k.toLowerCase() === String(t.monster).toLowerCase());
-    const why = [`${t.tier} task worth ${pts} point${pts > 1 ? "s" : ""}`];
-    if (a.caNext) why.push(`${a.caNext.gap} points to the ${a.caNext.tier} reward tier`);
-    if (kcKey) why.push(`You already have kills here (${kc[kcKey]})`);
+    const why = [`${/^[AEIOU]/.test(t.tier) ? "An" : "A"} ${t.tier} task, worth ${pts} point${pts > 1 ? "s" : ""}`];
+    if (a.caNext) why.push(caNextLine(a));
+    if (kcKey) why.push(`You already have ${fmt(kc[kcKey])} kills here`);
     out.push({
       id: `ca:${t.id}`,
       category: "combat",
@@ -374,11 +378,11 @@ const EFFORTS = ["Quick", "Medium", "Long"];
 
 /**
  * The tier above Long haul. Only "Complete the log" suggestions that would be Long haul anyway
- * and still miss more than BONUS_MIN_MISSING items that are each a Long haul get it (a whole raid log can be thousands of completions). Bonus picks never show
+ * and still miss more than CHALLENGE_MIN_MISSING items that are each a Long haul get it (a whole raid log can be thousands of completions). Challenges never show
  * under any grind style or in Mixed: the page offers one on its own, apart from the regular picks.
  */
-export const BONUS = "Bonus";
-const BONUS_MIN_MISSING = 4;
+export const CHALLENGE = "Challenge";
+const CHALLENGE_MIN_MISSING = 4;
 
 const isKcReward = (name) => KC_REWARDS.some((re) => re.test(name));
 // "Living record (tier 3)" -> "living record"; Xeric's capes share one series.
@@ -557,11 +561,11 @@ function clogCandidates(snap) {
     const hardest = Math.max(...missing.map((i) => EFFORTS.indexOf(effortOf(i))));
     const usual = PAGE_EFFORT[name] ?? (p.tab === "Raids" ? "Long"
       : EFFORTS[missing.length > 6 ? 2 : missing.length === 1 ? Math.max(1, hardest) : Math.min(2, hardest + 1)]);
-    // Bonus: a Long haul log where more than BONUS_MIN_MISSING of the missing items are each a
+    // Challenge: a Long haul log where more than CHALLENGE_MIN_MISSING of the missing items are each a
     // Long haul themselves (raids, Barrows, Nex). Logs that are long only because they're big
     // (Easy clues, Random Events) stay Long haul.
     const longMissing = missing.filter((i) => effortOf(i) === "Long").length;
-    const pageEffort = usual === "Long" && longMissing > BONUS_MIN_MISSING ? BONUS : usual;
+    const pageEffort = usual === "Long" && longMissing > CHALLENGE_MIN_MISSING ? CHALLENGE : usual;
     const rares = missing.filter((i) => rarity(i.name));
     out.push({
       id: `clogpage:${name}`,
@@ -571,7 +575,7 @@ function clogCandidates(snap) {
       why: [
         missing.length === 1 ? "One slot from a green log" : `${missing.length} slots from a green log`,
         rares.length ? `Includes ${rares.length > 1 ? "rare drops" : "a rare drop"}: ${rares.slice(0, 2).map((i) => i.name).join(", ")}` : null,
-        `${p.tab} tab`,
+        `In the ${p.tab} tab of the collection log`,
       ].filter(Boolean),
       progress: ratio,
       effort: pageEffort,
@@ -675,6 +679,58 @@ function petCandidates(snap) {
     });
   }
   return out;
+}
+
+// ---- Slayer task -----------------------------------------------------------------------
+
+/**
+ * The Slayer assignment the player has right now, as a standalone card (never one of the regular
+ * picks): { title, detail, why, progress, effort, task, stored, wilderness } or null without a task.
+ * Ties the task to unfinished combat achievements and collection log pages for the same monster.
+ */
+export function slayerTask(snap, goals = []) {
+  const s = snap.slayer;
+  const t = s?.task;
+  // Name and amount are only known once the player has opened the Slayer rewards interface.
+  const stored = s?.storage?.unlocked && s.storage.raw
+    ? { name: s.storage.name ?? null, amount: s.storage.amount ?? null } : null;
+  if (!t?.name || !(t.remaining > 0)) return stored ? { task: null, stored } : null;
+
+  const done = Math.max(0, (t.initial ?? t.remaining) - t.remaining);
+  const total = Math.max(t.initial ?? t.remaining, t.remaining);
+  // "Abyssal demons" -> "abyssal demon", so it matches "Abyssal demon" pages and CA monsters.
+  // Both sides are singularised the same way, so "Cerberus" still equals "Cerberus".
+  const single = (x) => norm(x).replace(/ies$/, "y").replace(/(?<!s)s$/, "");
+  const stem = single(t.name);
+  const related = (name) => {
+    const n = single(name);
+    return n && (n === stem || n.includes(stem) || (n.length > 3 && stem.includes(n)));
+  };
+
+  const why = [];
+  const cas = (snap.combatAchievements?.tasks ?? []).filter((c) => !c.done && c.monster !== "Other" && related(c.monster));
+  if (cas.length) why.push(`${cas.length} unfinished combat achievement${cas.length > 1 ? "s" : ""} here: ${cas.slice(0, 2).map((c) => c.name).join(", ")}${cas.length > 2 ? "…" : ""}`);
+  const pages = Object.entries(snap.collectionLog?.pages ?? {}).filter(([name, p]) => related(name) && p.items.some((i) => !(i.quantity > 0)));
+  for (const [name, p] of pages.slice(0, 2)) {
+    const missing = p.items.filter((i) => !(i.quantity > 0)).length;
+    why.push(`${missing} slot${missing > 1 ? "s" : ""} still open on ${theLog(name)}`);
+  }
+  const lvl = snap.skills?.slayer?.level ?? 1;
+  const goal = goals.find((g) => (g.type === "skill" && g.skill === "slayer" && lvl < g.level) || (g.type === "xp" && g.skill === "slayer"));
+  if (goal) why.push(`Moves your goal "${goalTitle(goal)}" forward`);
+  if (s.streak) why.push(`${s.streak}-task streak${s.points != null ? ` · ${fmt(s.points)} Slayer points` : ""}`);
+
+  return {
+    task: t,
+    title: `${t.boss ? "Slayer boss task" : "Slayer task"}: ${t.remaining} ${t.name} left`,
+    detail: `${done}/${total} killed${t.location ? ` in ${t.location}` : ""}.`,
+    why,
+    progress: total ? done / total : null,
+    effort: t.boss ? (t.remaining <= 5 ? "Medium" : "Long") : t.remaining <= 40 ? "Quick" : t.remaining <= 150 ? "Medium" : "Long",
+    wilderness: !!t.wilderness,
+    stored,
+    meta: { monster: t.name, skill: "slayer" },
+  };
 }
 
 // ---- Completion -------------------------------------------------------------------------
@@ -861,8 +917,8 @@ function goalEffort(g, snap, a, byId, byItem) {
     // Reaching a reward tier takes many tasks: Hard and above are long hauls.
     case "ca": return { Easy: "Quick", Medium: "Medium" }[g.tier] ?? "Long";
     case "pet": return "Long";
-    // A log you chose as a goal shows as a Long haul, even if the suggestion was a Bonus.
-    case "clog": { const e = byId.get(`clogpage:${g.page}`)?.effort; return e && e !== BONUS ? e : "Long"; }
+    // A log you chose as a goal shows as a Long haul, even if the suggestion was a Challenge.
+    case "clog": { const e = byId.get(`clogpage:${g.page}`)?.effort; return e && e !== CHALLENGE ? e : "Long"; }
     case "item": {
       const it = itemIndex(snap).get(String(g.item).toLowerCase());
       if (!it) return "Medium"; // not in the collection log: ticked off by hand
@@ -973,7 +1029,7 @@ function evaluate(snap, goals, opts) {
   const a = analyse(snap);
   const style = opts.style; // quick | balanced | long; omit for every tier
   const content = opts.content ?? {}; // { minigames, wilderness, clues }: opt-in, off by default
-  const effortBias = { Quick: 0, Medium: 0, Long: 0, [BONUS]: 0 };
+  const effortBias = { Quick: 0, Medium: 0, Long: 0, [CHALLENGE]: 0 };
 
   const locks = new Map();
   // Copies, because scoring below adds goal reasons to `why`.
@@ -1045,7 +1101,7 @@ export function pickThree(list, { seed = 0, exclude = new Set(), keep = [], n = 
 }
 
 /** How the 7-card Mixed carousel is split across the three tiers. */
-export const MIX_QUOTA = { Quick: 2, Medium: 3, Long: 2 };
+const MIX_QUOTA = { Quick: 2, Medium: 3, Long: 2 };
 
 /**
  * Seven picks spanning every tier, ordered Quick -> Balanced -> Long. Each tier keeps the usual
@@ -1062,13 +1118,13 @@ export function pickMix(list, { seed = 0, exclude = new Set(), quota = MIX_QUOTA
     picked = next;
   });
   // Top up from any tier if one ran short.
-  if (picked.length < total) picked = pickThree(list.filter((c) => c.effort !== BONUS), { seed, exclude, keep: picked, n: total });
+  if (picked.length < total) picked = pickThree(list.filter((c) => c.effort !== CHALLENGE), { seed, exclude, keep: picked, n: total });
   return tiers.flatMap((t) => picked.filter((c) => c.effort === t));
 }
 
-/** One Bonus suggestion (a huge log completion), shown apart from the regular picks. */
-export function pickBonus(list, { seed = 0, exclude = new Set() } = {}) {
-  return pickThree(list.filter((c) => c.effort === BONUS), { seed, exclude, n: 1 })[0] ?? null;
+/** One Challenge suggestion (a huge log completion), shown apart from the regular picks. */
+export function pickChallenge(list, { seed = 0, exclude = new Set() } = {}) {
+  return pickThree(list.filter((c) => c.effort === CHALLENGE), { seed, exclude, n: 1 })[0] ?? null;
 }
 
 function mulberry32(a) {

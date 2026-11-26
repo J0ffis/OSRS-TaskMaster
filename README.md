@@ -1,147 +1,131 @@
-# OSRS TaskMaster
+<div align="center">
+  <a href="https://j0ffis.github.io/OSRS-TaskMaster/">
+    <img src="web/icon.svg" alt="OSRS TaskMaster" width="96" height="96">
+  </a>
+  <h1>OSRS TaskMaster</h1>
+  <p>Not sure what to grind next? Get three suggestions picked for your account.</p>
 
-Type your OSRS name and get three things to grind next, based on your levels, quests,
-achievement diaries, combat achievements, collection log, pets and your own goals
-(including goals to obtain specific items).
+  <a href="https://j0ffis.github.io/OSRS-TaskMaster/"><img src="https://img.shields.io/badge/Website-GitHub%20Pages-blue" alt="Website"></a>
+  <a href="plugin/LICENSE"><img src="https://img.shields.io/badge/Plugin%20license-BSD--2--Clause-green" alt="Plugin license: BSD-2-Clause"></a>
+</div>
 
-**No third-party APIs.** All data comes from your own RuneLite client through the OSRS TaskMaster
-plugin and goes to a small server on your own PC. Nothing calls the hiscores, the wiki,
-Wise Old Man, TempleOSRS or any other community service.
+OSRS TaskMaster looks at your own Old School RuneScape account and suggests what to do next,
+from quick wins you can finish tonight to long hauls for the month ahead.
 
-**No wealth data.** The plugin never reads your bank, inventory or equipment, and the server
-refuses any snapshot that contains wealth data. Item goals are tracked through the collection
-log, or ticked off by hand for items that aren't in it.
+Suggestions are based on your levels, quests, achievement diaries, combat achievements,
+collection log, pets and any goals you set yourself, including goals to get specific items.
+
+Your data comes from a small RuneLite plugin that reads your own game client. You copy your
+profile from the plugin and paste it on the website, which keeps it in your browser. Nothing
+calls the hiscores, the wiki, Wise Old Man, TempleOSRS or any other community service, and the
+plugin never reads your bank, inventory or equipment.
+
+**Testing it?** Follow the step-by-step **[tester guide](TESTER-GUIDE.md)**.
+
+## How it works
 
 ```
-RuneLite + OSRS TaskMaster plugin ──"Copy my profile"──▶ paste on the website
-   reads your client's memory                           kept in your browser only
+RuneLite + plugin  ──"Copy my profile"──▶  website (paste with Ctrl+V)
+reads your client                          keeps your profile in this browser
 ```
 
-## For testers (no server needed)
+1. The plugin reads your progress from the game client's memory and the game cache.
+2. **Copy my profile** puts it on your clipboard and saves a copy in
+   `%USERPROFILE%\.runelite\osrs-taskmaster\<name>.json`.
+3. The website turns it into suggestions. It runs entirely in your browser; your profile and
+   goals live in `localStorage`.
 
-Step-by-step instructions to send to testers are in **[TESTER-GUIDE.md](TESTER-GUIDE.md)**.
+For a complete collection log, open it in game and click **Search** once. Kill counts are picked
+up from chat messages as you play. The full list of what the plugin reads is in
+[docs/data-sources.md](docs/data-sources.md).
 
-You need Windows and the project folder (download the repository as a ZIP from GitHub and
-unzip it, or clone it).
+## Project structure
 
-1. **Double-click `Start TaskMaster.bat`.** It:
-   - finds Java 17, or offers to download a private copy (no admin rights, nothing installed
-     system-wide; it lives in `%LOCALAPPDATA%\Programs\jdk17`),
-   - walks you through the one-time Jagex account step (below),
-   - opens the website, then starts RuneLite with the plugin. The first start takes a few minutes.
-2. **Log in**, open the **OSRS TaskMaster** panel on RuneLite's right-hand sidebar and click
-   **Copy my profile**.
-3. **Paste it on the website** (Ctrl+V anywhere on the page). Your profile and goals stay in
-   that browser; nothing is uploaded. To refresh, copy again and use **Update profile**.
+- `plugin/` – the RuneLite plugin (Java 11, Gradle). It has its own player-facing
+  [README](plugin/README.md).
+- `web/` – the website, plain static files with no build step.
+  - `recommender.js` – picks the suggestions: profile + goals in, ranked suggestions out.
+  - `knowledge-base.js` – hand-written game facts (quest requirements, diary rewards, effort
+    estimates). Edit this to tune suggestions.
+  - `app.js` – the page itself: importing profiles, rendering cards, managing goals.
+  - `sample-profile.json` – the made-up account behind **Load sample data**.
+  - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
+- `server/` – an optional, dependency-free local server (`Server.java`) for automatic syncing.
+- `scripts/` – PowerShell scripts:
+  - `Start-TaskMaster.ps1` – the tester launcher behind `Start TaskMaster.bat`.
+  - `Start-RuneLiteDev.ps1` – starts RuneLite with the plugin, for development.
+  - `Start-LocalServer.ps1` – starts the optional local server.
+  - `Update-DropRates.ps1` – refreshes `web/data/drop-rates.json` from the OSRS Wiki.
+  - `Format-Json.ps1` – lays JSON files out one entry per line so they're easy to read.
+- `docs/` – reference notes: what the plugin reads, and publishing to the Plugin Hub.
+- `Start TaskMaster.bat` / `Forget TaskMaster login.bat` – double-click entry points for testers.
+- `.editorconfig` / `.gitattributes` – formatting and line-ending rules, so every editor and
+  checkout stays consistent.
 
-For a complete collection log, open it in-game and click **Search** once.
+## Development
 
-**Jagex accounts (one-time):** test builds of RuneLite can't open the Jagex Launcher. Search the
-Start menu for **RuneLite (configure)**, put `--insecure-write-credentials` in *Client
-arguments* and save, play RuneLite once through the Jagex Launcher, then clear the argument
-again. This saves your login in `%USERPROFILE%\.runelite\credentials.properties`. Keep that file
-private; **`Forget TaskMaster login.bat`** deletes it. Accounts that log in with an email and
-password skip this step.
+### Prerequisites
 
-The plugin also keeps the latest profile in `%USERPROFILE%\.runelite\osrs-taskmaster\<name>.json`
-(**Show profile file** in the panel); you can drop that file on the website instead of pasting.
+- Windows (the launcher scripts are PowerShell).
+- [Java 17](https://adoptium.net/). `Start TaskMaster.bat` can download a private copy to
+  `%LOCALAPPDATA%\Programs\jdk17`, which the other scripts also use.
 
-## The website
-
-`web/` is plain static files, published to GitHub Pages by `.github/workflows/pages.yml` on every
-push to `main` that touches `web/`. One-time setup: on GitHub, **Settings → Pages → Source:
-GitHub Actions**. The address is `https://j0ffis.github.io/OSRS-TaskMaster/` (also the plugin's
-default *Website* setting).
-
-The site works in two modes:
-- **Browser mode** (the hosted site): profiles are pasted in and kept in `localStorage`.
-- **Server mode**: when it's served by `start-server.ps1`, it reads synced profiles and saves
-  goals through the server, as before.
-
-## Run your own server (optional, automatic sync)
-
-1. **Start the server** (serves the site and receives syncs):
-   ```powershell
-   .\start-server.ps1
-   ```
-   It prints a sync token (also saved in `server/data/token.txt`). Open http://localhost:8787.
-2. **Start RuneLite with the plugin** (developer mode, side-loaded):
-   ```powershell
-   .\start-runelite-dev.ps1
-   ```
-   In RuneLite: Configuration → OSRS TaskMaster → *Your own server (advanced)* → switch on
-   **Send to my own server** and paste the token into **Sync token**. Log in.
-   Jagex Accounts need the one-time step above.
-3. **Fill in the gaps** once: open the collection log and click **Search** so every obtained
-   item is recorded. Kill counts are picked up from chat as you play.
-
-The panel's **Copy my profile** button also syncs; automatic updates run on login and at most
-every 5 minutes after something changes (configurable).
-
-## What the plugin reads
-
-| Data | Source in the client |
-|---|---|
-| Levels, XP | `Client.getRealSkillLevel` / `getSkillExperience` |
-| Quests, quest points | `Quest.getState`, varp `QP` |
-| Diaries | `*_DIARY_*_COMPLETE` varbits |
-| Combat achievements | `CA_POINTS`, `CA_THRESHOLD_*` varbits, `CA_TASK_COMPLETED_*` varps + task names from the game cache |
-| Collection log | `COLLECTION_COUNT*` varps, page layout from the game cache, obtained items when you click Search |
-| Pets | The collection log's own "All Pets" page |
-| Kill counts | "Your X kill count is: N" chat messages |
-
-## Drop rates
-
-`web/data/drop-rates.json` is a snapshot of collection log drop rates from the OSRS Wiki
-(CC BY-NC-SA 3.0). The site only reads this local file; it never contacts the wiki. Refresh it
-by hand after content updates (about 30 batched requests, paced):
+### Running the plugin
 
 ```powershell
-.\scripts\fetch-drop-rates.ps1
+.\scripts\Start-RuneLiteDev.ps1
 ```
 
-It looks up every collection log item (owned and missing) using the page layout from your
-latest sync. Effort = expected hours = (1 ÷ chance per attempt) × minutes per attempt, using
-`MINUTES_PER_ATTEMPT` and `EFFORT_HOURS` in `web/kb.js`. Fixed rules there (guaranteed rewards,
-team content, raids, duplicate protection, clue tapering) take priority over the rates.
+This runs `gradlew run` in `plugin/`, which starts RuneLite in developer mode with the plugin
+side-loaded. The first start takes a few minutes. Jagex accounts need the one-time login step
+described in the [tester guide](TESTER-GUIDE.md#2-start-it).
 
-## Layout
+### Running the website
 
-- `plugin/` – RuneLite plugin (Java 11, Gradle). `gradlew build` / `gradlew run`.
-- `server/Server.java` – dependency-free JDK server. Binds to 127.0.0.1 only, checks the
-  sync token, rejects foreign `Host` headers and wealth data.
-- `web/` – the site. `kb.js` is the hand-written knowledge base (quest requirements,
-  diary rewards, quick collection logs, rare drops): edit it to tune suggestions.
-  `engine.js` is the recommender.
+The hosted site is published to GitHub Pages from `web/` by
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main` that touches
+`web/`. Locally, any static file server works, or use the local server below.
 
-## Plugin Hub
+### Running the local server (optional)
 
-`plugin/` already has what the Hub needs: `runelite-plugin.properties`, `LICENSE` (BSD-2-Clause),
-`icon.png` (48×72) and a player-facing `README.md`. The Hub only builds plugins from their own
-repository, with the Gradle project at the root, so when the plugin is stable:
+The local server serves the website and receives profiles straight from the plugin, so you don't
+have to copy and paste.
 
-1. Create an empty GitHub repository, e.g. `J0ffis/osrs-taskmaster-plugin`.
-2. Copy `plugin/` into it with its history:
-   ```powershell
-   git subtree split --prefix plugin -b plugin-hub
-   git push https://github.com/J0ffis/osrs-taskmaster-plugin.git plugin-hub:main
-   ```
-3. Fork `runelite/plugin-hub` and add `plugins/osrs-taskmaster` containing:
-   ```
-   repository=https://github.com/J0ffis/osrs-taskmaster-plugin.git
-   commit=<full commit hash from step 2>
-   ```
-4. Open a pull request and answer the reviewers. Each later plugin update is a new pull request
-   with a new commit hash.
+```powershell
+.\scripts\Start-LocalServer.ps1
+```
 
-Before submitting, settle the website address (`DEFAULT_WEBSITE` in `TaskMasterConfig.java`) and
-whether to keep *Send to my own server*. It's why `runelite-plugin.properties` carries a `warning`;
-remove both together if the Hub version shouldn't send data anywhere.
+It prints a sync token (also saved in `server/data/token.txt`) and serves the site at
+http://localhost:8787. In RuneLite, open **Configuration → OSRS TaskMaster → Your own server
+(advanced)**, switch on **Send to my own server** and paste the token into **Sync token**.
 
-## Known gaps
+The plugin then syncs on login and at most every 5 minutes after something changes. The server
+binds to 127.0.0.1 only, checks the token, rejects foreign `Host` headers and refuses any snapshot
+that contains wealth data. Synced profiles and goals are kept in `server/data/`, which is not
+committed.
 
-- Combat achievement and collection log layouts come from cache enums/structs
-  (CA: 3981–3986, params 1306–1312; collection log: 2102, params 683/689/690). If a game
-  update moves them, the site falls back to points and totals.
-- Quest skill requirements and the rare-drop list in `kb.js` are hand-curated.
-- Testers run the plugin from source in RuneLite's developer mode, until it's on the Plugin Hub.
+### Drop rates
+
+`web/data/drop-rates.json` is refreshed by hand after content updates:
+
+```powershell
+.\scripts\Update-DropRates.ps1
+```
+
+It looks up every collection log item from your latest synced profile on the OSRS Wiki, in about
+30 paced, batched requests. The website only ever reads the local file. Effort is estimated as
+(1 ÷ chance per attempt) × minutes per attempt, using `MINUTES_PER_ATTEMPT` and `EFFORT_HOURS` in
+`web/knowledge-base.js`; fixed rules there (guaranteed rewards, raids, duplicate protection and
+so on) take priority over the rates.
+
+If you edit a JSON file by hand, `.\scripts\Format-Json.ps1 <file>` puts it back in the same
+layout.
+
+## Publishing to the Plugin Hub
+
+Not done yet. The steps are written up in [docs/plugin-hub.md](docs/plugin-hub.md).
+
+## Credits
+
+Drop rates are from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki/), licensed
+CC BY-NC-SA 3.0.

@@ -24,6 +24,7 @@ The website keeps your profile and goals in your browser only. Nothing is upload
 | Achievement diaries | Diary completion |
 | Combat achievements | Points, reward tiers and completed tasks |
 | Collection log | Totals, the page layout from the game cache, and obtained items when you click Search |
+| Pets | The collection log's "All Pets" page |
 | Kill counts | "Your X kill count is: N" chat messages |
 
 **Never read:** your bank, inventory, equipment or anything about your wealth.

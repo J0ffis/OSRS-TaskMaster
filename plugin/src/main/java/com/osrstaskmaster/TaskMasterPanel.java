@@ -11,6 +11,10 @@ import javax.swing.SwingUtilities;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 
+/**
+ * The sidebar panel: Copy my profile, Open website and Show profile file buttons, plus a status
+ * line. It holds no logic of its own; the buttons call back into {@link TaskMasterPlugin}.
+ */
 class TaskMasterPanel extends PluginPanel
 {
 	private final JLabel status = new JLabel("Log in to create your profile.");

@@ -1,5 +1,10 @@
-import { CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, candidates, lockedContent, pickThree, pickMix, pickBonus, goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel } from "./engine.js";
-import { SKILLS, DIARIES, CA_TIERS } from "./kb.js";
+// OSRS TaskMaster website: the page around the recommender.
+// Imports profiles (paste, file drop or the local server), renders the suggestion cards, goals
+// and tabs, and saves goals. Suggestions themselves come from recommender.js; game facts from knowledge-base.js.
+// In browser mode (GitHub Pages) everything is kept in localStorage; nothing is uploaded.
+
+import { CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask, goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel } from "./recommender.js";
+import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -35,7 +40,7 @@ async function api(path, opts) {
 }
 
 // Two ways to run the site:
-// - Server mode: start-server.ps1 is running; the plugin syncs to it and goals are saved there.
+// - Server mode: Start-LocalServer.ps1 is running; the plugin syncs to it and goals are saved there.
 // - Browser mode (the hosted site): players paste the profile the plugin copies. Profiles and
 //   goals are kept in this browser's localStorage only; nothing is uploaded anywhere.
 let serverMode = false;
@@ -84,7 +89,7 @@ async function load(name) {
     if (e.status === 404 && !serverMode) return showError(`No profile for "${name}" in this browser yet. In RuneLite, open the OSRS TaskMaster panel, click Copy my profile, then paste it here.`);
     if (e.status === 404) return showError(`No synced data for "${name}" yet. Log in with the RuneLite plugin enabled, or press Copy my profile in its panel.`);
     if (e.status === 400) return showError("That doesn't look like an OSRS name (1–12 letters, numbers, spaces, - or _).");
-    return showError("Couldn't reach the OSRS TaskMaster server. Is start-server.ps1 running?");
+    return showError("Couldn't reach the OSRS TaskMaster server. Is Start-LocalServer.ps1 running?");
   }
   state.name = name;
   state.seed = 0;
@@ -120,6 +125,7 @@ function showToastError() { alert("Couldn't save goals: the server didn't respon
 function renderAll() {
   renderSummary();
   renderControls();
+  renderSlayer();
   renderCards(true);
   renderGoals();
   renderGoalTypes();
@@ -208,8 +214,8 @@ function renderCards(fresh = false, keep = null) {
     ? pickMix(list, { seed: state.seed, exclude: state.excluded })
     : pickThree(list, { seed: state.seed, exclude: state.excluded });
   else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep });
-  if (fresh) state.bonus = pickBonus(listCache.all, { seed: state.seed, exclude: state.excluded });
-  renderBonus();
+  if (fresh) state.challenge = pickChallenge(listCache.all, { seed: state.seed, exclude: state.excluded });
+  renderChallenge();
   const el = $("#cards");
   el.classList.toggle("mix", isMix());
   if (!state.picks.length) {
@@ -247,33 +253,65 @@ function finishSpin(el) {
   }, 1000);
 }
 
-// The Bonus tier sits above Long haul: huge log completions. It's never one of the regular
-// picks or a grind style; one is offered on its own below them, for players who want it.
+// The Challenge tier sits above Long haul: huge log completions that take weeks or months. It's
+// never one of the regular picks or a grind style; one is offered on its own below them, as a
+// long-term goal for players who want one.
 // Wilderness warning: other players can attack and take your items there.
 const WILD_TIP = "Wilderness: other players can attack you here, and you can lose items you carry when you die. Bring only what you can afford to lose.";
 const wildBadge = (c) => c.wilderness
   ? `<span class="wildbadge" title="${esc(WILD_TIP)}" role="note"><span class="skull" aria-hidden="true">☠</span> Wilderness: PvP risk</span>`
   : "";
 
-function renderBonus() {
-  const el = $("#bonus");
-  const c = state.bonus;
+function renderChallenge() {
+  const el = $("#challenge");
+  const c = state.challenge;
   el.hidden = !c;
   if (!c) { el.innerHTML = ""; return; }
   el.innerHTML = `
-    <article class="card bonus" style="--c:var(--t-Bonus)">
-      <div class="bonushead">
-        <span class="tierbadge t-Bonus" title="Third age tier: above Long haul">Bonus grind</span>
-        <span class="muted small">Above Long haul: for when you want a project that lasts months.</span>
+    <article class="card challenge" style="--c:var(--t-Challenge)">
+      <div class="challengehead">
+        <span class="tierbadge t-Challenge" title="Third age tier: above Long haul">Challenge</span>
+        <span class="muted small">A long-term goal: weeks to months of grinding, beyond Long haul.</span>
       </div>
       ${wildBadge(c)}<h3>${esc(c.title)}</h3>
       <p class="detail">${esc(c.detail)}</p>
       ${c.progress != null ? `<div class="bar" title="${Math.round(c.progress * 100)}%"><i style="width:${Math.round(c.progress * 100)}%"></i></div>` : ""}
       <div class="actions">
-        <button class="btn tiny" data-bonus-swap type="button">Another bonus</button>
-        ${toGoal(c) ? `<button class="btn tiny ghost" data-bonus-goal type="button">Make it a goal</button>` : ""}
+        <button class="btn tiny" data-challenge-swap type="button">Another challenge</button>
+        ${toGoal(c) ? `<button class="btn tiny ghost" data-challenge-goal type="button">Take on this challenge</button>` : ""}
         ${wikiLink(c)}
       </div>
+    </article>`;
+}
+
+// The current Slayer assignment: its own card above the picks, since it's already been chosen for
+// you by a Slayer master. Not affected by Shuffle, tiers or category filters.
+function renderSlayer() {
+  const el = $("#slayer");
+  const c = slayerTask(state.snap, state.goals);
+  el.hidden = !c;
+  if (!c) { el.innerHTML = ""; return; }
+  const storedLine = !c.stored ? "" : c.stored.name
+    ? `<p class="muted small">In storage: <b>${esc(c.stored.amount)} ${esc(c.stored.name)}</b>. Swap it in at any Slayer master when you want it.</p>`
+    : `<p class="muted small">You also have a task in storage. Open the Slayer rewards shop once so TaskMaster can see which one.</p>`;
+  if (!c.task) {
+    el.innerHTML = `<article class="card slayer" style="--c:var(--c-slayer)"><div class="slayerhead"><span class="tierbadge t-Slayer">Slayer</span></div>
+      <h3>No active Slayer task</h3>${storedLine}</article>`;
+    return;
+  }
+  const pct = c.progress != null ? Math.round(c.progress * 100) : null;
+  el.innerHTML = `
+    <article class="card slayer" style="--c:var(--c-slayer)">
+      <div class="slayerhead">
+        <span class="tierbadge t-Slayer">Current Slayer task</span>
+        <span class="tierbadge t-${esc(c.effort)}">${esc(TIER_LABEL[c.effort])}</span>
+      </div>
+      ${wildBadge(c)}<h3>${esc(c.title)}</h3>
+      <p class="detail">${esc(c.detail)}</p>
+      ${pct != null ? `<div class="bar" title="${pct}%"><i style="width:${pct}%"></i></div>` : ""}
+      ${c.why.length ? `<ul>${c.why.slice(0, 4).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+      ${storedLine}
+      <div class="actions">${wikiLink({ meta: { monster: c.task.name } })}</div>
     </article>`;
 }
 
@@ -492,8 +530,21 @@ const TAB_RENDER = {
     return `<table class="list"><tbody>${qs.map((q) => `<tr><td>${esc(q.name)}</td><td class="num"><span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
   },
   diaries(s) {
-    return `<table class="list"><thead><tr><th>Region</th><th>Easy · Med · Hard · Elite</th></tr></thead><tbody>${Object.entries(s.diaries ?? {}).map(([r, d]) =>
-      `<tr><td>${esc(r)}</td><td><span class="dots">${["easy", "medium", "hard", "elite"].map((t) => `<i class="${d[t] ? "on" : ""}" title="${t}"></i>`).join("")}</span></td></tr>`).join("")}</tbody></table>`;
+    // One column per tier; each square links to that tier on the wiki. A region counts as started
+    // when the plugin saw any of its tasks done (older profiles don't say, so nothing is yellow).
+    const tiers = ["easy", "medium", "hard", "elite"];
+    const rows = Object.entries(s.diaries ?? {}).map(([region, done]) => {
+      const nextTier = tiers.find((t) => !done[t]);
+      const started = s.diaryStarted?.[region] === true;
+      const cells = tiers.map((t) => {
+        const status = done[t] ? "done" : started && t === nextTier ? "started" : "todo";
+        const label = `${region} ${cap(t)}: ${{ done: "complete", started: "in progress", todo: "not started" }[status]}`;
+        return `<td class="tiercell"><a class="tierbox ${status}" href="${esc(wikiPage(`${region} Diary`, cap(t)))}" target="_blank" rel="noopener noreferrer" title="${esc(label)}. Open on the OSRS Wiki" aria-label="${esc(label)}"></a></td>`;
+      }).join("");
+      return `<tr><td><a class="plainlink" href="${esc(wikiPage(`${region} Diary`))}" target="_blank" rel="noopener noreferrer">${esc(region)}</a></td>${cells}</tr>`;
+    }).join("");
+    return `<table class="list diarytable"><thead><tr><th>Region</th>${tiers.map((t) => `<th class="tiercell">${cap(t)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
+      <p class="note legend"><span class="tierbox done"></span> Complete <span class="tierbox started"></span> In progress <span class="tierbox todo"></span> Not started · Click a square to open that tier on the wiki.</p>`;
   },
   combat(s) {
     const a = analyse(s);
@@ -621,20 +672,20 @@ $("#cards").addEventListener("click", (e) => {
   }
 });
 
-$("#bonus").addEventListener("click", (e) => {
-  if (!state.bonus) return;
-  if (e.target.closest("[data-bonus-swap]")) {
-    // Cycle through the bonus picks; when they've all been seen, start over.
-    const old = state.bonus.id;
-    (state.bonusSeen ??= new Set()).add(old);
-    state.bonus = pickBonus(listCache.all, { seed: ++state.seed, exclude: state.bonusSeen });
-    if (!state.bonus) { state.bonusSeen = new Set([old]); state.bonus = pickBonus(listCache.all, { seed: state.seed, exclude: state.bonusSeen }); }
-    renderBonus();
-    $("#bonus .card")?.classList.add("spin");
+$("#challenge").addEventListener("click", (e) => {
+  if (!state.challenge) return;
+  if (e.target.closest("[data-challenge-swap]")) {
+    // Cycle through the challenges; when they've all been seen, start over.
+    const old = state.challenge.id;
+    (state.challengeSeen ??= new Set()).add(old);
+    state.challenge = pickChallenge(listCache.all, { seed: ++state.seed, exclude: state.challengeSeen });
+    if (!state.challenge) { state.challengeSeen = new Set([old]); state.challenge = pickChallenge(listCache.all, { seed: state.seed, exclude: state.challengeSeen }); }
+    renderChallenge();
+    $("#challenge .card")?.classList.add("spin");
     return;
   }
-  if (e.target.closest("[data-bonus-goal]")) {
-    const goal = toGoal(state.bonus);
+  if (e.target.closest("[data-challenge-goal]")) {
+    const goal = toGoal(state.challenge);
     if (goal && !state.goals.some((x) => goalTitle(x) === goalTitle(goal))) {
       state.goals.push(goal);
       saveGoals();
@@ -786,6 +837,20 @@ function refreshKnown() {
   } else list.hidden = true;
 }
 
+/**
+ * Back to the start page without reloading. The profile stays saved in this browser, and it's
+ * listed on the start page so it's one click to open again.
+ */
+function goHome() {
+  state.name = null;
+  history.replaceState(null, "", location.pathname);
+  showError(null);
+  refreshKnown();
+  $("#app").hidden = true;
+  $("#intro").hidden = false;
+  window.scrollTo(0, 0);
+}
+
 function setupImport() {
   $("#importslot").innerHTML = importBoxHTML();
   $("#importdlgslot").innerHTML = importBoxHTML();
@@ -818,12 +883,8 @@ function setupImport() {
     local.forget(state.name);
     localStorage.removeItem("tm.last");
     $("#importdlg").close();
-    state.name = null;
-    history.replaceState(null, "", location.pathname);
     $("#name").value = "";
-    refreshKnown();
-    $("#app").hidden = true;
-    $("#intro").hidden = false;
+    goHome();
   });
   $("#knownlist").addEventListener("click", (e) => {
     const b = e.target.closest("[data-open]");
@@ -834,7 +895,7 @@ function setupImport() {
 (async function boot() {
   // Drop rates are a static file in this project (a one-off wiki snapshot); no outside calls.
   try { setDropRates(await api("data/drop-rates.json")); } catch { /* fall back to the hand-made rules */ }
-  // Server mode only when this page is served by start-server.ps1; anywhere else (the hosted
+  // Server mode only when this page is served by Start-LocalServer.ps1; anywhere else (the hosted
   // site) profiles are pasted in and kept in the browser.
   try {
     const names = await api("api/profiles");
@@ -843,6 +904,13 @@ function setupImport() {
   document.body.classList.remove("booting");
   document.body.classList.toggle("static", !serverMode);
   setupImport();
+  // The logo goes back to the start page. A plain click stays on this page; opening it in a new
+  // tab (Ctrl/middle click) behaves like a normal link.
+  $("#home").addEventListener("click", (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    goHome();
+  });
   refreshKnown();
   const fromHash = decodeURIComponent(location.hash.slice(1));
   const last = fromHash || localStorage.getItem("tm.last");

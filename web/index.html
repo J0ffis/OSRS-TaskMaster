@@ -9,10 +9,10 @@
 </head>
 <body class="booting">
   <header class="top">
-    <div class="brand">
+    <a class="brand" href="./" id="home" title="Back to the start page">
       <img class="mark" src="icon.svg" alt="" aria-hidden="true">
       <span>OSRS TaskMaster</span>
-    </div>
+    </a>
     <form id="lookup" class="lookup" autocomplete="off">
       <label class="sr" for="name">In-game name</label>
       <input id="name" name="name" list="known" maxlength="12" placeholder="Your in-game name" required>
@@ -35,7 +35,7 @@
         <div id="importslot"></div>
       </div>
       <ol class="steps only-server">
-        <li><b>Run the server.</b> <code>.\start-server.ps1</code> prints a sync token.</li>
+        <li><b>Run the server.</b> <code>.\scripts\Start-LocalServer.ps1</code> prints a sync token.</li>
         <li><b>Run the plugin.</b> Paste the token into RuneLite → OSRS TaskMaster → Sync token, then log in.</li>
         <li><b>Fill in the gaps.</b> Open the collection log in-game and click Search once.</li>
       </ol>
@@ -74,8 +74,9 @@
         <p class="muted small">These aren't suggested yet because you can't access them. They'll appear once you meet the requirement.</p>
         <div id="lockedbody"></div>
       </dialog>
+      <div id="slayer" class="slayerrow" hidden></div>
       <div id="cards" class="cards"></div>
-      <div id="bonus" class="bonusrow" hidden></div>
+      <div id="challenge" class="challengerow" hidden></div>
 
       <div class="lower">
         <section class="panel" aria-labelledby="goals-h">

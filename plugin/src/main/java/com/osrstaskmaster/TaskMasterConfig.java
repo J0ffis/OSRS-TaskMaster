@@ -6,6 +6,10 @@ import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Range;
 
+/**
+ * Plugin settings shown under Configuration &gt; OSRS TaskMaster. Sending to a server is off by
+ * default and only meant for players running the local server in {@code server/}.
+ */
 @ConfigGroup(TaskMasterConfig.GROUP)
 public interface TaskMasterConfig extends Config
 {
@@ -82,7 +86,7 @@ public interface TaskMasterConfig extends Config
 	@ConfigItem(
 		keyName = "token",
 		name = "Sync token",
-		description = "Must match the server's token (shown when start-server.ps1 starts).",
+		description = "Must match the server's token (shown when Start-LocalServer.ps1 starts).",
 		secret = true,
 		section = serverSection,
 		position = 13
