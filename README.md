@@ -114,6 +114,30 @@ team content, raids, duplicate protection, clue tapering) take priority over the
   diary rewards, quick collection logs, rare drops): edit it to tune suggestions.
   `engine.js` is the recommender.
 
+## Plugin Hub
+
+`plugin/` already has what the Hub needs: `runelite-plugin.properties`, `LICENSE` (BSD-2-Clause),
+`icon.png` (48×72) and a player-facing `README.md`. The Hub only builds plugins from their own
+repository, with the Gradle project at the root, so when the plugin is stable:
+
+1. Create an empty GitHub repository, e.g. `J0ffis/osrs-taskmaster-plugin`.
+2. Copy `plugin/` into it with its history:
+   ```powershell
+   git subtree split --prefix plugin -b plugin-hub
+   git push https://github.com/J0ffis/osrs-taskmaster-plugin.git plugin-hub:main
+   ```
+3. Fork `runelite/plugin-hub` and add `plugins/osrs-taskmaster` containing:
+   ```
+   repository=https://github.com/J0ffis/osrs-taskmaster-plugin.git
+   commit=<full commit hash from step 2>
+   ```
+4. Open a pull request and answer the reviewers. Each later plugin update is a new pull request
+   with a new commit hash.
+
+Before submitting, settle the website address (`DEFAULT_WEBSITE` in `TaskMasterConfig.java`) and
+whether to keep *Send to my own server*. It's why `runelite-plugin.properties` carries a `warning`;
+remove both together if the Hub version shouldn't send data anywhere.
+
 ## Known gaps
 
 - Combat achievement and collection log layouts come from cache enums/structs

@@ -104,38 +104,9 @@ public class TaskMasterPlugin extends Plugin
 		return configManager.getConfig(TaskMasterConfig.class);
 	}
 
-	@Inject private ConfigManager configManager;
-
-	/** Move plugin settings saved under the previous name, then delete the old copies. */
-	private void migrateLegacySettings()
-	{
-		// Before the website import existed, every update went to the local server. Anyone who
-		// had set a token was using that server, so keep sending to it.
-		if (configManager.getConfiguration(TaskMasterConfig.GROUP, "serverSync") == null
-			&& (notBlank(configManager.getConfiguration(TaskMasterConfig.GROUP, "token"))
-				|| notBlank(configManager.getConfiguration(TaskMasterConfig.LEGACY_GROUP, "token"))))
-		{
-			configManager.setConfiguration(TaskMasterConfig.GROUP, "serverSync", true);
-		}
-		for (String key : new String[]{"endpoint", "token", "autoSync", "minMinutesBetweenSyncs"})
-		{
-			String old = configManager.getConfiguration(TaskMasterConfig.LEGACY_GROUP, key);
-			if (old == null)
-			{
-				continue;
-			}
-			if (configManager.getConfiguration(TaskMasterConfig.GROUP, key) == null || "token".equals(key) && config.token().isEmpty())
-			{
-				configManager.setConfiguration(TaskMasterConfig.GROUP, key, old);
-			}
-			configManager.unsetConfiguration(TaskMasterConfig.LEGACY_GROUP, key);
-		}
-	}
-
 	@Override
 	protected void startUp()
 	{
-		migrateLegacySettings();
 		panel = new TaskMasterPanel(
 			() -> clientThread.invokeLater(this::copyProfile),
 			() -> LinkBrowser.browse(config.websiteUrl().trim()),
@@ -305,11 +276,6 @@ public class TaskMasterPlugin extends Plugin
 	}
 
 	// ---- Profile export and sync ---------------------------------------------------------
-
-	private static boolean notBlank(String s)
-	{
-		return s != null && !s.trim().isEmpty();
-	}
 
 	/** The profile as JSON, or null if not logged in. Must run on the client thread. */
 	private String snapshotJson()

@@ -10,8 +10,6 @@ import net.runelite.client.config.Range;
 public interface TaskMasterConfig extends Config
 {
 	String GROUP = "osrstaskmaster";
-	/** Config group used before the rename; settings are moved from it once. */
-	String LEGACY_GROUP = "grindplanner";
 	String DEFAULT_WEBSITE = "https://j0ffis.github.io/OSRS-TaskMaster/";
 
 	@ConfigItem(

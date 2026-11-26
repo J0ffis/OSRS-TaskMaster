@@ -53,13 +53,6 @@ public class ProgressStore
 		killCounts = new LinkedHashMap<>();
 
 		String json = configManager.getRSProfileConfiguration(TaskMasterConfig.GROUP, KEY);
-		boolean migrated = false;
-		if (json == null || json.isEmpty())
-		{
-			// One-time move from the plugin's previous name.
-			json = configManager.getRSProfileConfiguration(TaskMasterConfig.LEGACY_GROUP, KEY);
-			migrated = json != null && !json.isEmpty();
-		}
 		if (json == null || json.isEmpty())
 		{
 			return;
@@ -76,12 +69,8 @@ public class ProgressStore
 		{
 			// corrupt or old format: start fresh
 		}
-		// Re-save so any legacy fields (e.g. wealth) are gone, then remove the old copy.
+		// Re-save so any fields from older versions (e.g. wealth) are dropped.
 		save();
-		if (migrated)
-		{
-			configManager.unsetRSProfileConfiguration(TaskMasterConfig.LEGACY_GROUP, KEY);
-		}
 	}
 
 	public void save()
