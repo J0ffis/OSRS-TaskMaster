@@ -1,6 +1,9 @@
 # Private, per-machine data: sync token, synced profiles and goals
 server/data/
 
+# Private notes kept on this PC only (e.g. LAUNCH-PLAN.local.md)
+*.local.md
+
 # RuneLite login session written by --insecure-write-credentials. It lives in
 # %USERPROFILE%\.runelite, but never commit a copy that lands in the project by accident.
 credentials.properties
