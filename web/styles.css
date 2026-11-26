@@ -309,6 +309,30 @@ table.list th { color: var(--muted); font-weight: 500; font-size: 12px; text-tra
 .dots i.on { background: var(--good); border-color: var(--good); }
 .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 
+/* Wide screens: Goals move into a column on the left and stay in view while scrolling; the
+   suggestions, bonus and Account panel keep the main column. `.lower` stops being a box of its
+   own so its two panels can be placed separately. Below this width, nothing changes. */
+@media (min-width: 1440px) {
+  main:has(> #app:not([hidden])) { max-width: 1560px; }
+  #app:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+  #app > *, .lower > * { grid-column: 2; }
+  .lower { display: contents; }
+  .lower > .panel:last-child { margin-top: 34px; }
+  #app .lower > section[aria-labelledby="goals-h"] {
+    grid-column: 1;
+    grid-row: 1 / span 40;
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+  }
+}
+
 @media (max-width: 900px) {
   .cards { grid-template-columns: 1fr; }
   .lower { grid-template-columns: 1fr; }
