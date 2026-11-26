@@ -98,6 +98,51 @@ test("bad uploads are refused", async () => {
   assert.equal((await api("PUT", "/v1/profile", { key: newKey(), body: { profile: big } })).status, 413, "too large");
 });
 
+const pick = (id, extra = {}) => ({ id, title: `Do ${id}`, detail: "Because", category: "clog", progress: 0.5, icon: { item: 4151 }, ...extra });
+
+test("picks: the owner's website saves them, anyone with the id reads them", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks, null, "none until the website saves some");
+  const body = { tiers: { Quick: [pick("a"), pick("b", { icon: { skill: "attack" }, wilderness: true })], Long: [pick("c", { icon: null })] }, filters: "all" };
+  assert.equal((await api("PUT", `/v1/picks/${id}`, { body })).status, 403, "no token");
+  const saved = await api("PUT", `/v1/picks/${id}`, { body, headers: { "X-Edit-Token": edit } });
+  assert.equal(saved.status, 200);
+  const got = await api("GET", `/v1/picks/${id}`);
+  assert.equal(got.status, 200);
+  assert.deepEqual(got.data.picks.tiers.Quick.map((p) => p.id), ["a", "b"]);
+  assert.deepEqual(got.data.picks.tiers.Quick[1].icon, { skill: "attack" });
+  assert.equal(got.data.picks.tiers.Quick[1].wilderness, true);
+  assert.equal(got.data.picks.tiers.Quick[0].effort, "Quick", "tier comes from where the pick is listed");
+  assert.deepEqual(got.data.picks.tiers.Medium, []);
+  assert.ok(got.data.picksAt > 0);
+});
+
+test("picks: odd input is cleaned or refused", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  const h = { "X-Edit-Token": edit };
+  assert.equal((await api("PUT", `/v1/picks/${id}`, { body: { tiers: [] }, headers: h })).status, 400, "tiers must be an object");
+  assert.equal((await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: Array.from({ length: 16 }, (_, i) => pick("p" + i)) } }, headers: h })).status, 400, "too many");
+  assert.equal((await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [{ title: "no id" }] } }, headers: h })).status, 400, "missing id");
+  const odd = pick("x", { title: "T".repeat(500), icon: { item: -5 }, progress: 7, extra: "dropped", category: "<b>" });
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Long: [odd], Nonsense: [pick("y")] } }, headers: h });
+  const p = (await api("GET", `/v1/picks/${id}`)).data.picks;
+  assert.equal(p.tiers.Long[0].title.length, 160, "long titles are cut");
+  assert.equal(p.tiers.Long[0].icon, null, "bad item id dropped");
+  assert.equal(p.tiers.Long[0].progress, null, "progress out of range dropped");
+  assert.equal(p.tiers.Long[0].extra, undefined, "unknown fields dropped");
+  assert.equal(p.tiers.Nonsense, undefined, "unknown tiers dropped");
+});
+
+test("picks: a new upload keeps them", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [pick("keep")] } }, headers: { "X-Edit-Token": edit } });
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.tiers.Quick[0].id, "keep");
+});
+
 test("delete removes the profile", async () => {
   const key = newKey(), { id } = await ids(key);
   await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });

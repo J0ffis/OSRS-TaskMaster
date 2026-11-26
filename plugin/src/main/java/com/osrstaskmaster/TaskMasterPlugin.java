@@ -44,6 +44,8 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SkillIconManager;
+import net.runelite.api.Skill;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -86,6 +88,7 @@ public class TaskMasterPlugin extends Plugin
 	@Inject private ClientThread clientThread;
 	@Inject private ClientToolbar clientToolbar;
 	@Inject private ItemManager itemManager;
+	@Inject private SkillIconManager skillIconManager;
 	@Inject private OkHttpClient httpClient;
 	@Inject private Gson gson;
 	@Inject private TaskMasterConfig config;
@@ -121,7 +124,11 @@ public class TaskMasterPlugin extends Plugin
 			@Override public void uploadNow() { clientThread.invokeLater(() -> sync(true)); }
 			@Override public void copyShareLink() { clientThread.invokeLater(TaskMasterPlugin.this::copyShareLink); }
 			@Override public void deleteUploaded() { clientThread.invokeLater(TaskMasterPlugin.this::deleteUploadedData); }
+			@Override public void refreshPicks() { clientThread.invokeLater(TaskMasterPlugin.this::fetchPicks); }
+			@Override public void openPick(String pickId) { clientThread.invokeLater(() -> openWebsiteOn(pickId)); }
 		});
+		// Item icons load in the background and appear in the label when ready (safe from any thread).
+		panel.setIconSources(this::skillIcon, (itemId, label) -> itemManager.getImage(itemId).addTo(label));
 		panel.setUploadEnabled(config.autoUpload());
 		navButton = NavigationButton.builder()
 			.tooltip("OSRS TaskMaster")
@@ -172,6 +179,10 @@ public class TaskMasterPlugin extends Plugin
 			if (config.autoSync())
 			{
 				sync(false);
+			}
+			if (config.autoUpload())
+			{
+				fetchPicks();
 			}
 			return;
 		}
@@ -500,6 +511,7 @@ public class TaskMasterPlugin extends Plugin
 						boolean isPublic = Boolean.TRUE.equals(reply.get("public"));
 						panel.setStatus(note instanceof String ? (String) note
 							: "Uploaded at " + now() + (isPublic ? " (public)." : " (private: only your link can see it)."), note == null);
+						fetchPicks();
 					}
 					else
 					{
@@ -536,6 +548,12 @@ public class TaskMasterPlugin extends Plugin
 	/** Open website: with Automatic upload on, opens your own live profile (with goal editing). */
 	private void openWebsite()
 	{
+		openWebsiteOn(null);
+	}
+
+	/** Open the website, on one suggestion if given (a row in the panel's list). */
+	private void openWebsiteOn(String pickId)
+	{
 		String site = config.websiteUrl().trim();
 		String key = config.autoUpload() ? uploadKey(false) : null;
 		if (key == null)
@@ -544,7 +562,86 @@ public class TaskMasterPlugin extends Plugin
 			return;
 		}
 		// Everything after # stays in the browser: it's never sent to the website's host.
-		LinkBrowser.browse(site + "#id=" + deriveId(key) + "&edit=" + deriveEditToken(key));
+		String link = site + "#id=" + deriveId(key) + "&edit=" + deriveEditToken(key);
+		if (pickId != null)
+		{
+			try
+			{
+				link += "&focus=" + java.net.URLEncoder.encode(pickId, "UTF-8").replace("+", "%20");
+			}
+			catch (java.io.UnsupportedEncodingException e)
+			{
+				throw new IllegalStateException(e);
+			}
+		}
+		LinkBrowser.browse(link);
+	}
+
+	// ---- Your next grinds: the website's picks, shown in the panel ------------------------
+
+	/** Fetch the suggestions the website last saved for this account. Client thread. */
+	private void fetchPicks()
+	{
+		String key = config.autoUpload() ? uploadKey(false) : null;
+		if (key == null)
+		{
+			return;
+		}
+		Request request;
+		try
+		{
+			request = new Request.Builder().url(serverUrl() + "/v1/picks/" + deriveId(key)).get().build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			return;
+		}
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				// Keep showing the last list; the status line already reports upload problems.
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				try (Response r = response)
+				{
+					if (r.code() == 404)
+					{
+						panel.setPicks(null, 0); // nothing uploaded yet
+						return;
+					}
+					if (!r.isSuccessful() || r.body() == null)
+					{
+						return;
+					}
+					Picks.Reply reply = gson.fromJson(r.body().string(), Picks.Reply.class);
+					if (reply != null)
+					{
+						panel.setPicks(reply.picks, reply.picksAt == null ? 0 : reply.picksAt);
+					}
+				}
+				catch (IOException | RuntimeException ex)
+				{
+					log.debug("OSRS TaskMaster: couldn't read picks", ex);
+				}
+			}
+		});
+	}
+
+	private BufferedImage skillIcon(String skill)
+	{
+		try
+		{
+			return skillIconManager.getSkillImage(Skill.valueOf(skill.toUpperCase()), true);
+		}
+		catch (IllegalArgumentException ex)
+		{
+			return null; // a skill this client doesn't know
+		}
 	}
 
 	/** Copy share link: a read-only link to your uploaded profile. */

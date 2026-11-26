@@ -12,9 +12,17 @@
 //   GET    /v1/profile/:id                                      profile + goals (anyone with the id)
 //   GET    /v1/public/:name                                     same, for profiles marked public
 //   PUT    /v1/goals/:id          X-Edit-Token: <token>          replace the goals list
+//   PUT    /v1/picks/:id          X-Edit-Token: <token>          the website's current suggestions
+//   GET    /v1/picks/:id                                        those suggestions (the RuneLite panel)
+//
+// Suggestions are worked out by the website (web/engine.js), not here: the engine needs more
+// CPU than the free Workers plan allows per request. The owner's browser saves its picks, and
+// the plugin shows them.
 
 const MAX_PROFILE_BYTES = 1_500_000;
 const MAX_GOALS_BYTES = 64_000;
+const MAX_PICKS_BYTES = 48_000;
+const PICK_TIERS = ["Quick", "Medium", "Long", "Bonus"];
 const MIN_UPLOAD_GAP_MS = 30_000;            // uploads closer together than this are skipped
 const NAME_HOLD_MS = 30 * 24 * 3600 * 1000;  // a public name stays with its account this long after its last upload
 const KEY_RE = /^[A-Za-z0-9_-]{32,128}$/;
@@ -51,6 +59,8 @@ async function route(request, env) {
   if ((p = path.match(/^\/v1\/profile\/([^/]+)$/)) && m === "GET") return readById(env, p[1]);
   if ((p = path.match(/^\/v1\/public\/([^/]+)$/)) && m === "GET") return readPublic(env, decodeURIComponent(p[1]));
   if ((p = path.match(/^\/v1\/goals\/([^/]+)$/)) && m === "PUT") return saveGoals(request, env, p[1]);
+  if ((p = path.match(/^\/v1\/picks\/([^/]+)$/)) && m === "PUT") return savePicks(request, env, p[1]);
+  if ((p = path.match(/^\/v1\/picks\/([^/]+)$/)) && m === "GET") return readPicks(env, p[1]);
   if (path === "" || path === "/v1") return json({ service: "osrs-taskmaster-sync", ok: true });
   throw new HttpError(404, "Not found");
 }
@@ -135,14 +145,19 @@ async function readPublic(env, name) {
   return profileResponse(row);
 }
 
-async function saveGoals(request, env, id) {
+/** Only the owner's link (with the edit token) may change goals or picks. */
+async function requireEditToken(request, env, id) {
   if (!ID_RE.test(id)) throw new HttpError(404, "No profile here");
   const token = request.headers.get("X-Edit-Token") ?? "";
   const row = await env.DB.prepare("SELECT edit_hash FROM profiles WHERE id = ?").bind(id).first();
   if (!row) throw new HttpError(404, "No profile here");
   if (!token || !(await timingSafeEqualHex(await sha256Hex(token), row.edit_hash))) {
-    throw new HttpError(403, "This link can view the profile but not change its goals");
+    throw new HttpError(403, "This link can view the profile but not change it");
   }
+}
+
+async function saveGoals(request, env, id) {
+  await requireEditToken(request, env, id);
   const raw = await readBody(request, MAX_GOALS_BYTES);
   let goals;
   try { goals = JSON.parse(raw); } catch { throw new HttpError(400, "Body isn't JSON"); }
@@ -151,6 +166,55 @@ async function saveGoals(request, env, id) {
   }
   await env.DB.prepare("UPDATE profiles SET goals = ? WHERE id = ?").bind(JSON.stringify(goals), id).run();
   return json({ ok: true }, 200);
+}
+
+async function savePicks(request, env, id) {
+  await requireEditToken(request, env, id);
+  const raw = await readBody(request, MAX_PICKS_BYTES);
+  let body;
+  try { body = JSON.parse(raw); } catch { throw new HttpError(400, "Body isn't JSON"); }
+  const tiers = body?.tiers;
+  if (!tiers || typeof tiers !== "object" || Array.isArray(tiers)) throw new HttpError(400, "Picks need a tiers object");
+  const clean = {};
+  for (const tier of PICK_TIERS) {
+    const list = tiers[tier] ?? [];
+    if (!Array.isArray(list) || list.length > 15) throw new HttpError(400, `Up to 15 picks per tier (${tier})`);
+    clean[tier] = list.map((p) => cleanPick(p, tier));
+  }
+  const now = Date.now();
+  await env.DB.prepare("UPDATE profiles SET picks = ?, picks_at = ? WHERE id = ?")
+    .bind(JSON.stringify({ tiers: clean, filters: cleanText(body.filters, 200) }), now, id).run();
+  return json({ ok: true, picksAt: now }, 200);
+}
+
+/** Keep only the fields the panel shows, with sane lengths, so nothing odd is stored or served. */
+function cleanPick(p, tier) {
+  if (!p || typeof p !== "object" || typeof p.id !== "string" || typeof p.title !== "string") {
+    throw new HttpError(400, "Each pick needs an id and a title");
+  }
+  const icon = p.icon && typeof p.icon === "object"
+    ? (Number.isInteger(p.icon.item) && p.icon.item > 0 ? { item: p.icon.item }
+      : typeof p.icon.skill === "string" && /^[a-z]{3,12}$/.test(p.icon.skill) ? { skill: p.icon.skill } : null)
+    : null;
+  return {
+    id: cleanText(p.id, 120),
+    title: cleanText(p.title, 160),
+    detail: cleanText(p.detail, 240),
+    category: cleanText(p.category, 20),
+    effort: tier,
+    progress: typeof p.progress === "number" && p.progress >= 0 && p.progress <= 1 ? Math.round(p.progress * 1000) / 1000 : null,
+    wilderness: p.wilderness === true,
+    icon,
+  };
+}
+
+const cleanText = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
+
+async function readPicks(env, id) {
+  if (!ID_RE.test(id)) throw new HttpError(404, "No profile here");
+  const row = await env.DB.prepare("SELECT picks, picks_at, updated_at FROM profiles WHERE id = ?").bind(id).first();
+  if (!row) throw new HttpError(404, "No profile here");
+  return json({ picks: row.picks ? JSON.parse(row.picks) : null, picksAt: row.picks_at ?? null, uploadedAt: row.updated_at }, 200);
 }
 
 function profileResponse(row) {

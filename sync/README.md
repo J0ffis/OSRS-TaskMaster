@@ -27,8 +27,16 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 | `GET /v1/profile/:id` | website | profile + goals |
 | `GET /v1/public/:name` | website | the same, for public profiles |
 | `PUT /v1/goals/:id` | website (`X-Edit-Token`) | replace the goals list |
+| `PUT /v1/picks/:id` | website (`X-Edit-Token`) | save its current top picks per tier |
+| `GET /v1/picks/:id` | plugin | those picks, for the panel's *Your next grinds* list |
 
-Limits: profiles up to 1.5 MB, 200 goals, uploads at most every 30 seconds per key, browsers
+**Why picks come from the website:** the recommendation engine (`web/engine.js`) needs about
+9–12 ms of CPU per run (≈ 30 ms cold), over the free Workers plan's 10 ms per request. So the
+owner's browser works the suggestions out and saves the top 10 per tier (3 Bonus); the plugin
+only displays them. Picks follow the site's filters and goals and refresh whenever the owner
+opens the website. Running the engine here instead would need the $5/month Workers Paid plan.
+
+Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows), uploads at most every 30 seconds per key, browsers
 only from the sites in `ALLOWED_ORIGINS` (`wrangler.toml`), and no wealth data.
 
 ## Run it locally

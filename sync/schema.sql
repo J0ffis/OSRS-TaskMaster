@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   public      INTEGER NOT NULL DEFAULT 0,
   profile     TEXT NOT NULL,
   goals       TEXT NOT NULL DEFAULT '[]',
+  picks       TEXT,              -- the website's latest suggestions, shown in the RuneLite panel
+  picks_at    INTEGER,
   created_at  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL
 );

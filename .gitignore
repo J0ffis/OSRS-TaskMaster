@@ -14,8 +14,10 @@ plugin/.gradle/
 
 # Sync service: installed packages and wrangler's local dev database and secrets
 sync/node_modules/
-sync/.wrangler/
 sync/.dev.vars
+# Wrangler writes a .wrangler folder wherever it runs; its cache holds location details from
+# your connection (city, postcode, coordinates, ISP), so never commit one anywhere.
+.wrangler/
 
 # Local tooling and editor files
 .claude/

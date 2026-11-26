@@ -38,6 +38,9 @@ Rather not copy and paste? Switch on **Automatic upload** in the plugin's settin
 then uploads on login and as you play, and **Open website** shows your latest suggestions on any
 browser, with your goals.
 
+- **Your next grinds** appears in the panel: your suggestions per tier (Quick wins, Balanced,
+  Long haul, Bonus), with item and skill icons. Click one to open it on the website. The list
+  comes from the website, so it refreshes whenever you open the website.
 - Your profile is **private** by default: only people with your link can see it.
   **Copy share link** gives friends a view-only link.
 - Switch on **Show my profile publicly** to let anyone look you up by name on the website.

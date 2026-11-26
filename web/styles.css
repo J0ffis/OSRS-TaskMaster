@@ -190,6 +190,9 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 body.booting .only-static, body.booting .only-server,
 body.static .only-server, body:not(.static) .only-static { display: none !important; }
 
+/* Opened from the RuneLite panel on one suggestion: a brief gold glow. */
+.card.focus { box-shadow: 0 0 0 2px var(--gold), 0 0 24px rgba(224, 176, 74, .45); transition: box-shadow .4s; }
+
 /* Opened from a share link or a public profile: suggestions only, goals can't be changed. */
 .viewonly { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 600;
   color: var(--t-Medium-ink, #0f1233); background: var(--t-Medium, #7d86d4); }

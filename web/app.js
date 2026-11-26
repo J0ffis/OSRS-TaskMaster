@@ -156,6 +156,91 @@ async function load(name, opts = {}) {
   $("#intro").hidden = true;
   $("#app").hidden = false;
   renderAll();
+  if (opts.focus) applyFocus(opts.focus);
+}
+
+// ---- Picks for the RuneLite panel ---------------------------------------------------------
+// The plugin can't run this engine, so when the owner has their own profile open, the site
+// saves its current top picks per tier to the upload service; the plugin's panel shows them.
+// Picks follow the site's filters and goals, and are only sent when they change.
+
+const PANEL_TIERS = { Quick: 10, Medium: 10, Long: 10, Bonus: 3 };
+let picksTimer = null;
+
+function schedulePicks() {
+  if (state.source?.kind !== "sync" || !state.source.edit) return;
+  clearTimeout(picksTimer);
+  picksTimer = setTimeout(publishPicks, 1500);
+}
+
+/** A RuneLite icon for a suggestion: an item id from the collection log, or a skill. */
+function iconFor(c, snap) {
+  const m = { ...(c.goal ?? {}), ...(c.meta ?? {}) };
+  const items = itemIndex(snap);
+  const itemId = (name) => (name ? items.get(String(name).toLowerCase())?.id ?? null : null);
+  const pages = snap.collectionLog?.pages ?? {};
+  const id = itemId(m.item) ?? itemId(m.pet) ?? itemId(m.items?.[0])
+    ?? pages[m.page]?.items?.find((i) => !(i.quantity > 0))?.id
+    // Combat achievements: the boss's own collection log page, e.g. its pet or first unique.
+    ?? pages[m.monster]?.items?.[0]?.id ?? null;
+  if (id) return { item: id };
+  if (m.skill && SKILLS.includes(m.skill)) return { skill: m.skill };
+  return null;
+}
+
+async function publishPicks() {
+  if (state.source?.kind !== "sync" || !state.source.edit || !listCache.all?.length) return;
+  const snap = state.snap;
+  const toPick = (c) => ({
+    id: c.id, title: c.title, detail: c.detail, category: c.category,
+    progress: typeof c.progress === "number" ? c.progress : null,
+    wilderness: !!c.wilderness, icon: iconFor(c, snap),
+  });
+  const tiers = {};
+  for (const [tier, n] of Object.entries(PANEL_TIERS)) {
+    tiers[tier] = pickThree(listCache.all.filter((c) => c.effort === tier), { seed: 0, n }).map(toPick);
+  }
+  const off = Object.keys(CATEGORIES).filter((k) => !state.cats.has(k));
+  const on = Object.entries(state.content).filter(([, v]) => v).map(([k]) => k);
+  const filters = [off.length ? `hiding ${off.join(", ")}` : "", on.length ? `including ${on.join(", ")}` : ""].filter(Boolean).join("; ");
+  const body = JSON.stringify({ tiers, filters });
+  // Skip if nothing changed since the last save from this browser.
+  const sentKey = `tm.picksSent:${state.source.id}`;
+  const sig = `${body.length}:${[...body].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
+  if (localStorage.getItem(sentKey) === sig) return;
+  try {
+    await syncApi(`/v1/picks/${encodeURIComponent(state.source.id)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json", "X-Edit-Token": state.source.edit }, body,
+    });
+    localStorage.setItem(sentKey, sig);
+  } catch { /* the panel keeps its previous picks; next visit tries again */ }
+}
+
+/** Open on one suggestion (from the RuneLite panel): show its tier with it as the first card. */
+function applyFocus(focusId) {
+  currentList();
+  const c = listCache.all.find((x) => x.id === focusId);
+  if (!c) {
+    $("#tierhint").textContent = "That suggestion isn't on the list any more: it may be done already. Here are your current picks.";
+    return;
+  }
+  if (c.effort === "Bonus") {
+    state.bonus = c;
+    renderBonus();
+    flash($("#bonus .card"));
+    return;
+  }
+  const style = Object.keys(STYLE_EFFORT).find((k) => STYLE_EFFORT[k] === c.effort);
+  if (style && style !== state.style) { state.style = style; renderControls(); }
+  renderCards(false, [c]);
+  flash($("#cards .card"));
+}
+
+function flash(card) {
+  if (!card) return;
+  card.classList.add("focus");
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => card.classList.remove("focus"), 2600);
 }
 
 /** Uploaded profiles: fetch the latest when the player comes back to the tab. */
@@ -282,6 +367,7 @@ function renderCards(fresh = false, keep = null) {
   else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep });
   if (fresh) state.bonus = pickBonus(listCache.all, { seed: state.seed, exclude: state.excluded });
   renderBonus();
+  schedulePicks();
   const el = $("#cards");
   el.classList.toggle("mix", isMix());
   if (!state.picks.length) {
@@ -743,14 +829,14 @@ function readHash() {
   const raw = location.hash.slice(1);
   if (/^id=/.test(raw)) {
     const p = new URLSearchParams(raw);
-    return { id: p.get("id"), edit: p.get("edit") };
+    return { id: p.get("id"), edit: p.get("edit"), focus: p.get("focus") };
   }
   return { name: decodeURIComponent(raw) };
 }
 
 window.addEventListener("hashchange", () => {
   const h = readHash();
-  if (h.id && h.id !== state.source?.id) load(null, h);
+  if (h.id && (h.id !== state.source?.id || h.focus)) load(null, h);
   else if (h.name && h.name !== state.name) { $("#name").value = h.name; load(h.name); }
 });
 
