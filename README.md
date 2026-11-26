@@ -19,6 +19,8 @@ RuneLite + OSRS TaskMaster plugin ──"Copy my profile"──▶ paste on the 
 
 ## For testers (no server needed)
 
+Step-by-step instructions to send to testers are in **[TESTER-GUIDE.md](TESTER-GUIDE.md)**.
+
 You need Windows and the project folder (download the repository as a ZIP from GitHub and
 unzip it, or clone it).
 
