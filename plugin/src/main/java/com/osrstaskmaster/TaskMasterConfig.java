@@ -11,11 +11,13 @@ public interface TaskMasterConfig extends Config
 {
 	String GROUP = "osrstaskmaster";
 	String DEFAULT_WEBSITE = "https://j0ffis.github.io/OSRS-TaskMaster/";
+	/** The OSRS TaskMaster upload service (sync/ in the project). Set when it's deployed. */
+	String DEFAULT_UPLOAD_SERVER = "https://osrs-taskmaster-sync.j0ffis.workers.dev";
 
 	@ConfigItem(
 		keyName = "websiteUrl",
 		name = "Website",
-		description = "Opened by the panel's Open website button. Paste your copied profile there.",
+		description = "Opened by the panel's Open website button.",
 		position = 1
 	)
 	default String websiteUrl()
@@ -26,8 +28,8 @@ public interface TaskMasterConfig extends Config
 	@ConfigItem(
 		keyName = "autoSync",
 		name = "Keep profile up to date",
-		description = "Save your profile file on login and whenever your progress changes"
-			+ " (and send it to your own server, if that's switched on below).",
+		description = "Refresh your profile on login and whenever your progress changes"
+			+ " (and upload it, if Automatic upload is on).",
 		position = 2
 	)
 	default boolean autoSync()
@@ -48,47 +50,48 @@ public interface TaskMasterConfig extends Config
 	}
 
 	@ConfigSection(
-		name = "Your own server (advanced)",
-		description = "Only for people running the OSRS TaskMaster server on their own PC.",
-		position = 10,
-		closedByDefault = true
+		name = "Automatic upload",
+		description = "Optional: keep your profile on the OSRS TaskMaster server so the website is always up to date.",
+		position = 10
 	)
-	String serverSection = "server";
+	String uploadSection = "upload";
 
 	@ConfigItem(
-		keyName = "serverSync",
-		name = "Send to my own server",
-		description = "Also send each update to the OSRS TaskMaster server below. Off unless you run that server yourself.",
-		section = serverSection,
+		keyName = "autoUpload",
+		name = "Automatic upload",
+		description = "Upload your profile to the OSRS TaskMaster server, so the website always shows your latest"
+			+ " progress without copying and pasting. This sends your levels, quests, diaries, combat achievements"
+			+ " and collection log (never your bank or gear). Off unless you switch it on.",
+		section = uploadSection,
 		position = 11
 	)
-	default boolean serverSync()
+	default boolean autoUpload()
 	{
 		return false;
 	}
 
 	@ConfigItem(
-		keyName = "endpoint",
-		name = "Server address",
-		description = "Where updates are sent when 'Send to my own server' is on.",
-		section = serverSection,
+		keyName = "publicProfile",
+		name = "Show my profile publicly",
+		description = "Let anyone look up your suggestions by your name on the website."
+			+ " Off: only people you give your link to can see it.",
+		section = uploadSection,
 		position = 12
 	)
-	default String endpoint()
+	default boolean publicProfile()
 	{
-		return "http://127.0.0.1:8787/api/sync";
+		return false;
 	}
 
 	@ConfigItem(
-		keyName = "token",
-		name = "Sync token",
-		description = "Must match the server's token (shown when start-server.ps1 starts).",
-		secret = true,
-		section = serverSection,
+		keyName = "uploadServer",
+		name = "Upload server",
+		description = "Where uploads go. Leave as it is unless you run your own copy of the OSRS TaskMaster service.",
+		section = uploadSection,
 		position = 13
 	)
-	default String token()
+	default String uploadServer()
 	{
-		return "";
+		return DEFAULT_UPLOAD_SERVER;
 	}
 }

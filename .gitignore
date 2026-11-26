@@ -9,6 +9,11 @@ credentials.properties
 plugin/build/
 plugin/.gradle/
 
+# Sync service: installed packages and wrangler's local dev database and secrets
+sync/node_modules/
+sync/.wrangler/
+sync/.dev.vars
+
 # Local tooling and editor files
 .claude/
 .idea/

@@ -5,16 +5,16 @@ achievement diaries, combat achievements, collection log, pets and your own goal
 (including goals to obtain specific items).
 
 **No third-party APIs.** All data comes from your own RuneLite client through the OSRS TaskMaster
-plugin and goes to a small server on your own PC. Nothing calls the hiscores, the wiki,
-Wise Old Man, TempleOSRS or any other community service.
+plugin. Nothing calls the hiscores, the wiki, Wise Old Man, TempleOSRS or any other community
+service.
 
-**No wealth data.** The plugin never reads your bank, inventory or equipment, and the server
-refuses any snapshot that contains wealth data. Item goals are tracked through the collection
+**No wealth data.** The plugin never reads your bank, inventory or equipment, and both servers
+refuse any profile that contains wealth data. Item goals are tracked through the collection
 log, or ticked off by hand for items that aren't in it.
 
 ```
-RuneLite + OSRS TaskMaster plugin ──"Copy my profile"──▶ paste on the website
-   reads your client's memory                           kept in your browser only
+RuneLite + OSRS TaskMaster plugin ──"Copy my profile"──▶ paste on the website (kept in your browser)
+   reads your client's memory   └──Automatic upload (opt-in)──▶ sync service ──▶ website, any browser
 ```
 
 ## For testers (no server needed)
@@ -53,30 +53,25 @@ push to `main` that touches `web/`. One-time setup: on GitHub, **Settings → Pa
 GitHub Actions**. The address is `https://j0ffis.github.io/OSRS-TaskMaster/` (also the plugin's
 default *Website* setting).
 
-The site works in two modes:
-- **Browser mode** (the hosted site): profiles are pasted in and kept in `localStorage`.
-- **Server mode**: when it's served by `start-server.ps1`, it reads synced profiles and saves
-  goals through the server, as before.
+Profiles reach the site three ways:
+- **Pasted** (the default): kept in that browser's `localStorage`; nothing is uploaded.
+- **Automatic upload** (opt-in in the plugin): loaded from the sync service by link
+  (`#id=…`), or by name for public profiles. Goals are saved with the profile. See
+  [sync/README.md](sync/README.md) for how it works and how to put it live on Cloudflare.
+- **Local dev server**: when the page is served by `start-server.ps1` (http://localhost:8787),
+  it also lists profiles saved in `server/data`.
 
-## Run your own server (optional, automatic sync)
+## Automatic upload
 
-1. **Start the server** (serves the site and receives syncs):
-   ```powershell
-   .\start-server.ps1
-   ```
-   It prints a sync token (also saved in `server/data/token.txt`). Open http://localhost:8787.
-2. **Start RuneLite with the plugin** (developer mode, side-loaded):
-   ```powershell
-   .\start-runelite-dev.ps1
-   ```
-   In RuneLite: Configuration → OSRS TaskMaster → *Your own server (advanced)* → switch on
-   **Send to my own server** and paste the token into **Sync token**. Log in.
-   Jagex Accounts need the one-time step above.
-3. **Fill in the gaps** once: open the collection log and click **Search** so every obtained
-   item is recorded. Kill counts are picked up from chat as you play.
+The service lives in `sync/` (a Cloudflare Worker with a D1 database). Run and test it locally,
+and deploy it, as described in [sync/README.md](sync/README.md). Until it's deployed, the
+plugin's **Automatic upload** setting has nowhere to send to; copy and paste works regardless.
 
-The panel's **Copy my profile** button also syncs; automatic updates run on login and at most
-every 5 minutes after something changes (configurable).
+## Local dev server
+
+`.\start-server.ps1` serves `web/` at http://localhost:8787 and shows any profiles saved in
+`server/data/profiles`. `.\start-runelite-dev.ps1` starts RuneLite with the plugin. Pages
+opened from this PC use the local sync service (`npm run dev` in `sync/`) automatically.
 
 ## What the plugin reads
 
@@ -108,8 +103,9 @@ team content, raids, duplicate protection, clue tapering) take priority over the
 ## Layout
 
 - `plugin/` – RuneLite plugin (Java 11, Gradle). `gradlew build` / `gradlew run`.
-- `server/Server.java` – dependency-free JDK server. Binds to 127.0.0.1 only, checks the
-  sync token, rejects foreign `Host` headers and wealth data.
+- `sync/` – the Automatic upload service (Cloudflare Worker + D1), with end-to-end tests.
+- `server/Server.java` – dependency-free JDK dev server. Binds to 127.0.0.1 only, rejects
+  foreign `Host` headers and wealth data.
 - `web/` – the site. `kb.js` is the hand-written knowledge base (quest requirements,
   diary rewards, quick collection logs, rare drops): edit it to tune suggestions.
   `engine.js` is the recommender.
@@ -134,9 +130,9 @@ repository, with the Gradle project at the root, so when the plugin is stable:
 4. Open a pull request and answer the reviewers. Each later plugin update is a new pull request
    with a new commit hash.
 
-Before submitting, settle the website address (`DEFAULT_WEBSITE` in `TaskMasterConfig.java`) and
-whether to keep *Send to my own server*. It's why `runelite-plugin.properties` carries a `warning`;
-remove both together if the Hub version shouldn't send data anywhere.
+Before submitting, deploy the sync service and make sure `DEFAULT_UPLOAD_SERVER` and
+`DEFAULT_WEBSITE` in `TaskMasterConfig.java` are the live addresses. Automatic upload is why
+`runelite-plugin.properties` carries a `warning`.
 
 ## Known gaps
 

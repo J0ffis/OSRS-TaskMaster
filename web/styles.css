@@ -190,6 +190,10 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 body.booting .only-static, body.booting .only-server,
 body.static .only-server, body:not(.static) .only-static { display: none !important; }
 
+/* Opened from a share link or a public profile: suggestions only, goals can't be changed. */
+.viewonly { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  color: var(--t-Medium-ink, #0f1233); background: var(--t-Medium, #7d86d4); }
+
 /* Profile import: a paste box, a file button, and drag-and-drop anywhere on the page. */
 .importbox { display: grid; gap: 10px; margin: 6px 0 14px; max-width: 640px; }
 .pastebox { width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; padding: 12px 14px;

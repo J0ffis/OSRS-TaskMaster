@@ -9,7 +9,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.swing.SwingUtilities;
 import java.util.LinkedHashMap;
@@ -37,6 +42,7 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -57,7 +63,7 @@ import okhttp3.Response;
 @Slf4j
 @PluginDescriptor(
 	name = "OSRS TaskMaster",
-	description = "Saves your own account progress so the OSRS TaskMaster website can suggest what to grind next",
+	description = "Suggests what to grind next from your own progress, on the OSRS TaskMaster website",
 	tags = {"goals", "planner", "collection", "combat achievements", "diary", "quests"}
 )
 public class TaskMasterPlugin extends Plugin
@@ -102,13 +108,21 @@ public class TaskMasterPlugin extends Plugin
 		return configManager.getConfig(TaskMasterConfig.class);
 	}
 
+	@Inject private ConfigManager configManager;
+
 	@Override
 	protected void startUp()
 	{
-		panel = new TaskMasterPanel(
-			() -> clientThread.invokeLater(this::copyProfile),
-			() -> LinkBrowser.browse(config.websiteUrl().trim()),
-			this::openExportFolder);
+		panel = new TaskMasterPanel(new TaskMasterPanel.Actions()
+		{
+			@Override public void copyProfile() { clientThread.invokeLater(TaskMasterPlugin.this::copyProfile); }
+			@Override public void openWebsite() { clientThread.invokeLater(TaskMasterPlugin.this::openWebsite); }
+			@Override public void openFolder() { openExportFolder(); }
+			@Override public void uploadNow() { clientThread.invokeLater(() -> sync(true)); }
+			@Override public void copyShareLink() { clientThread.invokeLater(TaskMasterPlugin.this::copyShareLink); }
+			@Override public void deleteUploaded() { clientThread.invokeLater(TaskMasterPlugin.this::deleteUploadedData); }
+		});
+		panel.setUploadEnabled(config.autoUpload());
 		navButton = NavigationButton.builder()
 			.tooltip("OSRS TaskMaster")
 			.icon(icon())
@@ -273,10 +287,10 @@ public class TaskMasterPlugin extends Plugin
 		}
 	}
 
-	// ---- Profile export and sync ---------------------------------------------------------
+	// ---- Profile export ------------------------------------------------------------------
 
-	/** The profile as JSON, or null if not logged in. Must run on the client thread. */
-	private String snapshotJson()
+	/** The profile, or null if not logged in. Must run on the client thread. */
+	private Map<String, Object> snapshot()
 	{
 		if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null)
 		{
@@ -285,7 +299,7 @@ public class TaskMasterPlugin extends Plugin
 		Map<String, Object> snapshot = collector.collect();
 		snapshot.put("collectionLog", collectionLog());
 		snapshot.put("killCounts", store.killCounts);
-		return gson.toJson(snapshot);
+		return snapshot;
 	}
 
 	private File exportDir()
@@ -316,15 +330,14 @@ public class TaskMasterPlugin extends Plugin
 	/** "Copy my profile": update the file, copy the profile for pasting on the website. Client thread. */
 	private void copyProfile()
 	{
-		String json = snapshotJson();
-		if (json == null)
+		Map<String, Object> snap = snapshot();
+		if (snap == null)
 		{
 			panel.setStatus("Log in first, then copy your profile.", false);
 			return;
 		}
+		String json = gson.toJson(snap);
 		writeExport(json);
-		dirty = false;
-		lastSyncAt = System.currentTimeMillis();
 		SwingUtilities.invokeLater(() ->
 		{
 			try
@@ -337,10 +350,6 @@ public class TaskMasterPlugin extends Plugin
 				panel.setStatus("Couldn't use the clipboard. Use Show profile file and load that file on the website instead.", false);
 			}
 		});
-		if (config.serverSync())
-		{
-			postToServer(json, true);
-		}
 	}
 
 	private void openExportFolder()
@@ -365,20 +374,20 @@ public class TaskMasterPlugin extends Plugin
 		return new java.text.SimpleDateFormat("HH:mm").format(new java.util.Date());
 	}
 
-	/** Automatic update: refresh the profile file, and send it to your own server if enabled. Client thread. */
+	/** Automatic update: refresh the profile file, and upload it if Automatic upload is on. Client thread. */
 	private void sync(boolean manual)
 	{
-		String json = snapshotJson();
-		if (json == null)
+		Map<String, Object> snap = snapshot();
+		if (snap == null)
 		{
 			return;
 		}
 		dirty = false;
 		lastSyncAt = System.currentTimeMillis();
-		writeExport(json);
-		if (config.serverSync())
+		writeExport(gson.toJson(snap));
+		if (config.autoUpload())
 		{
-			postToServer(json, manual);
+			upload(snap, manual);
 		}
 		else
 		{
@@ -386,63 +395,235 @@ public class TaskMasterPlugin extends Plugin
 		}
 	}
 
-	private void postToServer(String body, boolean manual)
+	// ---- Automatic upload ----------------------------------------------------------------
+	//
+	// Each OSRS account gets its own secret upload key, kept in that account's RuneLite profile.
+	// The server and the website derive the same two values from it (see sync/src/index.js):
+	//   profile id  : read-only link, safe to share
+	//   edit token  : lets the website save goals; only in the link the panel opens for you
+
+	private static final String KEY_UPLOAD = "uploadKey";
+
+	/** This account's upload key, created on first use. Needs a logged-in account. */
+	private String uploadKey(boolean create)
+	{
+		String key = configManager.getRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD);
+		if ((key == null || key.isEmpty()) && create)
+		{
+			byte[] bytes = new byte[32];
+			new SecureRandom().nextBytes(bytes);
+			key = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+			configManager.setRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD, key);
+		}
+		return key == null || key.isEmpty() ? null : key;
+	}
+
+	static String deriveId(String key)
+	{
+		return sha256B64url("tm-id:" + key).substring(0, 22);
+	}
+
+	static String deriveEditToken(String key)
+	{
+		return sha256B64url("tm-edit:" + key).substring(0, 32);
+	}
+
+	private static String sha256B64url(String text)
+	{
+		try
+		{
+			byte[] d = MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+			return Base64.getUrlEncoder().withoutPadding().encodeToString(d);
+		}
+		catch (NoSuchAlgorithmException e)
+		{
+			throw new IllegalStateException(e);
+		}
+	}
+
+	private String serverUrl()
+	{
+		return config.uploadServer().trim().replaceAll("/+$", "");
+	}
+
+	private void upload(Map<String, Object> snap, boolean manual)
 	{
 		if (inFlight)
 		{
+			dirty = true;
 			return;
 		}
-		String endpoint = config.endpoint().trim();
-		Request.Builder rb;
+		String key = uploadKey(true);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("profile", snap);
+		body.put("public", config.publicProfile());
+		// Lets the server keep a public name with the account that owns it. Sent only as a hash input;
+		// the server stores a hash of it, never the value itself.
+		body.put("account", String.valueOf(client.getAccountHash()));
+		Request request;
 		try
 		{
-			rb = new Request.Builder().url(endpoint).post(RequestBody.create(JSON, body));
+			request = new Request.Builder()
+				.url(serverUrl() + "/v1/profile")
+				.header("Authorization", "Bearer " + key)
+				.put(RequestBody.create(JSON, gson.toJson(body)))
+				.build();
 		}
 		catch (IllegalArgumentException ex)
 		{
-			panel.setStatus("Invalid sync endpoint in plugin settings.", false);
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
 			return;
 		}
-		// Strip whitespace, quotes and invisible characters that sneak in when copying the token.
-		String token = config.token().replaceAll("[^0-9A-Za-z]", "");
-		if (!token.isEmpty())
-		{
-			rb.header("X-TaskMaster-Token", token);
-		}
-
 		inFlight = true;
-		panel.setStatus(manual ? "Syncing..." : "Auto-syncing...", true);
-		httpClient.newCall(rb.build()).enqueue(new Callback()
+		panel.setStatus(manual ? "Uploading..." : "Auto-uploading...", true);
+		httpClient.newCall(request).enqueue(new Callback()
 		{
 			@Override
 			public void onFailure(Call call, IOException ex)
 			{
 				inFlight = false;
 				dirty = true;
-				panel.setStatus("Could not reach the OSRS TaskMaster server. Is it running?", false);
+				panel.setStatus("Couldn't reach the upload server. Your profile is saved on this PC and will upload later.", false);
 			}
 
 			@Override
 			public void onResponse(Call call, Response response)
 			{
 				inFlight = false;
-				int code = response.code();
-				response.close();
-				if (code >= 200 && code < 300)
+				try (Response r = response)
 				{
-					panel.setStatus("Synced to your server at " + now() + ".", true);
+					String text = r.body() == null ? "" : r.body().string();
+					Map<?, ?> reply = parse(text);
+					if (r.isSuccessful())
+					{
+						Object note = reply.get("note");
+						boolean isPublic = Boolean.TRUE.equals(reply.get("public"));
+						panel.setStatus(note instanceof String ? (String) note
+							: "Uploaded at " + now() + (isPublic ? " (public)." : " (private: only your link can see it)."), note == null);
+					}
+					else
+					{
+						if (r.code() >= 500 || r.code() == 429)
+						{
+							dirty = true;
+						}
+						Object err = reply.get("error");
+						panel.setStatus("Upload failed: " + (err instanceof String ? err : "server error " + r.code()), false);
+					}
 				}
-				else if (code == 401)
-				{
-					panel.setStatus("Server rejected the sync token. Check plugin settings.", false);
-				}
-				else
+				catch (IOException ex)
 				{
 					dirty = true;
-					panel.setStatus("Server error " + code, false);
+					panel.setStatus("Upload failed while reading the server's reply.", false);
 				}
 			}
 		});
+	}
+
+	private Map<?, ?> parse(String json)
+	{
+		try
+		{
+			Map<?, ?> m = gson.fromJson(json, Map.class);
+			return m == null ? Collections.emptyMap() : m;
+		}
+		catch (RuntimeException ex)
+		{
+			return Collections.emptyMap();
+		}
+	}
+
+	/** Open website: with Automatic upload on, opens your own live profile (with goal editing). */
+	private void openWebsite()
+	{
+		String site = config.websiteUrl().trim();
+		String key = config.autoUpload() ? uploadKey(false) : null;
+		if (key == null)
+		{
+			LinkBrowser.browse(site);
+			return;
+		}
+		// Everything after # stays in the browser: it's never sent to the website's host.
+		LinkBrowser.browse(site + "#id=" + deriveId(key) + "&edit=" + deriveEditToken(key));
+	}
+
+	/** Copy share link: a read-only link to your uploaded profile. */
+	private void copyShareLink()
+	{
+		String key = uploadKey(false);
+		if (!config.autoUpload() || key == null)
+		{
+			panel.setStatus("Turn on Automatic upload in the plugin settings and log in first.", false);
+			return;
+		}
+		String link = config.websiteUrl().trim() + "#id=" + deriveId(key);
+		SwingUtilities.invokeLater(() ->
+		{
+			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(link), null);
+			panel.setStatus("Share link copied. Anyone with it can view your suggestions, but not change your goals.", true);
+		});
+	}
+
+	/** Delete uploaded data: removes it from the server, turns uploads off and retires the key. */
+	private void deleteUploadedData()
+	{
+		String key = uploadKey(false);
+		if (key == null)
+		{
+			panel.setStatus("Nothing has been uploaded for this account.", true);
+			return;
+		}
+		Request request;
+		try
+		{
+			request = new Request.Builder().url(serverUrl() + "/v1/profile").header("Authorization", "Bearer " + key).delete().build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
+			return;
+		}
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				panel.setStatus("Couldn't reach the upload server, so nothing was deleted. Try again later.", false);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				response.close();
+				if (!response.isSuccessful())
+				{
+					panel.setStatus("The server couldn't delete your data (error " + response.code() + "). Try again later.", false);
+					return;
+				}
+				// A new key next time means old links stop working, even if uploads are switched back on.
+				configManager.setConfiguration(TaskMasterConfig.GROUP, "autoUpload", false);
+				configManager.unsetRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD);
+				panel.setStatus("Your uploaded profile and goals were deleted, and Automatic upload is off.", true);
+			}
+		});
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged e)
+	{
+		if (!TaskMasterConfig.GROUP.equals(e.getGroup()))
+		{
+			return;
+		}
+		if ("autoUpload".equals(e.getKey()) || "publicProfile".equals(e.getKey()))
+		{
+			panel.setUploadEnabled(config.autoUpload());
+			// Upload straight away so the website reflects the change.
+			if (config.autoUpload())
+			{
+				clientThread.invokeLater(() -> sync(true));
+			}
+		}
 	}
 
 	private Map<String, Object> collectionLog()

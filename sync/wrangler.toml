@@ -1,0 +1,13 @@
+name = "osrs-taskmaster-sync"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Websites allowed to read profiles and save goals (comma separated).
+[vars]
+ALLOWED_ORIGINS = "https://j0ffis.github.io,http://127.0.0.1:8787,http://localhost:8787,http://127.0.0.1:8790"
+
+# Created with: npx wrangler d1 create taskmaster  (paste the id it prints below before deploying)
+[[d1_databases]]
+binding = "DB"
+database_name = "taskmaster"
+database_id = "00000000-0000-0000-0000-000000000000"

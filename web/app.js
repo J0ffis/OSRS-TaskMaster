@@ -1,5 +1,6 @@
 import { CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, candidates, lockedContent, pickThree, pickMix, pickBonus, goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel } from "./engine.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./kb.js";
+import { SYNC_API } from "./config.js";
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -24,6 +25,8 @@ const state = {
   excluded: new Set(),
   picks: [],
   tab: "skills",
+  // Where the open profile came from: sample | local (pasted) | server (start-server.ps1) | sync (uploaded)
+  source: null,
 };
 
 // ---- Data -------------------------------------------------------------------------------
@@ -58,49 +61,118 @@ const local = {
   saveGoals: (name, goals) => localStorage.setItem(`tm.goals:${keyOf(name)}`, JSON.stringify(goals)),
 };
 
-async function load(name) {
+// Automatic upload: profiles the plugin uploads are opened with a link, #id=<id>&edit=<token>.
+// The id is read-only and safe to share; the edit token (only in the owner's link) lets goals
+// be saved. Both stay after the # so they never reach the website's host. Links opened in this
+// browser are remembered so the player can come back by name.
+const links = {
+  all: () => JSON.parse(localStorage.getItem("tm.links") || "[]"),
+  save: (list) => localStorage.setItem("tm.links", JSON.stringify(list)),
+  put(link) {
+    const old = links.byId(link.id);
+    // Never downgrade: keep a known edit token if this visit came from a view-only link.
+    const merged = { ...old, ...link, edit: link.edit ?? old?.edit ?? null };
+    links.save([merged, ...links.all().filter((l) => l.id !== link.id)]);
+  },
+  byId: (id) => links.all().find((l) => l.id === id),
+  byName: (name) => links.all().find((l) => keyOf(l.name) === keyOf(name)),
+  remove: (id) => links.save(links.all().filter((l) => l.id !== id)),
+};
+
+async function syncApi(path, opts) {
+  let r;
+  try { r = await fetch(SYNC_API + path, opts); } catch { throw Object.assign(new Error("offline"), { status: 0, sync: true }); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.error ?? r.statusText), { status: r.status, sync: true });
+  return data;
+}
+
+const isReadOnly = () => state.source?.kind === "sync" && !state.source.edit;
+
+/**
+ * Open a profile. `name` is looked up in this order: a profile linked in this browser, one
+ * pasted into this browser, the local server (server mode), then public profiles. `opts.id`
+ * opens an uploaded profile directly (from a link).
+ */
+async function load(name, opts = {}) {
   showError(null);
+  let source;
   try {
+    const link = opts.id ? { id: opts.id, edit: opts.edit ?? links.byId(opts.id)?.edit ?? null }
+      : name !== SAMPLE && !opts.local ? links.byName(name) : null;
     if (name === SAMPLE) {
       state.snap = await api("sample-profile.json");
       state.goals = JSON.parse(localStorage.getItem("tm.sampleGoals") || "null") ?? [
         { id: "g1", type: "skill", skill: "slayer", level: 85 },
         { id: "g2", type: "quest", quest: "Dragon Slayer II" },
       ];
-    } else if (!serverMode) {
+      source = { kind: "sample" };
+    } else if (link) {
+      const r = await syncApi(`/v1/profile/${encodeURIComponent(link.id)}`);
+      state.snap = r.profile; state.goals = r.goals;
+      source = { kind: "sync", id: link.id, edit: link.edit ?? null, public: r.public };
+    } else if (!serverMode && local.get(name)) {
       state.snap = local.get(name);
-      if (!state.snap) throw Object.assign(new Error("not imported"), { status: 404 });
       state.goals = local.goals(name);
-      name = state.snap.player?.name ?? name;
-    } else {
-      state.snap = await api(`/api/profile/${encodeURIComponent(name)}`);
+      source = { kind: "local" };
+    } else if (serverMode && await api(`/api/profile/${encodeURIComponent(name)}`).then((s) => (state.snap = s), () => null)) {
       state.goals = await api(`/api/goals/${encodeURIComponent(name)}`).catch(() => []);
+      source = { kind: "server" };
+    } else {
+      const r = await syncApi(`/v1/public/${encodeURIComponent(name)}`);
+      state.snap = r.profile; state.goals = r.goals;
+      source = { kind: "sync", id: r.id, edit: links.byId(r.id)?.edit ?? null, public: true };
     }
+    name = state.snap.player?.name ?? name;
     // Wealth tracking was removed; drop any old net-worth goals.
-    state.goals = state.goals.filter((g) => g.type !== "wealth");
+    state.goals = (state.goals ?? []).filter((g) => g.type !== "wealth");
     delete state.snap.wealth;
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
-    if (e.status === 404 && !serverMode) return showError(`No profile for "${name}" in this browser yet. In RuneLite, open the OSRS TaskMaster panel, click Copy my profile, then paste it here.`);
-    if (e.status === 404) return showError(`No synced data for "${name}" yet. Log in with the RuneLite plugin enabled, or press Copy my profile in its panel.`);
+    // A name lookup that can't reach the upload service reads like "not found": pasting still works.
+    if (e.sync && e.status === 0 && opts.id) return showError("Couldn't reach the OSRS TaskMaster upload service. Check your connection and try again.");
+    if (e.sync && e.status === 0) e.status = 404;
+    if (e.sync && e.status === 404 && opts.id) return showError("That link doesn't point to a profile any more. Its owner may have deleted their uploaded data.");
+    if (e.status === 404) return showError(`No profile for "${name}" yet. If it's yours: in RuneLite, open the OSRS TaskMaster panel and either click Copy my profile and paste it here, or switch on Automatic upload and click Open website.`);
     if (e.status === 400) return showError("That doesn't look like an OSRS name (1–12 letters, numbers, spaces, - or _).");
-    return showError("Couldn't reach the OSRS TaskMaster server. Is start-server.ps1 running?");
+    return showError(serverMode ? "Couldn't reach the OSRS TaskMaster server. Is start-server.ps1 running?" : "Something went wrong loading that profile. Try again in a moment.");
   }
   state.name = name;
+  state.source = source;
+  state.loadedAt = Date.now();
   state.seed = 0;
   state.excluded.clear();
   state.picks = [];
-  if (name !== SAMPLE) {
-    localStorage.setItem("tm.last", name);
+  if (source.kind === "sync") {
+    links.put({ id: source.id, edit: source.edit, name });
+    // The address bar keeps only the view-only part, so copying it never shares goal editing.
+    history.replaceState(null, "", `#id=${source.id}`);
+  } else if (name !== SAMPLE) {
     history.replaceState(null, "", `#${encodeURIComponent(name)}`);
   }
+  if (name !== SAMPLE) localStorage.setItem("tm.last", name);
+  refreshKnown();
+  $("#name").value = name === SAMPLE ? "" : name;
   $("#intro").hidden = true;
   $("#app").hidden = false;
   renderAll();
 }
 
+/** Uploaded profiles: fetch the latest when the player comes back to the tab. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.source?.kind === "sync" && Date.now() - (state.loadedAt ?? 0) > 60_000) {
+    load(state.name, { id: state.source.id });
+  }
+});
+
 async function saveGoals() {
   if (state.name === SAMPLE) return localStorage.setItem("tm.sampleGoals", JSON.stringify(state.goals));
+  if (state.source?.kind === "sync") {
+    if (!state.source.edit) return;
+    return syncApi(`/v1/goals/${encodeURIComponent(state.source.id)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json", "X-Edit-Token": state.source.edit }, body: JSON.stringify(state.goals),
+    }).catch(() => alert("Couldn't save goals: the OSRS TaskMaster upload service didn't respond. Your change will be lost when you leave this page."));
+  }
   if (!serverMode) return local.saveGoals(state.name, state.goals);
   await api(`/api/goals/${encodeURIComponent(state.name)}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state.goals),
@@ -141,7 +213,7 @@ function renderSummary() {
   $("#summary").innerHTML = `
     <div class="who">
       <h2>${esc(p.name)}</h2>
-      <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `Synced <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}</div>
+      <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `${state.source.kind === "sync" ? "Uploaded" : "Synced"} <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}${isReadOnly() ? ` · <span class="viewonly" title="Opened from a share link or public profile: you can see the suggestions but not change the goals">View only</span>` : ""}</div>
     </div>
     <div class="stats">
       ${stat(a.total, "Total level")}
@@ -271,7 +343,7 @@ function renderBonus() {
       ${c.progress != null ? `<div class="bar" title="${Math.round(c.progress * 100)}%"><i style="width:${Math.round(c.progress * 100)}%"></i></div>` : ""}
       <div class="actions">
         <button class="btn tiny" data-bonus-swap type="button">Another bonus</button>
-        ${toGoal(c) ? `<button class="btn tiny ghost" data-bonus-goal type="button">Make it a goal</button>` : ""}
+        ${!isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-bonus-goal type="button">Make it a goal</button>` : ""}
       </div>
     </article>`;
 }
@@ -292,7 +364,7 @@ function cardHTML(c, i) {
       <ul>${c.why.slice(0, 3).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
       <div class="actions">
         <button class="btn tiny" data-swap="${i}" type="button">Swap</button>
-        ${c.category !== "goals" && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
+        ${c.category !== "goals" && !isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
       </div>
     </article>`;
 }
@@ -320,16 +392,18 @@ function toGoal(c) {
 
 function renderGoals() {
   const el = $("#goals");
+  const ro = isReadOnly();
+  $("#goalform").hidden = ro;
   if (!state.goals.length) {
-    el.innerHTML = `<li class="muted small">No goals yet. Add one below, or press "Make it a goal" on a suggestion.</li>`;
+    el.innerHTML = `<li class="muted small">${ro ? "No goals set." : `No goals yet. Add one below, or press "Make it a goal" on a suggestion.`}</li>`;
     return;
   }
   el.innerHTML = state.goals.map((g) => {
     const p = goalProgress(g, state.snap);
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
-      <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}> ` : ""}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
-      <span class="l">${esc(p.label)} <button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button></span>
+      <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}${ro ? " disabled" : ""}> ` : ""}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
+      <span class="l">${esc(p.label)}${ro ? "" : ` <button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button>`}</span>
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
     </li>`;
   }).join("");
@@ -664,9 +738,20 @@ $("#tabs").addEventListener("click", (e) => {
 
 // ---- Boot --------------------------------------------------------------------------------
 
+/** The address after #: either a profile link (id=…&edit=…) or a player name. */
+function readHash() {
+  const raw = location.hash.slice(1);
+  if (/^id=/.test(raw)) {
+    const p = new URLSearchParams(raw);
+    return { id: p.get("id"), edit: p.get("edit") };
+  }
+  return { name: decodeURIComponent(raw) };
+}
+
 window.addEventListener("hashchange", () => {
-  const n = decodeURIComponent(location.hash.slice(1));
-  if (n && n !== state.name) { $("#name").value = n; load(n); }
+  const h = readHash();
+  if (h.id && h.id !== state.source?.id) load(null, h);
+  else if (h.name && h.name !== state.name) { $("#name").value = h.name; load(h.name); }
 });
 
 // ---- Importing a profile (browser mode) --------------------------------------------------
@@ -702,7 +787,7 @@ function importProfile(text) {
   $("#importdlg").close();
   refreshKnown();
   $("#name").value = snap.player.name;
-  load(snap.player.name);
+  load(snap.player.name, { local: true });
 }
 
 async function importFile(file) {
@@ -712,8 +797,12 @@ async function importFile(file) {
 }
 
 function refreshKnown() {
-  const names = serverMode ? refreshKnown.server : local.names();
-  $("#known").innerHTML = (names ?? []).map((n) => `<option value="${esc(n.replace(/_/g, " "))}">`).join("");
+  // Profiles this browser knows about: pasted ones (or the local server's), plus opened links.
+  const names = [];
+  for (const n of [...((serverMode ? refreshKnown.server : local.names()) ?? []).map((n) => n.replace(/_/g, " ")), ...links.all().map((l) => l.name)]) {
+    if (n && !names.some((m) => keyOf(m) === keyOf(n))) names.push(n);
+  }
+  $("#known").innerHTML = names.map((n) => `<option value="${esc(n)}">`).join("");
   const list = $("#knownlist");
   if (!serverMode && names.length) {
     list.hidden = false;
@@ -744,13 +833,22 @@ function setupImport() {
     e.preventDefault();
     importFile(e.dataTransfer.files[0]);
   });
-  $("#importbtn").addEventListener("click", () => { importError(null); $("#forget").parentElement.hidden = !state.name || state.name === SAMPLE; $("#importdlg").showModal(); });
+  $("#importbtn").addEventListener("click", () => {
+    importError(null);
+    $("#forget").parentElement.hidden = !["local", "sync"].includes(state.source?.kind);
+    $("#importdlg").showModal();
+  });
   $("#importdlg").addEventListener("click", (e) => {
     if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
   });
   $("#forget").addEventListener("click", () => {
-    if (!state.name || !confirm(`Remove ${state.name}'s profile and goals from this browser?`)) return;
-    local.forget(state.name);
+    const synced = state.source?.kind === "sync";
+    if (!state.name || !confirm(synced
+      ? `Forget ${state.name}'s link in this browser? The uploaded profile itself stays on the server; delete it from the RuneLite plugin's panel.`
+      : `Remove ${state.name}'s profile and goals from this browser?`)) return;
+    if (synced) links.remove(state.source.id);
+    else local.forget(state.name);
+    state.source = null;
     localStorage.removeItem("tm.last");
     $("#importdlg").close();
     state.name = null;
@@ -779,11 +877,12 @@ function setupImport() {
   document.body.classList.toggle("static", !serverMode);
   setupImport();
   refreshKnown();
-  const fromHash = decodeURIComponent(location.hash.slice(1));
-  const last = fromHash || localStorage.getItem("tm.last");
+  const h = readHash();
+  if (h.id) return load(null, h);
+  const last = h.name || localStorage.getItem("tm.last");
   if (last) {
     $("#name").value = last;
-    // In browser mode the profile is right here, so open it straight away.
-    if (fromHash || (!serverMode && local.get(last))) load(last);
+    // Profiles this browser already has (pasted or linked) open straight away.
+    if (h.name || (!serverMode && local.get(last)) || links.byName(last)) load(last);
   }
 })();
