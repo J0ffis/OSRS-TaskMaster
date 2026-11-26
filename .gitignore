@@ -1,6 +1,10 @@
 # Private, per-machine data: sync token, synced profiles and goals
 server/data/
 
+# RuneLite login session written by --insecure-write-credentials. It lives in
+# %USERPROFILE%\.runelite, but never commit a copy that lands in the project by accident.
+credentials.properties
+
 # Build output
 plugin/build/
 plugin/.gradle/

@@ -1,4 +1,4 @@
-import { CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, candidates, lockedContent, pickThree, pickMix, goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel } from "./engine.js";
+import { CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, candidates, lockedContent, pickThree, pickMix, pickBonus, goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel } from "./engine.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./kb.js";
 
 const $ = (s) => document.querySelector(s);
@@ -34,6 +34,30 @@ async function api(path, opts) {
   return r.status === 204 ? null : r.json();
 }
 
+// Two ways to run the site:
+// - Server mode: start-server.ps1 is running; the plugin syncs to it and goals are saved there.
+// - Browser mode (the hosted site): players paste the profile the plugin copies. Profiles and
+//   goals are kept in this browser's localStorage only; nothing is uploaded anywhere.
+let serverMode = false;
+const keyOf = (name) => String(name).trim().toLowerCase().replace(/[\s_-]+/g, " ");
+const local = {
+  names: () => JSON.parse(localStorage.getItem("tm.profileNames") || "[]"),
+  get: (name) => JSON.parse(localStorage.getItem(`tm.profile:${keyOf(name)}`) || "null"),
+  put(snap) {
+    const name = snap.player.name;
+    localStorage.setItem(`tm.profile:${keyOf(name)}`, JSON.stringify(snap));
+    const names = local.names().filter((n) => keyOf(n) !== keyOf(name));
+    localStorage.setItem("tm.profileNames", JSON.stringify([name, ...names]));
+  },
+  forget(name) {
+    localStorage.removeItem(`tm.profile:${keyOf(name)}`);
+    localStorage.removeItem(`tm.goals:${keyOf(name)}`);
+    localStorage.setItem("tm.profileNames", JSON.stringify(local.names().filter((n) => keyOf(n) !== keyOf(name))));
+  },
+  goals: (name) => JSON.parse(localStorage.getItem(`tm.goals:${keyOf(name)}`) || "[]"),
+  saveGoals: (name, goals) => localStorage.setItem(`tm.goals:${keyOf(name)}`, JSON.stringify(goals)),
+};
+
 async function load(name) {
   showError(null);
   try {
@@ -43,6 +67,11 @@ async function load(name) {
         { id: "g1", type: "skill", skill: "slayer", level: 85 },
         { id: "g2", type: "quest", quest: "Dragon Slayer II" },
       ];
+    } else if (!serverMode) {
+      state.snap = local.get(name);
+      if (!state.snap) throw Object.assign(new Error("not imported"), { status: 404 });
+      state.goals = local.goals(name);
+      name = state.snap.player?.name ?? name;
     } else {
       state.snap = await api(`/api/profile/${encodeURIComponent(name)}`);
       state.goals = await api(`/api/goals/${encodeURIComponent(name)}`).catch(() => []);
@@ -52,7 +81,8 @@ async function load(name) {
     delete state.snap.wealth;
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
-    if (e.status === 404) return showError(`No synced data for "${name}" yet. Log in with the RuneLite plugin enabled, or press Sync now in its panel.`);
+    if (e.status === 404 && !serverMode) return showError(`No profile for "${name}" in this browser yet. In RuneLite, open the OSRS TaskMaster panel, click Copy my profile, then paste it here.`);
+    if (e.status === 404) return showError(`No synced data for "${name}" yet. Log in with the RuneLite plugin enabled, or press Copy my profile in its panel.`);
     if (e.status === 400) return showError("That doesn't look like an OSRS name (1–12 letters, numbers, spaces, - or _).");
     return showError("Couldn't reach the OSRS TaskMaster server. Is start-server.ps1 running?");
   }
@@ -71,6 +101,7 @@ async function load(name) {
 
 async function saveGoals() {
   if (state.name === SAMPLE) return localStorage.setItem("tm.sampleGoals", JSON.stringify(state.goals));
+  if (!serverMode) return local.saveGoals(state.name, state.goals);
   await api(`/api/goals/${encodeURIComponent(state.name)}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state.goals),
   }).catch(() => showToastError());
@@ -161,7 +192,7 @@ function currentList() {
 
 function renderOptIns() {
   $("#optins").innerHTML = Object.entries(CONTENT_TOGGLES).map(([k, label]) =>
-    `<button type="button" class="toggle" data-content="${k}" aria-pressed="${!!state.content[k]}">${esc(label)}</button>`).join("");
+    `<button type="button" class="toggle" data-content="${k}" aria-pressed="${!!state.content[k]}"${k === "wilderness" ? ` title="${esc(WILD_TIP)}"` : ""}>${k === "wilderness" ? `<span class="skull" aria-hidden="true">☠</span> ` : ""}${esc(label)}</button>`).join("");
   // Count across every tier, so the number doesn't jump when switching tiers.
   const locked = lockedContent(state.snap, { categories: state.cats, content: state.content });
   const btn = $("#lockedbtn");
@@ -177,6 +208,8 @@ function renderCards(fresh = false, keep = null) {
     ? pickMix(list, { seed: state.seed, exclude: state.excluded })
     : pickThree(list, { seed: state.seed, exclude: state.excluded });
   else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep });
+  if (fresh) state.bonus = pickBonus(listCache.all, { seed: state.seed, exclude: state.excluded });
+  renderBonus();
   const el = $("#cards");
   el.classList.toggle("mix", isMix());
   if (!state.picks.length) {
@@ -214,6 +247,35 @@ function finishSpin(el) {
   }, 1000);
 }
 
+// The Bonus tier sits above Long haul: huge log completions. It's never one of the regular
+// picks or a grind style; one is offered on its own below them, for players who want it.
+// Wilderness warning: other players can attack and take your items there.
+const WILD_TIP = "Wilderness: other players can attack you here, and you can lose items you carry when you die. Bring only what you can afford to lose.";
+const wildBadge = (c) => c.wilderness
+  ? `<span class="wildbadge" title="${esc(WILD_TIP)}" role="note"><span class="skull" aria-hidden="true">☠</span> Wilderness: PvP risk</span>`
+  : "";
+
+function renderBonus() {
+  const el = $("#bonus");
+  const c = state.bonus;
+  el.hidden = !c;
+  if (!c) { el.innerHTML = ""; return; }
+  el.innerHTML = `
+    <article class="card bonus" style="--c:var(--t-Bonus)">
+      <div class="bonushead">
+        <span class="tierbadge t-Bonus" title="Third age tier: above Long haul">Bonus grind</span>
+        <span class="muted small">Above Long haul: for when you want a project that lasts months.</span>
+      </div>
+      ${wildBadge(c)}<h3>${esc(c.title)}</h3>
+      <p class="detail">${esc(c.detail)}</p>
+      ${c.progress != null ? `<div class="bar" title="${Math.round(c.progress * 100)}%"><i style="width:${Math.round(c.progress * 100)}%"></i></div>` : ""}
+      <div class="actions">
+        <button class="btn tiny" data-bonus-swap type="button">Another bonus</button>
+        ${toGoal(c) ? `<button class="btn tiny ghost" data-bonus-goal type="button">Make it a goal</button>` : ""}
+      </div>
+    </article>`;
+}
+
 function cardHTML(c, i) {
   const spinning = spin === "all" || spin === i;
   // Mixed view: colour means tier (matching the tier bar); the category becomes a small dot.
@@ -224,7 +286,7 @@ function cardHTML(c, i) {
       <div class="cat"><span class="catname">${esc(CATEGORIES[c.category])}</span>${isMix()
         ? `<span class="tierbadge t-${c.effort}" title="${TIER_METAL[c.effort]} tier">${esc(TIER_LABEL[c.effort])}</span>`
         : `<span class="effort">${esc(c.effort)}</span>`}</div>
-      <h3>${esc(c.title)}</h3>
+      ${wildBadge(c)}<h3>${esc(c.title)}</h3>
       <p class="detail">${esc(c.detail)}</p>
       ${c.progress != null ? `<div class="bar" title="${Math.round(c.progress * 100)}%"><i style="width:${Math.round(c.progress * 100)}%"></i></div>` : ""}
       <ul>${c.why.slice(0, 3).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
@@ -244,7 +306,11 @@ function toGoal(c) {
   if (m.item) return { id, type: "item", item: m.item };
   if (m.quest) return { id, type: "quest", quest: m.quest };
   if (m.region) return { id, type: "diary", region: m.region, tier: m.tier };
+  // Keep the suggestion's own scope, so the goal reads (and tracks) like the card did.
+  if (m.family) return { id, type: "family", page: m.page, family: m.family, title: m.familyTitle, items: m.items, effort: c.effort };
   if (m.page) return { id, type: "clog", page: m.page };
+  if (m.task != null) return { id, type: "catask", task: m.task, name: m.taskName, tier: m.tier, effort: c.effort };
+  if (m.monster && m.tier) return { id, type: "cabundle", monster: m.monster, tier: m.tier, effort: c.effort };
   if (c.category === "combat") {
     const next = analyse(state.snap).caNext;
     return next ? { id, type: "ca", tier: next.tier } : null;
@@ -490,6 +556,29 @@ $("#cards").addEventListener("click", (e) => {
   }
 });
 
+$("#bonus").addEventListener("click", (e) => {
+  if (!state.bonus) return;
+  if (e.target.closest("[data-bonus-swap]")) {
+    // Cycle through the bonus picks; when they've all been seen, start over.
+    const old = state.bonus.id;
+    (state.bonusSeen ??= new Set()).add(old);
+    state.bonus = pickBonus(listCache.all, { seed: ++state.seed, exclude: state.bonusSeen });
+    if (!state.bonus) { state.bonusSeen = new Set([old]); state.bonus = pickBonus(listCache.all, { seed: state.seed, exclude: state.bonusSeen }); }
+    renderBonus();
+    $("#bonus .card")?.classList.add("spin");
+    return;
+  }
+  if (e.target.closest("[data-bonus-goal]")) {
+    const goal = toGoal(state.bonus);
+    if (goal && !state.goals.some((x) => goalTitle(x) === goalTitle(goal))) {
+      state.goals.push(goal);
+      saveGoals();
+      renderGoals();
+      renderCards(true);
+    }
+  }
+});
+
 $("#optins").addEventListener("click", (e) => {
   const b = e.target.closest("[data-content]");
   if (!b) return;
@@ -580,14 +669,121 @@ window.addEventListener("hashchange", () => {
   if (n && n !== state.name) { $("#name").value = n; load(n); }
 });
 
+// ---- Importing a profile (browser mode) --------------------------------------------------
+
+const importBoxHTML = () => `
+  <div class="importbox">
+    <textarea class="pastebox" rows="3" spellcheck="false" aria-label="Paste your profile here"
+      placeholder="Click here and press Ctrl+V to paste the profile you copied in RuneLite"></textarea>
+    <div class="importrow">
+      <label class="btn tiny">Choose profile file<input type="file" accept=".json,application/json" hidden></label>
+      <span class="muted small">or drag the file onto this page. RuneLite saves it in <code>.runelite\\osrs-taskmaster</code> (Show profile file in the panel).</span>
+    </div>
+    <p class="error importerr" role="alert" hidden></p>
+  </div>`;
+
+function importError(msg) {
+  document.querySelectorAll(".importerr").forEach((el) => { el.hidden = !msg; el.textContent = msg ?? ""; });
+}
+
+/** Read a profile the plugin copied or saved, keep it in this browser, and show it. */
+function importProfile(text) {
+  importError(null);
+  let snap;
+  try { snap = JSON.parse(String(text).trim()); } catch { snap = null; }
+  if (!snap || typeof snap !== "object" || typeof snap.player?.name !== "string" || !snap.skills) {
+    return importError("That isn't an OSRS TaskMaster profile. In RuneLite, click Copy my profile in the OSRS TaskMaster panel, then paste here.");
+  }
+  delete snap.wealth; // never kept, even from an old plugin
+  try { local.put(snap); } catch {
+    return importError("This browser's storage is full. Remove a profile you no longer need (Update profile → Remove) and try again.");
+  }
+  document.querySelectorAll(".pastebox").forEach((t) => { t.value = ""; });
+  $("#importdlg").close();
+  refreshKnown();
+  $("#name").value = snap.player.name;
+  load(snap.player.name);
+}
+
+async function importFile(file) {
+  if (!file) return;
+  if (file.size > 20e6) return importError("That file is too big to be a profile.");
+  importProfile(await file.text());
+}
+
+function refreshKnown() {
+  const names = serverMode ? refreshKnown.server : local.names();
+  $("#known").innerHTML = (names ?? []).map((n) => `<option value="${esc(n.replace(/_/g, " "))}">`).join("");
+  const list = $("#knownlist");
+  if (!serverMode && names.length) {
+    list.hidden = false;
+    list.innerHTML = `Profiles in this browser: ${names.map((n) => `<button type="button" class="link" data-open="${esc(n)}">${esc(n)}</button>`).join(", ")}`;
+  } else list.hidden = true;
+}
+
+function setupImport() {
+  $("#importslot").innerHTML = importBoxHTML();
+  $("#importdlgslot").innerHTML = importBoxHTML();
+  document.addEventListener("paste", (e) => {
+    if (serverMode) return;
+    const text = e.clipboardData?.getData("text") ?? "";
+    // In a paste box, or anywhere outside a text field.
+    const field = e.target.closest?.("input, textarea, select");
+    if (field && !field.classList.contains("pastebox")) return;
+    // Outside a paste box, only react to something that looks like a profile.
+    if (!field && !text.trim().startsWith("{")) return;
+    e.preventDefault();
+    importProfile(text);
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches(".importbox input[type=file]")) importFile(e.target.files[0]).finally(() => { e.target.value = ""; });
+  });
+  document.addEventListener("dragover", (e) => { if (!serverMode && e.dataTransfer?.types?.includes("Files")) e.preventDefault(); });
+  document.addEventListener("drop", (e) => {
+    if (serverMode || !e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    importFile(e.dataTransfer.files[0]);
+  });
+  $("#importbtn").addEventListener("click", () => { importError(null); $("#forget").parentElement.hidden = !state.name || state.name === SAMPLE; $("#importdlg").showModal(); });
+  $("#importdlg").addEventListener("click", (e) => {
+    if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
+  });
+  $("#forget").addEventListener("click", () => {
+    if (!state.name || !confirm(`Remove ${state.name}'s profile and goals from this browser?`)) return;
+    local.forget(state.name);
+    localStorage.removeItem("tm.last");
+    $("#importdlg").close();
+    state.name = null;
+    history.replaceState(null, "", location.pathname);
+    $("#name").value = "";
+    refreshKnown();
+    $("#app").hidden = true;
+    $("#intro").hidden = false;
+  });
+  $("#knownlist").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-open]");
+    if (b) { $("#name").value = b.dataset.open; load(b.dataset.open); }
+  });
+}
+
 (async function boot() {
   // Drop rates are a static file in this project (a one-off wiki snapshot); no outside calls.
   try { setDropRates(await api("data/drop-rates.json")); } catch { /* fall back to the hand-made rules */ }
+  // Server mode only when this page is served by start-server.ps1; anywhere else (the hosted
+  // site) profiles are pasted in and kept in the browser.
   try {
-    const names = await api("/api/profiles");
-    $("#known").innerHTML = names.map((n) => `<option value="${esc(n.replace(/_/g, " "))}">`).join("");
-  } catch { /* server not running or opened as a file */ }
+    const names = await api("api/profiles");
+    if (Array.isArray(names)) { serverMode = true; refreshKnown.server = names; }
+  } catch { /* hosted site, or the server isn't running */ }
+  document.body.classList.remove("booting");
+  document.body.classList.toggle("static", !serverMode);
+  setupImport();
+  refreshKnown();
   const fromHash = decodeURIComponent(location.hash.slice(1));
   const last = fromHash || localStorage.getItem("tm.last");
-  if (last) { $("#name").value = last; if (fromHash) load(fromHash); }
+  if (last) {
+    $("#name").value = last;
+    // In browser mode the profile is right here, so open it straight away.
+    if (fromHash || (!serverMode && local.get(last))) load(last);
+  }
 })();

@@ -128,12 +128,25 @@ export const MONSTER_EFFORT = {
 // occasionally, so the raw rate hides the real grind.
 const SUPERIOR_RARE = "Only drops from superior Slayer creatures, which spawn rarely: a long haul";
 const SUPERIOR_COMMON = "Drops from superior Slayer creatures; common once one spawns";
+const MOON_KEYS = "Requires a skilling and combat half of key, combat keys are easier to come by, but skilling keys can take several hours to amass";
 export const ITEM_EFFORT = {
   "Eternal gem": { effort: "Long", why: SUPERIOR_RARE },
   "Imbued heart": { effort: "Long", why: SUPERIOR_RARE },
   "Mist battlestaff": { effort: "Medium", why: SUPERIOR_COMMON },
   "Dust battlestaff": { effort: "Medium", why: SUPERIOR_COMMON },
+  "Helmet of the moon": { effort: "Long", why: MOON_KEYS },
 };
+
+// Kill-count rewards: unlocked by reaching a number of completions (raid shrouds and records,
+// Xeric's capes, Victor's capes). Always suggested one at a time, never grouped into a family;
+// only "Complete the log" covers several. `series` strips the rank so tiers can be ordered.
+export const KC_REWARDS = [
+  /^Living record \(tier \d\)$/i,
+  /^Icthlarin's shroud \(tier \d\)$/i,
+  /^Sinhaza shroud tier \d$/i,
+  /^Xeric's (guard|warrior|sentinel|general|champion)$/i,
+  /^Victor's cape \(\d+\)$/i,
+];
 
 // Items with duplicate protection (you always get a piece you're missing): always Balanced.
 export const PROTECTED_ITEMS = [

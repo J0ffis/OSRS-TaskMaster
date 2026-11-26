@@ -4,7 +4,7 @@
 import {
   SKILLS, MILESTONES, QUESTS, DIARIES, DIARY_TIER_TOTAL,
   CA_TIER_POINTS, CA_TIERS, CLOG_EASE, RARE_ITEMS,
-  PAGE_EFFORT, MONSTER_EFFORT, PROTECTED_ITEMS, CLUE_PAGE_BASE,
+  PAGE_EFFORT, MONSTER_EFFORT, PROTECTED_ITEMS, CLUE_PAGE_BASE, KC_REWARDS,
   WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
 } from "./kb.js";
@@ -346,7 +346,7 @@ function combatCandidates(snap, a) {
       effort: MONSTER_EFFORT[t.monster] ?? (tierIdx <= 1 ? "Quick" : tierIdx <= 3 ? "Medium" : "Long"),
       group: t.monster,
       base: 40 + pts * 2 - tierIdx * 9 + (kcKey ? 10 : 0) + (t.monster === "Other" ? -10 : 0),
-      meta: { monster: t.monster, tier: t.tier },
+      meta: { monster: t.monster, tier: t.tier, task: t.id, taskName: t.name },
     });
   }
   return out;
@@ -371,29 +371,140 @@ function petInfoRaw(snap) {
 }
 
 const EFFORTS = ["Quick", "Medium", "Long"];
+
+/**
+ * The tier above Long haul. Only "Complete the log" suggestions that would be Long haul anyway
+ * and still miss more than BONUS_MIN_MISSING items that are each a Long haul get it (a whole raid log can be thousands of completions). Bonus picks never show
+ * under any grind style or in Mixed: the page offers one on its own, apart from the regular picks.
+ */
+export const BONUS = "Bonus";
+const BONUS_MIN_MISSING = 4;
+
+const isKcReward = (name) => KC_REWARDS.some((re) => re.test(name));
+// "Living record (tier 3)" -> "living record"; Xeric's capes share one series.
+const kcSeries = (name) => /^xeric's /i.test(name) ? "xeric's"
+  : name.toLowerCase().replace(/\s*\((tier )?\d+\)$|\s+tier \d+$/, "");
 /** "the Zulrah log", but "The Leviathan log" rather than "the The Leviathan log". */
 const theLog = (name) => (/^the /i.test(name) ? `${name} log` : `the ${name} log`);
 const FAMILY_STOP = new Set(["with", "from", "piece", "pieces"]);
 
+// Equipment slot words, longest first. What's left of a name once its slot is removed is the
+// set it belongs to: "Iron platelegs (t)" -> "Iron" + trimmed.
+const SLOT_WORDS = ["full helm", "robe top", "robe bottoms", "robe bottom", "robe legs", "wizard hat", "wizard robe",
+  "platebody", "platelegs", "plateskirt", "kiteshield", "chainbody", "chestplate", "tassets", "cuirass", "chausses",
+  "helmet", "helm", "shield", "chaps", "body", "coif", "vambraces", "bracers", "greaves", "top", "bottoms", "bottom",
+  "legs", "skirt", "shirt", "blouse", "jacket", "trousers", "pants", "tabard", "hat", "hood", "mask", "kasa", "robe",
+  "boots", "shoes", "gloves", "cuffs", "cape", "cloak"];
+const SLOT_RE = new RegExp(`\\b(${SLOT_WORDS.join("|")})\\b`, "i");
+const ARMOUR_SLOTS = new Set(["full helm", "platebody", "platelegs", "plateskirt", "kiteshield", "chainbody", "chestplate",
+  "tassets", "cuirass", "chausses", "helmet", "helm", "shield", "chaps", "body", "coif", "vambraces", "greaves"]);
+const TRIMS = { t: "trimmed", g: "gold-trimmed", h: "heraldic" };
+
+/** "Iron platelegs (t)" -> { stem: "Iron", variant: "t", slot: "platelegs" }, or null if it has no slot. */
+function setPart(name) {
+  let rest = name, variant = "";
+  const v = rest.match(/\s*\(([^)]+)\)\s*$/);
+  if (v) { variant = v[1].toLowerCase().replace(/^h[1-5]$/, "h"); rest = rest.slice(0, v.index); }
+  const slot = rest.match(SLOT_RE);
+  if (!slot) return null;
+  const stem = (rest.slice(0, slot.index) + rest.slice(slot.index + slot[0].length)).replace(/\s+/g, " ").trim();
+  if (!stem) return null;
+  return { stem, variant, slot: slot[0].toLowerCase() };
+}
+
+/** What to call a group of pieces: armour, robes, clothing or a set. */
+function setNoun(items, parts) {
+  // Boots, gloves and capes go with anything; the other pieces decide.
+  const decisive = parts.filter((p) => !/boots|shoes|gloves|cape|cloak/.test(p.slot));
+  if (decisive.length && decisive.every((p) => ARMOUR_SLOTS.has(p.slot))) return "armour";
+  if (items.some((i) => /wizard/i.test(i.name))) return "wizard robes";
+  if (parts.some((p) => /shirt|blouse/.test(p.slot))) return "clothing";
+  if (parts.some((p) => /robe/.test(p.slot))) return "robes";
+  return "set";
+}
+
+/** "Iron trimmed armour", "Black gold-trimmed wizard robes", "Dusk mystic robes", "Gold elegant clothing". */
+function setLabel(stem, variant, noun) {
+  if (TRIMS[variant]) return `${stem} ${TRIMS[variant]} ${noun}`;
+  if (variant && !/^\d+$|tier/.test(variant)) return `${cap(variant)} ${stem.toLowerCase()} ${noun}`;
+  return `${stem} ${noun}`;
+}
+
 /**
- * Groups items that share a distinctive word ("Pink elegant skirt", "Blue elegant shirt" ->
- * "elegant") when at least three of them are missing. Each item joins at most one family.
+ * Groups missing items into named sets when at least three pieces are missing, so cards read
+ * "Get any missing piece of Iron trimmed armour" rather than "any missing iron piece".
+ * 1) Pieces of one set: same stem, same trim or variant, all armour or all clothing.
+ * 2) Whatever's left falls back to a shared distinctive word ("Get any missing pearl").
+ * Each item joins at most one family.
  */
 function itemFamilies(items) {
+  const out = [];
+  const taken = new Set();
+
+  const sets = {};
+  for (const i of items) {
+    const p = setPart(i.name);
+    if (!p) continue;
+    const kind = ARMOUR_SLOTS.has(p.slot) ? "armour" : "outfit";
+    (sets[`${p.stem.toLowerCase()}|${p.variant}|${kind}`] ??= { stem: p.stem, variant: p.variant, items: [], parts: [] });
+    const s = sets[`${p.stem.toLowerCase()}|${p.variant}|${kind}`];
+    s.items.push(i); s.parts.push(p);
+  }
+  for (const [key, s] of Object.entries(sets)) {
+    if (s.items.length < 3) continue;
+    s.items.forEach((i) => taken.add(i.id));
+    const label = setLabel(s.stem, s.variant, setNoun(s.items, s.parts));
+    out.push({ key, label, title: `Get any missing piece of ${label}`, items: s.items });
+  }
+
+  const rest = items.filter((i) => !taken.has(i.id));
   const wordsOf = (i) => [...new Set(i.name.toLowerCase().replace(/[^a-z' ]/g, " ").split(/\s+/)
     .filter((w) => w.length >= 4 && !FAMILY_STOP.has(w)))];
   const count = {};
-  for (const i of items) for (const w of wordsOf(i)) count[w] = (count[w] ?? 0) + 1;
-  const taken = new Set();
-  const out = [];
+  for (const i of rest) for (const w of wordsOf(i)) count[w] = (count[w] ?? 0) + 1;
   for (const [word, n] of Object.entries(count).sort((x, y) => y[1] - x[1])) {
     if (n < 3) break;
-    const members = items.filter((i) => !taken.has(i.id) && wordsOf(i).includes(word));
+    const members = rest.filter((i) => !taken.has(i.id) && wordsOf(i).includes(word));
     if (members.length < 3) continue;
     members.forEach((i) => taken.add(i.id));
-    out.push({ word, items: members });
+    const label = wordLabel(word, members);
+    out.push({ key: word, label, title: `Get any missing ${label}`, items: members });
   }
   return out;
+}
+
+/**
+ * A name for items grouped only by a shared word, taken from the words their names share:
+ * "Red cavalier", "Navy cavalier" -> "cavalier"; "Evil chicken head", "Evil chicken legs" ->
+ * "Evil chicken piece"; "Golden Armadyl special attack" -> "Golden special attack".
+ */
+function wordLabel(word, members) {
+  if (SLOT_WORDS.includes(word)) return word; // "Get any missing cape"
+  const words = members.map((i) => i.name.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+tier \d+$/i, "").split(/\s+/));
+  const parts = members.map((i) => setPart(i.name));
+  // Same kind of piece in several colours: "Blue tricorn hat", "Red tricorn hat" -> "tricorn hat".
+  const ending = words.every((ws) => ws.length >= 2 && ws.slice(-2).join(" ").toLowerCase() === words[0].slice(-2).join(" ").toLowerCase());
+  if (parts.every(Boolean) && !ending) {
+    const shown = members[0].name.match(new RegExp(word, "i"))?.[0] ?? word;
+    return `piece of ${shown} ${setNoun(members, parts)}`; // "piece of elegant clothing"
+  }
+  const shared = (pick) => {
+    const out = [];
+    for (let k = 0; ; k++) {
+      const w = pick(words[0], k);
+      if (!w || !words.every((ws) => pick(ws, k)?.toLowerCase() === w.toLowerCase()) || k >= Math.min(...words.map((ws) => ws.length))) break;
+      out.push(w);
+    }
+    return out;
+  };
+  const prefix = shared((ws, k) => ws[k]);
+  const suffix = shared((ws, k) => ws[ws.length - 1 - k]).reverse();
+  if (prefix.length === words[0].length) return prefix.join(" "); // every item has the same name
+  if (prefix.at(-1)?.toLowerCase() === "of") prefix.pop();      // "Remnant of ..." -> "Remnant"
+  if (prefix.length && suffix.length) return `${prefix.join(" ")} ${suffix.join(" ")}`;
+  if (suffix.length) return suffix.join(" ");
+  if (prefix.length) return `${prefix.join(" ")} piece`;
+  return `${word} piece`;
 }
 
 /**
@@ -444,8 +555,13 @@ function clogCandidates(snap) {
     // 1) Completing the whole log: one tier harder than its hardest missing item, but a single
     //    missing slot is never a quick win (completing a log is at least Balanced).
     const hardest = Math.max(...missing.map((i) => EFFORTS.indexOf(effortOf(i))));
-    const pageEffort = PAGE_EFFORT[name] ?? (p.tab === "Raids" ? "Long"
+    const usual = PAGE_EFFORT[name] ?? (p.tab === "Raids" ? "Long"
       : EFFORTS[missing.length > 6 ? 2 : missing.length === 1 ? Math.max(1, hardest) : Math.min(2, hardest + 1)]);
+    // Bonus: a Long haul log where more than BONUS_MIN_MISSING of the missing items are each a
+    // Long haul themselves (raids, Barrows, Nex). Logs that are long only because they're big
+    // (Easy clues, Random Events) stay Long haul.
+    const longMissing = missing.filter((i) => effortOf(i) === "Long").length;
+    const pageEffort = usual === "Long" && longMissing > BONUS_MIN_MISSING ? BONUS : usual;
     const rares = missing.filter((i) => rarity(i.name));
     out.push({
       id: `clogpage:${name}`,
@@ -468,20 +584,21 @@ function clogCandidates(snap) {
 
     // 2) Families of similar items ("any elegant piece") become one broad suggestion.
     const fresh = missing.filter((i) => !seen.has(i.id));
-    for (const fam of itemFamilies(fresh.filter((i) => !rarity(i.name)))) {
+    // Kill-count rewards always stay single suggestions.
+    for (const fam of itemFamilies(fresh.filter((i) => !rarity(i.name) && !isKcReward(i.name)))) {
       fam.items.forEach((i) => seen.add(i.id));
       const effort = effortOf(fam.items[0]);
       out.push({
-        id: `clogfam:${name}:${fam.word}`,
+        id: `clogfam:${name}:${fam.key}`,
         category: "clog",
-        title: `Get any missing ${fam.word} piece`,
+        title: fam.title,
         detail: `${fam.items.length} still missing from ${name}: ${fam.items.slice(0, 4).map((i) => i.name).join(", ")}${fam.items.length > 4 ? "…" : ""}`,
         why: [ease >= 6 ? `${name} is one of the quicker logs to fill` : "Any one of these counts", progressLine],
         progress: ratio,
         effort,
         group: name,
         base: 24 + ratio * 15 + ease + Math.min(10, fam.items.length),
-        meta: { page: name },
+        meta: { page: name, family: fam.key, familyTitle: fam.title, items: fam.items.map((i) => i.name) },
       });
     }
 
@@ -493,7 +610,11 @@ function clogCandidates(snap) {
       const chance = p.tab === "Clues" || p.tab === "Minigames" ? null : dropChance(item.name, name);
       const why = [];
       const fixed = ITEM_EFFORT_LC[String(item.name).toLowerCase()];
+      // Kill-count rewards: rank within their series (tier 1 first). Past the first rank they're Long.
+      const kc = isKcReward(item.name);
+      const rank = kc ? nonPet.filter((i) => isKcReward(i.name) && kcSeries(i.name) === kcSeries(item.name)).findIndex((i) => i.id === item.id) : 0;
       if (fixed?.why) why.push(fixed.why);
+      else if (kc) why.push(rank ? "A kill-count reward: needs many more completions than the last rank" : "A kill-count reward: unlocks after a set number of completions");
       else if (chance) {
         const h = expectedHours(chance, name, p.tab);
         why.push(`${chance.rarity} from ${chance.from}: about ${h < 1 ? "under an hour" : `${Math.round(h)} hour${Math.round(h) === 1 ? "" : "s"}`} on average`);
@@ -504,12 +625,12 @@ function clogCandidates(snap) {
         id: `clog:${item.id}`,
         category: "clog",
         title: `Get ${item.name}`,
-        detail: `From the ${name} collection log page (${p.tab} tab).`,
+        detail: `From ${/^the /i.test(name) ? name : `the ${name}`} collection log page (${p.tab} tab).`,
         why,
         progress: ratio,
-        effort: effortOf(item),
+        effort: kc && rank > 0 ? "Long" : effortOf(item),
         group: name,
-        base: 20 + ratio * 20 + ease - (band ? RARITY_COST[band] : 0),
+        base: 20 + ratio * 20 + ease - (band ? RARITY_COST[band] : 0) - rank * 3,
         meta: { page: name, item: item.name },
       });
     }
@@ -652,6 +773,21 @@ export function goalProgress(goal, snap) {
       const got = p.items.filter((i) => i.quantity > 0).length;
       return { progress: got / p.items.length, done: got === p.items.length, label: `${got}/${p.items.length}` };
     }
+    case "family": {
+      // "Any missing elegant piece": done as soon as one of the pieces it listed is logged.
+      const items = itemIndex(snap);
+      const got = goal.items.filter((n) => items.get(n.toLowerCase())?.owned).length;
+      return { progress: got ? 1 : 0, done: got > 0, label: got ? "obtained one" : `${goal.items.length} to choose from` };
+    }
+    case "catask": {
+      const t = snap.combatAchievements?.tasks?.find((x) => x.id === goal.task);
+      return { progress: t?.done ? 1 : 0, done: !!t?.done, label: t?.done ? "complete" : `${goal.tier} task` };
+    }
+    case "cabundle": {
+      const list = (snap.combatAchievements?.tasks ?? []).filter((t) => t.monster === goal.monster && t.tier === goal.tier);
+      const got = list.filter((t) => t.done).length;
+      return { progress: list.length ? got / list.length : 0, done: list.length > 0 && got === list.length, label: `${got}/${list.length} tasks` };
+    }
     case "item": {
       // Collection log items track themselves; anything else is ticked off by hand.
       const it = itemIndex(snap).get(String(goal.item).toLowerCase());
@@ -673,6 +809,9 @@ export function goalTitle(g) {
     case "clog": return `${g.page} collection log`;
     case "pet": return g.pet;
     case "item": return `Obtain ${g.item}`;
+    case "family": return `${g.title ?? `Get any missing ${g.family} piece`} (${g.page})`;
+    case "catask": return g.name;
+    case "cabundle": return `Finish every ${g.tier} task at ${g.monster}`;
     default: return g.text;
   }
 }
@@ -696,6 +835,9 @@ function advances(c, g, a) {
       const it = itemIndex(a.snap).get(String(g.item).toLowerCase());
       return !!it && (m.item === it.name || m.pet === it.name);
     }
+    case "family": return m.family === g.family && m.page === g.page || (m.page === g.page && g.items.includes(m.item));
+    case "catask": return m.task === g.task;
+    case "cabundle": return m.monster === g.monster && m.tier === g.tier;
     default: return false;
   }
 }
@@ -719,13 +861,18 @@ function goalEffort(g, snap, a, byId, byItem) {
     // Reaching a reward tier takes many tasks: Hard and above are long hauls.
     case "ca": return { Easy: "Quick", Medium: "Medium" }[g.tier] ?? "Long";
     case "pet": return "Long";
-    case "clog": return byId.get(`clogpage:${g.page}`)?.effort ?? "Long";
+    // A log you chose as a goal shows as a Long haul, even if the suggestion was a Bonus.
+    case "clog": { const e = byId.get(`clogpage:${g.page}`)?.effort; return e && e !== BONUS ? e : "Long"; }
     case "item": {
       const it = itemIndex(snap).get(String(g.item).toLowerCase());
       if (!it) return "Medium"; // not in the collection log: ticked off by hand
       if (petInfo(snap).ids.has(it.id)) return "Long";
       return byItem.get(it.name)?.effort ?? (rarity(it.name) ? "Long" : "Medium");
     }
+    // These keep the tier their suggestion had when it was made into a goal.
+    case "family": return byId.get(`clogfam:${g.page}:${g.family}`)?.effort ?? g.effort ?? "Medium";
+    case "catask": return byId.get(`ca:${g.task}`)?.effort ?? g.effort ?? "Medium";
+    case "cabundle": return byId.get(`cabundle:${g.monster}|${g.tier}`)?.effort ?? g.effort ?? "Medium";
     default: return "Medium";
   }
 }
@@ -744,12 +891,19 @@ function goalCandidates(snap, goals, others = []) {
     if (g.type === "item") {
       const it = items.get(String(g.item).toLowerCase());
       detail = it ? `Drops on the ${it.page} collection log page.` : "Not a collection log item, so tick it off yourself when you get it.";
+    } else if (g.type === "family") {
+      detail = `Any one of: ${g.items.slice(0, 4).join(", ")}${g.items.length > 4 ? "…" : ""}`;
+    } else if (g.type === "catask") {
+      detail = byId.get(`ca:${g.task}`)?.detail ?? `${g.tier} combat achievement.`;
     }
     out.push({
       id: `goal:${g.id}`, category: "goals", title: `Goal: ${goalTitle(g)}`,
       detail, why: ["You set this goal on your profile"],
       progress: p.progress, effort, base: 45 + p.progress * 30,
       meta: { goalId: g.id }, goal: g,
+      // Goals are never hidden by the Wilderness toggle, but still carry the warning.
+      wilderness: WILDERNESS_PAGES.has(g.page ?? items.get(String(g.item ?? "").toLowerCase())?.page)
+        || WILDERNESS_MONSTERS.has(g.monster) || g.region === "Wilderness",
     });
   }
   return out;
@@ -819,7 +973,7 @@ function evaluate(snap, goals, opts) {
   const a = analyse(snap);
   const style = opts.style; // quick | balanced | long; omit for every tier
   const content = opts.content ?? {}; // { minigames, wilderness, clues }: opt-in, off by default
-  const effortBias = { Quick: 0, Medium: 0, Long: 0 };
+  const effortBias = { Quick: 0, Medium: 0, Long: 0, [BONUS]: 0 };
 
   const locks = new Map();
   // Copies, because scoring below adds goal reasons to `why`.
@@ -827,6 +981,8 @@ function evaluate(snap, goals, opts) {
   let list = generated.filter((c) => {
     const tag = contentTag(c, snap);
     if (tag && !content[tag]) return false;
+    // Flag Wilderness content so the card can warn about PvP risk.
+    if (tag === "wilderness") c.wilderness = true;
     const lock = lockOf(c, a);
     if (lock) {
       const entry = locks.get(lock.content) ?? { ...lock, hidden: 0 };
@@ -906,8 +1062,13 @@ export function pickMix(list, { seed = 0, exclude = new Set(), quota = MIX_QUOTA
     picked = next;
   });
   // Top up from any tier if one ran short.
-  if (picked.length < total) picked = pickThree(list, { seed, exclude, keep: picked, n: total });
+  if (picked.length < total) picked = pickThree(list.filter((c) => c.effort !== BONUS), { seed, exclude, keep: picked, n: total });
   return tiers.flatMap((t) => picked.filter((c) => c.effort === t));
+}
+
+/** One Bonus suggestion (a huge log completion), shown apart from the regular picks. */
+export function pickBonus(list, { seed = 0, exclude = new Set() } = {}) {
+  return pickThree(list.filter((c) => c.effort === BONUS), { seed, exclude, n: 1 })[0] ?? null;
 }
 
 function mulberry32(a) {

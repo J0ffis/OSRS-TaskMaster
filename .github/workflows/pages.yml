@@ -1,0 +1,35 @@
+# Publishes the website (the web/ folder) to GitHub Pages on every push to main.
+# One-time setup on GitHub: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+# The site is plain static files: no build step, no server. Profiles are pasted in by each
+# player and kept in their own browser.
+name: Publish website
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

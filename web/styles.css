@@ -179,6 +179,40 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 .tierbadge.t-Medium { background: var(--t-Medium); color: var(--t-Medium-ink); }
 .tierbadge.t-Long { background: var(--t-Long); color: var(--t-Long-ink); }
 
+/* Bonus tier, above Long haul: themed after Third age (pale silver with gold trim). It isn't a
+   grind style; one bonus card sits on its own row under the regular picks. */
+:root { --t-Bonus: #d9dde3; --t-Bonus-ink: #1b1f26; --t-Bonus-trim: #e0b04a; }
+.tierbadge.t-Bonus { background: linear-gradient(180deg, #eef0f3, var(--t-Bonus)); color: var(--t-Bonus-ink);
+  box-shadow: inset 0 0 0 1px var(--t-Bonus-trim); }
+.bonusrow { margin-top: 16px; }
+.card.bonus { border-color: color-mix(in srgb, var(--t-Bonus-trim) 45%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--t-Bonus) 7%, var(--panel)), var(--panel) 60%); }
+.card.bonus::before { background: linear-gradient(90deg, var(--t-Bonus-trim), var(--t-Bonus), var(--t-Bonus-trim)); }
+.bonushead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.card.bonus .actions { margin-top: 2px; }
+
+/* Browser mode (hosted site) vs server mode (start-server.ps1): show only the matching help. */
+body.booting .only-static, body.booting .only-server,
+body.static .only-server, body:not(.static) .only-static { display: none !important; }
+
+/* Profile import: a paste box, a file button, and drag-and-drop anywhere on the page. */
+.importbox { display: grid; gap: 10px; margin: 6px 0 14px; max-width: 640px; }
+.pastebox { width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; padding: 12px 14px;
+  background: var(--panel-2); color: var(--text, #e8dcc4); border: 1px dashed var(--line); border-radius: 12px;
+  font: 14px var(--sans); }
+.pastebox:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-style: solid; }
+.importrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.importrow label.btn { cursor: pointer; }
+.importerr { margin: 0; }
+.forgetrow { margin: 4px 0 0; }
+
+/* Wilderness warning badge: a skull and crossbones on any card in PvP-risk areas. */
+.wildbadge { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 6px;
+  border-radius: 99px; font-size: 12px; font-weight: 700; letter-spacing: .3px;
+  color: #ffd9d2; background: #3a1210; border: 1px solid #b2382c; }
+.wildbadge .skull { font-size: 15px; line-height: 1; color: #f2ede4; font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", sans-serif; }
+.card.bonus .wildbadge { margin-top: -2px; }
+
 .emptycard { grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; }
 @keyframes rise { from { transform: translateY(6px); } }
 

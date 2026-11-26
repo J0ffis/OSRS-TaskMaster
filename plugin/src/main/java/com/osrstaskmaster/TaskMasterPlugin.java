@@ -6,8 +6,15 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
+import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.concurrent.ScheduledExecutorService;
+import javax.swing.SwingUtilities;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +45,8 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.RuneLite;
+import net.runelite.client.util.LinkBrowser;
 import net.runelite.client.util.Text;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -50,7 +59,7 @@ import okhttp3.Response;
 @Slf4j
 @PluginDescriptor(
 	name = "OSRS TaskMaster",
-	description = "Sends your own account progress to your OSRS TaskMaster site so it can suggest what to grind next",
+	description = "Saves your own account progress so the OSRS TaskMaster website can suggest what to grind next",
 	tags = {"goals", "planner", "collection", "combat achievements", "diary", "quests"}
 )
 public class TaskMasterPlugin extends Plugin
@@ -78,6 +87,7 @@ public class TaskMasterPlugin extends Plugin
 	@Inject private TaskMasterConfig config;
 	@Inject private SnapshotCollector collector;
 	@Inject private ProgressStore store;
+	@Inject private ScheduledExecutorService executor;
 
 	private TaskMasterPanel panel;
 	private NavigationButton navButton;
@@ -99,6 +109,14 @@ public class TaskMasterPlugin extends Plugin
 	/** Move plugin settings saved under the previous name, then delete the old copies. */
 	private void migrateLegacySettings()
 	{
+		// Before the website import existed, every update went to the local server. Anyone who
+		// had set a token was using that server, so keep sending to it.
+		if (configManager.getConfiguration(TaskMasterConfig.GROUP, "serverSync") == null
+			&& (notBlank(configManager.getConfiguration(TaskMasterConfig.GROUP, "token"))
+				|| notBlank(configManager.getConfiguration(TaskMasterConfig.LEGACY_GROUP, "token"))))
+		{
+			configManager.setConfiguration(TaskMasterConfig.GROUP, "serverSync", true);
+		}
 		for (String key : new String[]{"endpoint", "token", "autoSync", "minMinutesBetweenSyncs"})
 		{
 			String old = configManager.getConfiguration(TaskMasterConfig.LEGACY_GROUP, key);
@@ -118,7 +136,10 @@ public class TaskMasterPlugin extends Plugin
 	protected void startUp()
 	{
 		migrateLegacySettings();
-		panel = new TaskMasterPanel(() -> clientThread.invokeLater(() -> sync(true)));
+		panel = new TaskMasterPanel(
+			() -> clientThread.invokeLater(this::copyProfile),
+			() -> LinkBrowser.browse(config.websiteUrl().trim()),
+			this::openExportFolder);
 		navButton = NavigationButton.builder()
 			.tooltip("OSRS TaskMaster")
 			.icon(icon())
@@ -283,25 +304,130 @@ public class TaskMasterPlugin extends Plugin
 		}
 	}
 
-	// ---- Sync ---------------------------------------------------------------------------
+	// ---- Profile export and sync ---------------------------------------------------------
 
-	/** Must run on the client thread. */
-	private void sync(boolean manual)
+	private static boolean notBlank(String s)
+	{
+		return s != null && !s.trim().isEmpty();
+	}
+
+	/** The profile as JSON, or null if not logged in. Must run on the client thread. */
+	private String snapshotJson()
 	{
 		if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null)
 		{
-			panel.setStatus("Log in to sync.", false);
-			return;
-		}
-		if (inFlight)
-		{
-			return;
+			return null;
 		}
 		Map<String, Object> snapshot = collector.collect();
 		snapshot.put("collectionLog", collectionLog());
 		snapshot.put("killCounts", store.killCounts);
+		return gson.toJson(snapshot);
+	}
 
-		String body = gson.toJson(snapshot);
+	private File exportDir()
+	{
+		return new File(RuneLite.RUNELITE_DIR, "osrs-taskmaster");
+	}
+
+	/** Saves the profile to .runelite/osrs-taskmaster/<name>.json, off the client thread. */
+	private void writeExport(String json)
+	{
+		String name = client.getLocalPlayer().getName();
+		String file = (name == null ? "profile" : name.replaceAll("[^A-Za-z0-9 _-]", "_")) + ".json";
+		executor.execute(() ->
+		{
+			try
+			{
+				File dir = exportDir();
+				Files.createDirectories(dir.toPath());
+				Files.write(new File(dir, file).toPath(), json.getBytes(StandardCharsets.UTF_8));
+			}
+			catch (IOException ex)
+			{
+				log.warn("OSRS TaskMaster: could not save the profile file", ex);
+			}
+		});
+	}
+
+	/** "Copy my profile": update the file, copy the profile for pasting on the website. Client thread. */
+	private void copyProfile()
+	{
+		String json = snapshotJson();
+		if (json == null)
+		{
+			panel.setStatus("Log in first, then copy your profile.", false);
+			return;
+		}
+		writeExport(json);
+		dirty = false;
+		lastSyncAt = System.currentTimeMillis();
+		SwingUtilities.invokeLater(() ->
+		{
+			try
+			{
+				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(json), null);
+				panel.setStatus("Copied at " + now() + ". Open the website and press Ctrl+V.", true);
+			}
+			catch (IllegalStateException ex)
+			{
+				panel.setStatus("Couldn't use the clipboard. Use Show profile file and load that file on the website instead.", false);
+			}
+		});
+		if (config.serverSync())
+		{
+			postToServer(json, true);
+		}
+	}
+
+	private void openExportFolder()
+	{
+		executor.execute(() ->
+		{
+			try
+			{
+				File dir = exportDir();
+				Files.createDirectories(dir.toPath());
+				LinkBrowser.open(dir.getAbsolutePath());
+			}
+			catch (IOException ex)
+			{
+				panel.setStatus("Couldn't open " + exportDir(), false);
+			}
+		});
+	}
+
+	private static String now()
+	{
+		return new java.text.SimpleDateFormat("HH:mm").format(new java.util.Date());
+	}
+
+	/** Automatic update: refresh the profile file, and send it to your own server if enabled. Client thread. */
+	private void sync(boolean manual)
+	{
+		String json = snapshotJson();
+		if (json == null)
+		{
+			return;
+		}
+		dirty = false;
+		lastSyncAt = System.currentTimeMillis();
+		writeExport(json);
+		if (config.serverSync())
+		{
+			postToServer(json, manual);
+		}
+		else
+		{
+			panel.setStatus("Profile up to date (" + now() + "). Click Copy my profile to use it on the website.", true);
+		}
+	}
+
+	private void postToServer(String body, boolean manual)
+	{
+		if (inFlight)
+		{
+			return;
+		}
 		String endpoint = config.endpoint().trim();
 		Request.Builder rb;
 		try
@@ -320,8 +446,6 @@ public class TaskMasterPlugin extends Plugin
 			rb.header("X-TaskMaster-Token", token);
 		}
 
-		dirty = false;
-		lastSyncAt = System.currentTimeMillis();
 		inFlight = true;
 		panel.setStatus(manual ? "Syncing..." : "Auto-syncing...", true);
 		httpClient.newCall(rb.build()).enqueue(new Callback()
@@ -342,7 +466,7 @@ public class TaskMasterPlugin extends Plugin
 				response.close();
 				if (code >= 200 && code < 300)
 				{
-					panel.setStatus("Synced " + new java.text.SimpleDateFormat("HH:mm").format(new java.util.Date()), true);
+					panel.setStatus("Synced to your server at " + now() + ".", true);
 				}
 				else if (code == 401)
 				{

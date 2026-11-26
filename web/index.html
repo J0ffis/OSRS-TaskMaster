@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='3' fill='%23e0b04a'/%3E%3Cpath d='M4 13V9h2v4zm3 0V6h2v7zm3 0V3h2v10z' fill='%232b2116'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="booting">
   <header class="top">
     <div class="brand">
       <span class="mark" aria-hidden="true"></span>
@@ -18,18 +18,28 @@
       <input id="name" name="name" list="known" maxlength="12" placeholder="Your in-game name" required>
       <datalist id="known"></datalist>
       <button type="submit" class="btn primary">Load profile</button>
+      <button type="button" id="importbtn" class="btn only-static" title="Paste a fresh profile from the RuneLite plugin">Update profile</button>
     </form>
   </header>
 
   <main>
     <section id="intro" class="intro">
       <h1>What should you grind next?</h1>
-      <p class="lede">Enter your name to get three suggestions drawn from your levels, quests, diaries, combat achievements, collection log, pets and goals. Your data comes from the OSRS TaskMaster RuneLite plugin on this PC, so no outside services are asked for anything. Your bank and wealth are never read.</p>
-      <ol class="steps">
+      <p class="lede">Get suggestions drawn from your levels, quests, diaries, combat achievements, collection log, pets and goals. Your data comes from the OSRS TaskMaster RuneLite plugin, so no outside services are asked for anything. Your bank and wealth are never read.</p>
+      <div class="only-static">
+        <ol class="steps">
+          <li><b>Start RuneLite with the plugin.</b> Double-click <code>Start TaskMaster.bat</code> and log in.</li>
+          <li><b>Copy your profile.</b> Open the OSRS TaskMaster panel on RuneLite's sidebar and click <b>Copy my profile</b>.</li>
+          <li><b>Paste it here.</b> Your profile stays in this browser; nothing is uploaded.</li>
+        </ol>
+        <div id="importslot"></div>
+      </div>
+      <ol class="steps only-server">
         <li><b>Run the server.</b> <code>.\start-server.ps1</code> prints a sync token.</li>
         <li><b>Run the plugin.</b> Paste the token into RuneLite → OSRS TaskMaster → Sync token, then log in.</li>
         <li><b>Fill in the gaps.</b> Open the collection log in-game and click Search once.</li>
       </ol>
+      <p id="knownlist" class="muted only-static" hidden></p>
       <p class="muted">Want to see it first? <button id="sample" class="link" type="button">Load sample data</button></p>
       <p id="error" class="error" role="alert" hidden></p>
     </section>
@@ -65,6 +75,7 @@
         <div id="lockedbody"></div>
       </dialog>
       <div id="cards" class="cards"></div>
+      <div id="bonus" class="bonusrow" hidden></div>
 
       <div class="lower">
         <section class="panel" aria-labelledby="goals-h">
@@ -97,6 +108,16 @@
       </div>
     </section>
   </main>
+
+  <dialog id="importdlg" class="dlg" aria-labelledby="import-h">
+    <div class="dlghead">
+      <h3 id="import-h">Update your profile</h3>
+      <button type="button" class="x" data-close aria-label="Close">×</button>
+    </div>
+    <p class="muted small">In RuneLite, click <b>Copy my profile</b> in the OSRS TaskMaster panel, then paste it below.</p>
+    <div id="importdlgslot"></div>
+    <p class="muted small forgetrow"><button id="forget" type="button" class="link small">Remove this profile from this browser</button></p>
+  </dialog>
 
   <footer class="foot muted small">Drop rates from the <a href="https://oldschool.runescape.wiki/" target="_blank" rel="noopener">Old School RuneScape Wiki</a> (CC BY-NC-SA 3.0), saved locally in this project.</footer>
   <script type="module" src="app.js"></script>
