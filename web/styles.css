@@ -141,6 +141,12 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 .card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; }
 .card ul li { margin: 2px 0; }
 .card .actions { margin-top: auto; display: flex; gap: 8px; padding-top: 6px; }
+/* OSRS Wiki quick links: pushed to the right of a card's buttons, and a small one on goals. */
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.card .actions .wiki { margin-left: auto; color: var(--muted); }
+.card .actions .wiki:hover { color: var(--text); }
+.wikimini { color: var(--muted); font-size: 12px; text-decoration: none; margin: 0 4px 0 6px; white-space: nowrap; }
+.wikimini:hover { color: var(--gold); text-decoration: underline; }
 .bar { height: 6px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
 .bar > i { display: block; height: 100%; background: var(--c, var(--gold)); border-radius: 99px; }
 /* Mixed carousel: seven cards across all tiers */
@@ -255,6 +261,8 @@ body.static .only-server, body:not(.static) .only-static { display: none !import
 .goal .t.done { color: var(--good); }
 .goal .l { color: var(--muted); font-size: 12.5px; text-align: right; }
 .goal .bar { grid-column: 1 / -1; }
+/* What the goal actually asks (e.g. a combat achievement's requirement). */
+.goal .gd { grid-column: 1 / -1; color: var(--muted); font-size: 12.5px; line-height: 1.35; }
 .goal .x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 2px; }
 .goal .x:hover { color: var(--bad); }
 .goalform { display: flex; flex-wrap: wrap; gap: 8px; }
