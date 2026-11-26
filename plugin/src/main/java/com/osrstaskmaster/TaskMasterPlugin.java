@@ -2,9 +2,6 @@ package com.osrstaskmaster;
 
 import com.google.gson.Gson;
 import com.google.inject.Provides;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
@@ -46,6 +43,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.RuneLite;
+import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.LinkBrowser;
 import net.runelite.client.util.Text;
 import okhttp3.Call;
@@ -577,18 +575,9 @@ public class TaskMasterPlugin extends Plugin
 		return m;
 	}
 
+	/** Sidebar icon: the task scroll, 16x16 (same design as icon.png and the website's icon.svg). */
 	private static BufferedImage icon()
 	{
-		BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g = img.createGraphics();
-		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g.setColor(new Color(0xE0B04A));
-		g.fillRoundRect(1, 1, 14, 14, 4, 4);
-		g.setColor(new Color(0x2B2116));
-		g.fillRect(4, 9, 2, 4);
-		g.fillRect(7, 6, 2, 7);
-		g.fillRect(10, 3, 2, 10);
-		g.dispose();
-		return img;
+		return ImageUtil.loadImageResource(TaskMasterPlugin.class, "panel_icon.png");
 	}
 }

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- OSRS TaskMaster mark: a task scroll with a tick. Same design as plugin/icon.png. -->
+  <rect x="9" y="9" width="30" height="30" fill="#e8d3a2" stroke="#8a6a35" stroke-width="1.5"/>
+  <ellipse cx="24" cy="8.5" rx="19" ry="4.5" fill="#c9a96a"/>
+  <ellipse cx="24" cy="8.5" rx="17" ry="3" fill="#e8d3a2"/>
+  <ellipse cx="24" cy="39.5" rx="19" ry="4.5" fill="#c9a96a"/>
+  <ellipse cx="24" cy="41" rx="17" ry="2.5" fill="#b08d4f"/>
+  <g stroke="#8a6a35" stroke-width="2.2" stroke-linecap="round">
+    <path d="M14 18h12M14 25h12M14 32h12"/>
+  </g>
+  <path d="M27 24l4.5 5L39 16.5" fill="none" stroke="#2f7d32" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

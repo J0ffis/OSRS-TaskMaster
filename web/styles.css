@@ -45,12 +45,7 @@ code { background: var(--panel-2); padding: 1px 6px; border-radius: 5px; font-si
   position: sticky; top: 0; z-index: 5; backdrop-filter: blur(6px);
 }
 .brand { display: flex; align-items: center; gap: 10px; font: 600 19px var(--serif); letter-spacing: .3px; }
-.mark { width: 22px; height: 22px; border-radius: 6px; background: var(--gold);
-  -webkit-mask: none; position: relative; }
-.mark::after { content: ""; position: absolute; inset: 5px 4px 4px; background:
-  linear-gradient(to top, #2b2116 0 45%, transparent 45%) 0 100% / 3px 100% no-repeat,
-  linear-gradient(to top, #2b2116 0 70%, transparent 70%) 50% 100% / 3px 100% no-repeat,
-  linear-gradient(to top, #2b2116 0 100%, transparent 100%) 100% 100% / 3px 100% no-repeat; }
+.mark { width: 26px; height: 26px; display: block; }
 .lookup { display: flex; gap: 8px; }
 input, select {
   background: var(--panel); color: var(--text); border: 1px solid var(--line);
