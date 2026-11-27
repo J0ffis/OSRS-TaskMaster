@@ -987,7 +987,7 @@ const isCluePage = (page) => /Treasure Trails/i.test(page ?? "");
  * Everything the player could show off next to their name: each owned collection log item and
  * pet once, as { id, name, pet, page, p, rarity }. `p` is the best chance per attempt from the
  * drop-rate snapshot, null when it has none or when it's a clue reward (see isCluePage).
- * Ordered the way automatic picks them: pets, then rarest first, clue rewards last, then A–Z.
+ * Pets first, then rarest first, clue rewards last, then A–Z (the first is the picker's suggestion).
  */
 function showcaseOptionsRaw(snap) {
   const pets = petInfo(snap).ids;
@@ -1002,23 +1002,65 @@ function showcaseOptionsRaw(snap) {
 }
 export const showcaseOptions = memoBySnap(showcaseOptionsRaw);
 
-/** The value saved for "show nothing" (an item name can't be a dash). */
-export const SHOWCASE_NONE = "-";
+/** What can go in the showcase, in the order the picker and the banner show them. */
+export const SHOWCASE_KINDS = ["item", "boss", "quest", "skill"];
+const BOSS_TABS = new Set(["Bosses", "Raids"]);
 
 /**
- * The item to show next to the player's name. `choice` is the saved pick: an item name,
- * SHOWCASE_NONE, or empty for automatic. A pick they don't own (renamed, another account) falls
- * back to automatic. Automatic is the rarest pet they own, or with no pets the rarest item.
- * Returns { ...option, auto } or null when they own nothing.
+ * Everything the player could pick for one showcase slot, as { key, name, detail, itemId?,
+ * sprite?, ... }. `key` is what gets saved. Items: only ones they own. Bosses: boss and raid log
+ * pages and anything with a kill count, most killed first. Quests: finished first. Skills: game order.
  */
-export function showcaseItem(snap, choice) {
-  if (choice === SHOWCASE_NONE) return null;
-  const opts = showcaseOptions(snap);
-  if (choice) {
-    const hit = opts.find((o) => o.name.toLowerCase() === String(choice).toLowerCase());
-    if (hit) return { ...hit, auto: false };
+function showcaseChoicesRaw(snap) {
+  const kc = snap.killCounts ?? {};
+  const pages = snap.collectionLog?.pages ?? {};
+  const petByPage = {};
+  for (const p of petInfo(snap).pets) if (p.source && !petByPage[p.source]) petByPage[p.source] = p.id;
+  const bossNames = new Set([...Object.keys(pages).filter((n) => BOSS_TABS.has(pages[n].tab)), ...Object.keys(kc)]);
+  const boss = [...bossNames].map((n) => ({
+    key: n, name: n, kc: kc[n] ?? null,
+    detail: kc[n] != null ? `${kc[n].toLocaleString()} KC` : "",
+    // The boss's pet if it has one, otherwise the first item on its log page.
+    itemId: petByPage[n] ?? pages[n]?.items?.[0]?.id ?? null,
+  })).sort((a, b) => (b.kc ?? -1) - (a.kc ?? -1) || a.name.localeCompare(b.name));
+  const quest = (snap.quests ?? []).map((q) => ({
+    key: q.name, name: q.name, finished: q.state === "FINISHED", sprite: "cat-quests",
+    detail: q.state === "FINISHED" ? "Finished" : q.state === "IN_PROGRESS" ? "In progress" : "Not started",
+  })).sort((a, b) => Number(b.finished) - Number(a.finished) || a.name.localeCompare(b.name));
+  const skill = SKILLS.filter((k) => snap.skills?.[k]).map((k) => ({
+    key: k, name: cap(k), level: snap.skills[k].level, xp: snap.skills[k].xp ?? 0, sprite: `skill-${k}`,
+    detail: `Level ${snap.skills[k].level}`,
+  }));
+  const item = showcaseOptions(snap).map((o) => ({ ...o, key: o.name, itemId: o.id }));
+  return { item, boss, quest, skill };
+}
+const showcaseChoicesMemo = memoBySnap(showcaseChoicesRaw);
+export const showcaseChoices = (snap, kind) => showcaseChoicesMemo(snap)[kind] ?? [];
+
+/**
+ * The player's picks, resolved against this profile: { item, boss, quest, skill }, each a choice
+ * from showcaseChoices or null. Nothing is ever picked for them: an empty or unknown pick (an item
+ * they don't own, a boss from another account) is simply not shown.
+ */
+export function showcasePicks(snap, saved) {
+  const out = {};
+  for (const kind of SHOWCASE_KINDS) {
+    const want = String(saved?.[kind] ?? "").toLowerCase();
+    out[kind] = (want && showcaseChoices(snap, kind).find((c) => c.key.toLowerCase() === want)) || null;
   }
-  return opts.length ? { ...opts[0], auto: true } : null;
+  return out;
+}
+
+/**
+ * The one choice the picker offers first for a slot, or null: the rarest pet (else rarest item),
+ * the most-killed boss, the skill with the most XP. Quests have no obvious favourite.
+ */
+export function showcaseSuggestion(snap, kind) {
+  const list = showcaseChoices(snap, kind);
+  if (kind === "item") return list[0] ?? null;
+  if (kind === "boss") return list.find((b) => b.kc > 0) ?? null;
+  if (kind === "skill") return list.reduce((x, y) => (!x || y.xp > x.xp ? y : x), null);
+  return null;
 }
 
 // ---- Goals -----------------------------------------------------------------------------

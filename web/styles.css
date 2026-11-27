@@ -100,8 +100,24 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 .showcase.empty { border-style: dashed; border-color: var(--line); color: var(--muted); background: none; font: 600 16px var(--sans); }
 .showcase.empty:hover { color: var(--gold); border-color: var(--gold-dim); }
 #showcasefilter { width: 100%; margin: 10px 0; }
-.showcasemode { margin-bottom: 8px; }
-.showcaselist { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 50vh; overflow-y: auto; }
+.showcasetabs { display: flex; margin-top: 10px; }
+.showcasetabs button { flex: 1; padding: 7px 8px; white-space: nowrap; }
+.showcasetabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); box-shadow: inset 0 -2px 0 var(--gold); }
+.showcasetabs .dot { color: var(--gold); font-size: 8px; vertical-align: 2px; }
+.showcaselist .pick.none { color: var(--muted); font-style: italic; background: none; border: 1px dashed var(--line); }
+.showcaselist .pick.none.on { color: var(--text); border-style: solid; }
+.showcaselist .tag { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .6px; color: var(--gold);
+  border: 1px solid var(--gold-dim); border-radius: 999px; padding: 1px 6px; margin-left: 6px; font-style: normal; }
+.dlgfoot { display: flex; justify-content: flex-end; margin: 12px 0 0; }
+/* Favourite boss, quest and skill: quiet chips under the name, only for the ones picked. */
+.favs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 6px; }
+.favchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 999px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font: 500 13px var(--sans); }
+.favchip:hover, .favchip:focus-visible { border-color: var(--gold-dim); }
+.favchip .gicon { max-height: 18px; width: auto; image-rendering: pixelated; }
+.favchip.max span { color: var(--gold); }
+.toggle.showcaseedit::before { content: "★"; color: var(--gold-dim); }
+.showcaselist { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 40vh; overflow-y: auto; }
 .showcaselist .pick { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 5px 9px; border-radius: 6px;
   background: var(--panel-2); color: var(--text); border: 1px solid transparent; font: inherit; font-size: 13px; cursor: pointer; }
 .showcaselist .pick:hover { border-color: var(--gold-dim); }
@@ -110,9 +126,12 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 /* ☆ on owned items in the Collection log and Pets tabs. */
 .star { background: none; border: 0; padding: 0 6px 0 0; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; opacity: .55; }
 .star:hover, .star:focus-visible, .star.on { color: var(--gold); opacity: 1; }
-.clogitems li:not(:hover) .star:not(.on):not(:focus-visible), .pet:not(:hover) .star:not(.on):not(:focus-visible) { opacity: 0; }
-@media (hover: none) { .clogitems li .star, .pet .star { opacity: .55 !important; } .star.on { opacity: 1 !important; } }
-.pet .q { display: inline-flex; align-items: center; }
+:is(.clogitems li, .pet, .sk, .list tr):not(:hover) .star:not(.on):not(:focus-visible) { opacity: 0; }
+@media (hover: none) { .star { opacity: .55 !important; } .star.on { opacity: 1 !important; } }
+.pet .q, .sk .q { display: inline-flex; align-items: center; }
+/* The skill grid is tight: there the ☆ only takes room while hovered (or once it's ★). */
+.sk .q { overflow: visible; flex-shrink: 0; }
+.sk:not(:hover):not(:focus-within) .star:not(.on) { display: none; }
 .sampletype { display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; }
 .sampletype select { padding: 4px 8px; font-size: 13px; }
 .stats { display: flex; flex-wrap: wrap; gap: 8px 26px; justify-content: flex-end; }

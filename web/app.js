@@ -8,7 +8,7 @@ import {
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
-  planRoute, hoursRangeText, showcaseItem, showcaseOptions, SHOWCASE_NONE,
+  planRoute, hoursRangeText, SHOWCASE_KINDS, showcaseChoices, showcasePicks, showcaseSuggestion,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
@@ -73,7 +73,8 @@ const state = {
   locked: [], // content hidden until unlocked (lockedContent), for the dialog
   tab: "skills", // open tab in the Account panel
   clogOpen: null, // the collection log page (or CA tier) open in the Account panel
-  showcase: "", // the item shown next to the name: a name, SHOWCASE_NONE, or "" for automatic
+  showcase: {}, // what the player chose to show off: { item, boss, quest, skill } (each optional)
+  showcaseTab: "item", // the slot open in the showcase picker
 };
 
 // ---- Data -------------------------------------------------------------------------------
@@ -329,11 +330,13 @@ function renderSummary() {
   const { badges } = completions(s);
   $("#summary").innerHTML = `
     <div class="who">
-      <h2>${helmHTML(p.accountType)}${esc(p.name)}${showcaseHTML()}</h2>
+      <h2>${helmHTML(p.accountType)}${esc(p.name)}${showcaseItemHTML()}</h2>
+      ${showcaseChipsHTML()}
       ${sampleTypeHTML()}
       <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `Synced <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}</div>
       <div class="manualrow">
         <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't synced since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until a sync shows them done.">Mark progress by hand</button>
+        <button type="button" id="showcaseedit" class="toggle showcaseedit" title="Show off a favourite item or pet, boss, quest and skill next to your name. All optional.">${showcaseCount() ? "Edit showcase" : "Showcase"}</button>
         ${markCount() ? `<span class="muted small">${markCount()} marked by hand, waiting for a sync</span>` : ""}
       </div>
       ${sinceLastHTML()}
@@ -350,55 +353,90 @@ function renderSummary() {
     ${badges.length ? `<div class="badges" aria-label="Milestones reached">${badges.map((b) =>
       `<span class="badge" title="${esc(b.detail)}"><span aria-hidden="true">✦</span> ${esc(b.label)}</span>`).join("")}</div>` : ""}`;
 }
-// ---- Showcase: one item or pet from the collection log, shown next to the name -------------
-// Picked by the player (the badge, or ☆ on an owned item in the Collection log and Pets tabs),
-// otherwise the rarest pet or item they own. Kept per profile in this browser.
+// ---- Showcase: favourites the player chose to show next to their name -------------------
+// An item or pet from the collection log (a framed icon after the name), and a boss, quest and
+// skill (small chips under it). All optional: nothing shows until the player picks it, and the
+// picker only suggests. Kept per profile in this browser.
 
+const SHOWCASE_LABEL = { item: "Item or pet", boss: "Boss", quest: "Quest", skill: "Skill" };
 const showcaseKey = (name) => `tm.showcase:${keyOf(name)}`;
-const loadShowcase = (name) => localStorage.getItem(showcaseKey(name)) ?? "";
-function setShowcase(value) {
-  state.showcase = value ?? "";
-  if (state.showcase) localStorage.setItem(showcaseKey(storeName(state.name)), state.showcase);
-  else localStorage.removeItem(showcaseKey(storeName(state.name)));
+function loadShowcase(name) {
+  const raw = localStorage.getItem(showcaseKey(name));
+  try {
+    const v = JSON.parse(raw);
+    if (v && typeof v === "object") return v;
+  } catch { /* the first version saved just the item's name */ }
+  return raw && raw !== "-" ? { item: raw } : {};
+}
+/** Pick `key` for a slot, or clear it with "" / null. */
+function setShowcase(kind, key) {
+  const next = { ...state.showcase };
+  if (key) next[kind] = key; else delete next[kind];
+  state.showcase = next;
+  const k = showcaseKey(storeName(state.name));
+  if (Object.keys(next).length) localStorage.setItem(k, JSON.stringify(next)); else localStorage.removeItem(k);
   renderSummary();
   renderTabs();
   if ($("#showcasedlg").open) renderShowcasePicker();
 }
-/** "Vorki · 1/3,000 from Vorkath" for the badge's tooltip and the picker. */
-const showcaseDetail = (o) => (o.rarity ? `${o.rarity}${o.from ? ` from ${o.from}` : ""}` : o.pet ? "Pet" : (o.page ?? ""));
+const picks = () => showcasePicks(state.snap, state.showcase);
+const showcaseCount = () => Object.values(picks()).filter(Boolean).length;
 
-function showcaseHTML() {
-  const o = showcaseItem(state.snap, state.showcase);
-  if (!o) {
-    // Picked "None", or nothing owned yet: a quiet + only when there's something to pick.
-    return showcaseOptions(state.snap).length
-      ? `<button type="button" id="showcasebtn" class="showcase empty" title="Show off an item or pet next to your name" aria-label="Choose a showcase item">+</button>` : "";
-  }
-  const icon = iconImg(itemUrl(o.id), { cls: "gicon item" });
-  const tip = `Showcase: ${o.name}${showcaseDetail(o) ? ` (${showcaseDetail(o)})` : ""}${o.auto ? ". Picked for you as your rarest " + (o.pet ? "pet" : "item") : ""}. Click to change.`;
-  return `<button type="button" id="showcasebtn" class="showcase${o.pet ? " pet" : ""}" title="${esc(tip)}" aria-label="${esc(`Showcase: ${o.name}. Change it`)}">${icon || `<span class="name">${esc(o.name)}</span>`}</button>`;
+/** The icon for a choice: an item from the game cache, or a skill/quest sprite. */
+const choiceIcon = (c, cls = "gicon tiny") =>
+  c.itemId != null ? iconImg(itemUrl(c.itemId), { cls: `${cls} item` }) : iconImg(spriteUrl(c.sprite), { cls });
+/** "1/3,000 from Vorkath" for items; each other kind already has its own detail. */
+const choiceDetail = (kind, c) => (kind !== "item" ? c.detail
+  : c.rarity ? `${c.rarity}${c.from ? ` from ${c.from}` : ""}` : c.pet ? "Pet" : (c.page ?? ""));
+
+function showcaseItemHTML() {
+  const o = picks().item;
+  if (!o) return "";
+  const icon = choiceIcon(o, "gicon");
+  const detail = choiceDetail("item", o);
+  return `<button type="button" class="showcase${o.pet ? " pet" : ""}" data-showcase-open="item" title="${esc(`${o.name}${detail ? ` (${detail})` : ""}. Click to change`)}" aria-label="${esc(`Showcase item: ${o.name}. Change it`)}">${icon || `<span class="name">${esc(o.name)}</span>`}</button>`;
 }
 
-function openShowcase() {
+function showcaseChipsHTML() {
+  const p = picks();
+  const text = { boss: (c) => `${c.name}${c.kc ? ` · ${c.kc.toLocaleString()} KC` : ""}`, quest: (c) => c.name, skill: (c) => `${c.name} ${c.level}` };
+  const chips = ["boss", "quest", "skill"].filter((k) => p[k]).map((k) =>
+    `<button type="button" class="favchip ${k}${k === "skill" && p[k].level >= 99 ? " max" : ""}" data-showcase-open="${k}" title="${esc(`Favourite ${k}. Click to change`)}">${choiceIcon(p[k])}<span>${esc(text[k](p[k]))}</span></button>`);
+  return chips.length ? `<div class="favs" aria-label="Favourites">${chips.join("")}</div>` : "";
+}
+
+function openShowcase(kind) {
+  state.showcaseTab = SHOWCASE_KINDS.includes(kind) ? kind : SHOWCASE_KINDS.find((k) => !picks()[k]) ?? "item";
   $("#showcasefilter").value = "";
   renderShowcasePicker();
   $("#showcasedlg").showModal();
-  $("#showcasefilter").focus();
 }
 function renderShowcasePicker() {
+  const kind = state.showcaseTab;
+  const p = picks();
+  const current = p[kind];
   const q = $("#showcasefilter").value.trim().toLowerCase();
-  const current = showcaseItem(state.snap, state.showcase);
-  const opts = showcaseOptions(state.snap).filter((o) => !q || o.name.toLowerCase().includes(q));
-  const mode = state.showcase === SHOWCASE_NONE ? "none" : state.showcase && !current?.auto ? "pick" : "auto";
-  const row = (o) => `<li><button type="button" class="pick${!current?.auto && current?.id === o.id ? " on" : ""}" data-showcase="${esc(o.name)}" aria-pressed="${!current?.auto && current?.id === o.id}">
-      ${iconImg(itemUrl(o.id), { cls: "gicon tiny item" })}<span class="grow">${esc(o.name)}</span><span class="muted small">${esc(showcaseDetail(o))}</span></button></li>`;
+  const all = showcaseChoices(state.snap, kind);
+  const list = all.filter((c) => !q || c.name.toLowerCase().includes(q));
+  const tip = showcaseSuggestion(state.snap, kind);
+  const row = (c, extra = "") => {
+    const on = current?.key === c.key;
+    return `<li><button type="button" class="pick${on ? " on" : ""}" data-showcase-pick="${esc(c.key)}" aria-pressed="${on}">
+      ${choiceIcon(c)}<span class="grow">${esc(c.name)}${extra}</span><span class="muted small">${esc(choiceDetail(kind, c))}</span></button></li>`;
+  };
+  const what = { item: "item or pet", boss: "boss", quest: "quest", skill: "skill" }[kind];
+  $("#showcasetabs").innerHTML = SHOWCASE_KINDS.map((k) =>
+    `<button type="button" role="tab" data-showcase-tab="${k}" aria-selected="${k === kind}">${SHOWCASE_LABEL[k]}${p[k] ? ' <span class="dot" aria-label="(chosen)">●</span>' : ""}</button>`).join("");
+  $("#showcasefilter").placeholder = `Filter ${kind === "item" ? "what you own" : `${what}s`}`;
   $("#showcasebody").innerHTML = `
-    <div class="seg showcasemode" role="radiogroup" aria-label="Showcase">
-      <button type="button" role="radio" data-showcase-mode="auto" aria-checked="${mode === "auto"}">Rarest, picked for me</button>
-      <button type="button" role="radio" data-showcase-mode="none" aria-checked="${mode === "none"}">None</button>
-    </div>
-    ${opts.length ? `<ul class="showcaselist">${opts.map(row).join("")}</ul>`
-      : `<p class="note">${q ? "Nothing you own matches that." : "Nothing obtained in your collection log yet. Open it in-game and click Search, then sync."}</p>`}`;
+    <ul class="showcaselist">
+      <li><button type="button" class="pick none${current ? "" : " on"}" data-showcase-pick="" aria-pressed="${!current}"><span class="grow">Don't show a ${what}</span></button></li>
+      ${tip && !q ? row(tip, ' <span class="tag">Suggested</span>') : ""}
+      ${list.filter((c) => q || c !== tip).map((c) => row(c)).join("")}
+    </ul>
+    ${!all.length ? `<p class="note">${kind === "item" ? "Nothing obtained in your collection log yet. Open it in-game and click Search, then sync."
+      : kind === "boss" ? "No bosses in this profile yet. Open a boss's collection log page in-game, then sync." : "Nothing in this profile yet."}</p>`
+      : q && !list.length ? `<p class="note">Nothing matches that.</p>` : ""}`;
 }
 
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
@@ -1052,14 +1090,16 @@ function renderTabs() {
 
 const TAB_RENDER = {
   skills(s) {
+    const shown = picks().skill;
     return `<div class="skillgrid">${SKILLS.filter((k) => s.skills?.[k]).map((k) => {
       const { level, xp } = s.skills[k];
       // At 99 the level can't move, so show XP instead.
-      return `<div class="sk ${level >= 99 ? "max" : ""}" title="${xp.toLocaleString()} XP${level < 99 ? ` · ${fmt(xpForLevel(level + 1) - xp)} to ${level + 1}` : ""}"><span>${iconImg(spriteUrl(`skill-${k}`), { cls: "gicon tiny" })}${cap(k)}</span><b>${level >= 99 ? fmt(xp) : level}</b></div>`;
+      return `<div class="sk ${level >= 99 ? "max" : ""}" title="${xp.toLocaleString()} XP${level < 99 ? ` · ${fmt(xpForLevel(level + 1) - xp)} to ${level + 1}` : ""}"><span>${iconImg(spriteUrl(`skill-${k}`), { cls: "gicon tiny" })}${cap(k)}</span><span class="q">${starHTML("skill", k, shown, cap(k))}<b>${level >= 99 ? fmt(xp) : level}</b></span></div>`;
     }).join("")}</div>`;
   },
   quests(s) {
     const order = { IN_PROGRESS: 0, NOT_STARTED: 1, FINISHED: 2 };
+    const shown = picks().quest;
     const qs = [...(s.quests ?? [])].sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name));
     // Marking by hand: every quest the last sync didn't show as finished gets a toggle.
     const mark = (q) => {
@@ -1067,7 +1107,7 @@ const TAB_RENDER = {
       return `<button type="button" class="markmini" data-mark="quests" data-key="${esc(q.name)}" aria-pressed="${!!q.manual}" title="${q.manual ? "Undo your mark" : "Mark as finished until your next sync"}">${q.manual ? "Undo" : "Mark done"}</button>`;
     };
     return `${state.manualMode ? `<p class="note manualnote">Marking by hand: tick off quests you've finished since your last sync.</p>` : ""}
-      <table class="list"><tbody>${qs.map((q) => `<tr><td><a class="plainlink" href="${esc(wikiPage(q.name))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(q.name)} on the OSRS Wiki">${esc(q.name)}</a></td><td class="num">${mark(q)}<span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.manual ? "finished (marked)" : q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
+      <table class="list"><tbody>${qs.map((q) => `<tr><td><a class="plainlink" href="${esc(wikiPage(q.name))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(q.name)} on the OSRS Wiki">${esc(q.name)}</a></td><td class="num">${starHTML("quest", q.name, shown)}${mark(q)}<span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.manual ? "finished (marked)" : q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
   },
   diaries(s) {
     // One column per tier; each square links to that tier on the wiki. A region counts as started
@@ -1134,14 +1174,14 @@ const TAB_RENDER = {
       const got = p.items.filter((i) => i.quantity > 0).length;
       return { n, got, total: p.items.length, tab: p.tab, items: p.items };
     }).sort((a, b) => byPageName(a.n, b.n));
-    const shown = showcaseItem(s, state.showcase);
+    const shown = picks().item;
     return `<table class="list"><thead><tr><th>Tab</th><th class="num">Slots</th></tr></thead><tbody>${cats}</tbody></table>
       ${pages.length ? `<div class="clogpages">${pages.map((p) => `
         <details class="clogpage" name="clogpage" data-page="${esc(p.n)}" ${state.clogOpen === p.n ? "open" : ""}>
           <summary><span>${esc(pageLabel(p.n))} <span class="muted small">${esc(p.tab)}</span></span>
             <span class="pill ${p.got === p.total ? "ok" : ""}">${p.got}/${p.total}</span></summary>
           <ul class="clogitems">${p.items.map((i) => i.quantity > 0
-            ? `<li class="have"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">${starHTML(i.name, shown)}${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
+            ? `<li class="have"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">${starHTML("item", i.name, shown)}${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
             : `<li class="need"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">not obtained</span></li>`).join("")}</ul>
         </details>`).join("")}</div>`
       : `<p class="note">No pages recorded yet. Open the collection log in-game and click Search, then sync.</p>`}`;
@@ -1149,18 +1189,18 @@ const TAB_RENDER = {
   pets(s) {
     const { pets, owned } = petInfo(s);
     if (!pets.length) return `<p class="note">No pet data yet. Sync with the latest plugin to load the All Pets page.</p>`;
-    const shown = showcaseItem(s, state.showcase);
+    const shown = picks().item;
     const sorted = [...pets].sort((a, b) => Number(b.owned) - Number(a.owned) || a.name.localeCompare(b.name));
     return `<p class="note" style="margin:0 0 10px">${owned} of ${pets.length} pets</p>
       <div class="petgrid">${sorted.map((p) =>
-        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${iconImg(itemUrl(p.id), { cls: "gicon tiny item" })}${esc(p.name)}</span><span class="q">${p.owned ? starHTML(p.name, shown) : ""}<i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></span></div>`).join("")}</div>`;
+        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${iconImg(itemUrl(p.id), { cls: "gicon tiny item" })}${esc(p.name)}</span><span class="q">${p.owned ? starHTML("item", p.name, shown) : ""}<i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></span></div>`).join("")}</div>`;
   },
 };
 
-/** The ☆ on an owned item in the tabs: makes it the showcase (★ when it already is). */
-function starHTML(name, shown) {
-  const on = shown?.name === name;
-  return `<button type="button" class="star${on ? " on" : ""}" data-showcase="${esc(name)}" aria-pressed="${on}" title="${on ? "Shown next to your name" : "Show next to your name"}" aria-label="${esc(`Show ${name} next to your name`)}">${on ? "★" : "☆"}</button>`;
+/** The ☆ in the tabs: shows that item, quest or skill in the showcase; ★ when it is (click again to remove). */
+function starHTML(kind, key, shown, label = key) {
+  const on = shown?.key.toLowerCase() === String(key).toLowerCase();
+  return `<button type="button" class="star${on ? " on" : ""}" data-star="${kind}" data-key="${esc(on ? "" : key)}" aria-pressed="${on}" title="${on ? "In your showcase. Click to remove" : "Add to your showcase"}" aria-label="${esc(`Show ${label} in your showcase`)}">${on ? "★" : "☆"}</button>`;
 }
 
 // ---- Events --------------------------------------------------------------------------------
@@ -1567,15 +1607,20 @@ $("#tabbody").addEventListener("toggle", (e) => {
 }, true);
 
 $("#tabbody").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-showcase]");
-  if (b) setShowcase(b.dataset.showcase);
+  const b = e.target.closest("[data-star]");
+  if (b) setShowcase(b.dataset.star, b.dataset.key);
 });
 $("#showcasedlg").addEventListener("click", (e) => {
   if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
-  const mode = e.target.closest("[data-showcase-mode]");
-  if (mode) return setShowcase(mode.dataset.showcaseMode === "none" ? SHOWCASE_NONE : "");
-  const pick = e.target.closest("[data-showcase]");
-  if (pick) { setShowcase(pick.dataset.showcase); e.currentTarget.close(); }
+  const tab = e.target.closest("[data-showcase-tab]");
+  if (tab) {
+    state.showcaseTab = tab.dataset.showcaseTab;
+    $("#showcasefilter").value = "";
+    return renderShowcasePicker();
+  }
+  // Picking keeps the picker open, so several slots can be set in one go.
+  const pick = e.target.closest("[data-showcase-pick]");
+  if (pick) setShowcase(state.showcaseTab, pick.dataset.showcasePick);
 });
 $("#showcasefilter").addEventListener("input", renderShowcasePicker);
 
@@ -1588,7 +1633,8 @@ $("#tabs").addEventListener("click", (e) => {
 
 // Marking by hand: the toggle in the summary, and every "Mark done" control on cards and tabs.
 $("#summary").addEventListener("click", (e) => {
-  if (e.target.closest("#showcasebtn")) return openShowcase();
+  const open = e.target.closest("[data-showcase-open], #showcaseedit");
+  if (open) return openShowcase(open.dataset.showcaseOpen);
   if (!e.target.closest("#manualbtn")) return;
   state.manualMode = !state.manualMode;
   localStorage.setItem("tm.manualMode", state.manualMode ? "1" : "0");
