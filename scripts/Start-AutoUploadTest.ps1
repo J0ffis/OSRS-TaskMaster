@@ -125,7 +125,7 @@ Write-Host "     Website            $WebUrl" -ForegroundColor White
 Write-Host "     Upload server      $ServiceUrl" -ForegroundColor White
 Write-Host "     Automatic upload   on" -ForegroundColor White
 Write-Info "Then open the OSRS TaskMaster panel and click Upload now, then Open website."
-Write-Info "Visiting the website fills 'Your next grinds' in the panel (click Refresh)."
+Write-Info "Visiting the website fills 'Your next grinds' in the panel (click Sync; Refresh shows more)."
 Write-Host ""
 Write-Info "Worth trying: Copy share link (open it in another browser: view only), goals, Not for me,"
 Write-Info "Reset my links (your old link stops working), Delete my uploaded data."
