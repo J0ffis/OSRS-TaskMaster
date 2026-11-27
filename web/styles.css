@@ -256,6 +256,10 @@ button.tierbox:hover { outline: 2px solid var(--gold); outline-offset: 1px; }
 .bosschip:hover { filter: brightness(1.2); text-decoration: underline; }
 .bosschip .need { opacity: .85; }
 .card.slayer { border-color: color-mix(in srgb, var(--c-slayer) 40%, var(--line)); }
+.card.slayer.nodata { border-style: dashed; }
+
+/* A section this profile doesn't have (an older plugin didn't record it). */
+.missing { margin: 6px 0 0; padding: 4px 10px; border-left: 2px solid var(--gold-dim); background: color-mix(in srgb, var(--gold) 6%, transparent); }
 
 /* Browser mode (hosted site) vs server mode (Start-LocalServer.ps1): show only the matching help. */
 body.booting .only-static, body.booting .only-server,

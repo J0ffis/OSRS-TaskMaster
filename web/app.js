@@ -7,7 +7,7 @@ import {
   CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates,
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
-  applyManual, withinReach, compactProfile, sinceLast, accountKind,
+  applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML } from "./game-icons.js";
@@ -301,6 +301,7 @@ function renderSummary() {
         ${markCount() ? `<span class="muted small">${markCount()} marked by hand, waiting for a sync</span>` : ""}
       </div>
       ${sinceLastHTML()}
+      ${missingHTML()}
     </div>
     <div class="stats">
       ${stat(a.total, "Total level")}
@@ -328,6 +329,18 @@ function sinceLastHTML() {
   const label = full && span < 2 * RECENT_HOURS * 36e5 ? `Last ${RECENT_HOURS} hours:` : `Last ${ago}:`;
   return `<p class="since small"><span class="muted" title="Progress over the last ${RECENT_HOURS} hours of syncs this browser has seen (compared with your profile from ${ago} before this sync).">${label}</span> ${parts.map((p) =>
     `<span class="sincepart k-${p.kind}"${p.detail ? ` title="${esc(p.detail)}"` : ""}>${esc(p.text)}</span>`).join('<span class="muted"> · </span>')}</p>`;
+}
+
+// Sections the site knows about but this profile doesn't have (see PROFILE_SECTIONS). The same
+// wording everywhere, whether the profile was pasted or uploaded automatically.
+const missingWhy = (n = 1) => `Profiles from older versions of the TaskMaster plugin don't include ${n > 1 ? "these. They fill" : "this. It fills"} in once a profile from a newer version comes in.`;
+const isMissing = (key) => missingSections(state.raw).some((m) => m.key === key);
+
+function missingHTML() {
+  const m = missingSections(state.raw);
+  if (!m.length || state.name === SAMPLE) return "";
+  return `<p class="missing small"><span aria-hidden="true">ⓘ</span> Not in this profile: ${m.map((x) =>
+    `<b title="${esc(cap(x.detail))}">${esc(x.label)}</b>`).join(", ")}. <span class="muted">${esc(missingWhy(m.length))}</span></p>`;
 }
 
 /** A progress bar with an optional short counter ("30/50 kills") beside it. */
@@ -553,6 +566,12 @@ function bossChips(bosses) {
 
 function renderSlayer() {
   const el = $("#slayer");
+  if (isMissing("slayer")) {
+    el.hidden = false;
+    el.innerHTML = `<article class="card slayer nodata" style="--c:var(--c-slayer)"><div class="slayerhead"><span class="tierbadge t-Slayer">Slayer</span></div>
+      <h3>Slayer task not in this profile</h3><p class="muted small">${esc(missingWhy())}</p></article>`;
+    return;
+  }
   const c = slayerTask(state.snap, state.goals);
   el.hidden = !c;
   if (!c) { el.innerHTML = ""; return; }
@@ -871,7 +890,8 @@ const TAB_RENDER = {
     return `<table class="list diarytable"><thead><tr><th>Region</th>${tiers.map((t) => `<th class="tiercell">${cap(t)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
       <p class="note legend"><span class="tierbox done"></span> Complete <span class="tierbox started"></span> In progress <span class="tierbox todo"></span> Not started${markCount() ? ` <span class="tierbox done marked"></span> Marked by hand` : ""} · ${state.manualMode
         ? "Marking by hand: click a tier you've finished since your last sync."
-        : "Click a square to open that tier on the wiki."}</p>`;
+        : "Click a square to open that tier on the wiki."}</p>
+      ${isMissing("diaryStarted") ? `<p class="note missing"><span aria-hidden="true">ⓘ</span> Diaries in progress aren't in this profile, so none show as started. ${esc(missingWhy())}</p>` : ""}`;
   },
   combat(s) {
     const a = analyse(s);
