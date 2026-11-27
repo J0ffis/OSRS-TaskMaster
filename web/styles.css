@@ -267,6 +267,9 @@ body.static .only-server, body:not(.static) .only-static { display: none !import
 /* Opened from a share link or a public profile: suggestions only, goals can't be changed. */
 .viewonly { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 600;
   color: var(--t-Medium-ink, #0f1233); background: var(--t-Medium, #7d86d4); }
+/* View only (share links, public profiles, the owner's preview): one fixed view, no controls. */
+#app.readonly .controls, #app.readonly #chips, #app.readonly .optin, #app.readonly #goalform { display: none; }
+
 /* The owner of an uploaded profile, with a switch to preview the view-only page. */
 .ownerpill { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 600;
   color: var(--gold); border: 1px solid var(--gold-dim); cursor: help; }

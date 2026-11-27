@@ -18,7 +18,9 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 - **Public profiles** (the plugin's *Show my profile publicly*) can be looked up by name. A name
   stays with the account that holds it until that account hasn't uploaded for 30 days.
 - **Who can change what:** only a request with the edit token can change goals or picks; anyone
-  else gets 403, and the website shows such visitors a *View only* page. The owner's
+  else gets 403, and the website shows such visitors a *View only* page: one fixed view (the
+  Balanced tier, every category, no opt-ins) with no tiers, Shuffle, Swap, filters or goal
+  controls. Owners can preview it with *See it as others do*; their own settings are kept. The owner's
   *Copy share link* (in the plugin and on the website) only ever contains the id.
 - **Reset my links** in the plugin revokes a leaked owner link: the plugin makes a new key and
   `POST /v1/profile/rotate` moves the profile, goals and picks to the id and edit token derived

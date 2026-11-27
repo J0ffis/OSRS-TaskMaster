@@ -442,7 +442,34 @@ function showToastError() { alert("Couldn't save goals: the server didn't respon
 
 // ---- Rendering ---------------------------------------------------------------------------
 
+// ---- View only ------------------------------------------------------------------------------
+// Share links, public profiles and the owner's "See it as others do" preview show one fixed view:
+// the Balanced tier, every category, no opt-in content, no shuffling. Visitors can't change it
+// (tiers, Shuffle, Swap, filters, goals); they can still open wiki links and the account tabs.
+// The owner's own settings are set aside while it shows and come back afterwards; nothing about
+// them is saved while viewing as a visitor.
+
+const VISITOR_VIEW = { style: "balanced", content: {} };
+
+function applyViewMode() {
+  const ro = isReadOnly();
+  if (ro && !state.ownView) {
+    state.ownView = { style: state.style, cats: new Set(state.cats), content: { ...state.content }, seed: state.seed };
+    state.style = VISITOR_VIEW.style;
+    state.cats = new Set(Object.keys(CATEGORIES));
+    state.content = { ...VISITOR_VIEW.content };
+    state.seed = 0;
+    state.excluded.clear();
+  } else if (!ro && state.ownView) {
+    ({ style: state.style, cats: state.cats, content: state.content, seed: state.seed } = state.ownView);
+    state.ownView = null;
+    state.excluded.clear();
+  }
+  $("#app").classList.toggle("readonly", ro);
+}
+
 function renderAll() {
+  applyViewMode();
   renderSummary();
   renderReach();
   renderControls();
@@ -597,7 +624,9 @@ const isMix = () => state.style === "mix";
 
 function renderControls() {
   document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.style === state.style)));
-  $("#tierhint").textContent = TIER_HINT[state.style] ?? "";
+  $("#tierhint").textContent = isReadOnly()
+    ? `View only: ${state.name ?? "this player"}'s Balanced suggestions. Only the owner can change goals or what's shown.`
+    : TIER_HINT[state.style] ?? "";
   $("#gridtitle").textContent = isMix() ? "Your next seven grinds" : "Your next three grinds";
   const { done } = completions(state.snap);
   $("#chips").innerHTML = Object.entries(CATEGORIES).map(([k, label]) => done[k]
@@ -723,7 +752,7 @@ function renderChallenge() {
       <p class="detail">${esc(c.detail)}</p>
       ${barHTML(c)}
       <div class="actions">
-        <button class="btn tiny" data-challenge-swap type="button">Another challenge</button>
+        ${!isReadOnly() ? `<button class="btn tiny" data-challenge-swap type="button">Another challenge</button>` : ""}
         ${!isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-challenge-goal type="button">Take on this challenge</button>` : ""}
         ${!isReadOnly() ? `<button class="btn tiny ghost" data-challenge-notforme type="button" title="Hide this challenge for a week or for good">Not for me</button>` : ""}
         ${wikiLink(c)}
@@ -860,7 +889,7 @@ function cardHTML(c, i) {
 
 function actionsHTML(c, i) {
   return `
-        <button class="btn tiny" data-swap="${i}" type="button">Swap</button>
+        ${!isReadOnly() ? `<button class="btn tiny" data-swap="${i}" type="button">Swap</button>` : ""}
         ${c.category !== "goals" && !isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
         ${markButton(c)}
         ${c.category !== "goals" && !isReadOnly() ? `<button class="btn tiny ghost" data-notforme="${i}" type="button" title="Hide this suggestion for a week or for good">Not for me</button>` : ""}
@@ -1135,6 +1164,7 @@ $("#lookup").addEventListener("submit", (e) => { e.preventDefault(); load($("#na
 $("#sample").addEventListener("click", () => load(SAMPLE));
 
 $("#shuffle").addEventListener("click", () => {
+  if (isReadOnly()) return;
   state.seed = (state.seed + 1) * 7919 % 100003;
   // Never show the same cards twice in a row; start over once a tier has been cycled through.
   for (const c of state.picks) state.excluded.add(c.id);
@@ -1154,7 +1184,7 @@ $("#shuffle").addEventListener("click", () => {
 
 document.querySelector(".seg").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-style]");
-  if (!b) return;
+  if (!b || isReadOnly()) return;
   state.style = b.dataset.style;
   localStorage.setItem("tm.style", state.style);
   renderControls();
@@ -1163,7 +1193,7 @@ document.querySelector(".seg").addEventListener("click", (e) => {
 
 $("#chips").addEventListener("click", (e) => {
   const b = e.target.closest("[data-cat]");
-  if (!b) return;
+  if (!b || isReadOnly()) return;
   const k = b.dataset.cat;
   if (state.cats.has(k)) { if (state.cats.size > 1) state.cats.delete(k); } else state.cats.add(k);
   localStorage.setItem("tm.off", JSON.stringify(Object.keys(CATEGORIES).filter((c) => !state.cats.has(c))));
@@ -1198,6 +1228,8 @@ function swapAt(i) {
 }
 
 $("#cards").addEventListener("click", (e) => {
+  // View only: the carousel arrows still scroll; nothing else on the cards changes anything.
+  if (isReadOnly() && !e.target.closest("[data-scroll]")) return;
   const swap = e.target.closest("[data-swap]");
   if (swap) { swapAt(+swap.dataset.swap); return; }
   // "Not for me": ask how long, then hide it and fill the slot like Swap does.
@@ -1233,7 +1265,7 @@ $("#cards").addEventListener("click", (e) => {
 });
 
 $("#challenge").addEventListener("click", (e) => {
-  if (!state.challenge) return;
+  if (!state.challenge || isReadOnly()) return;
   if (e.target.closest("[data-challenge-swap]")) {
     // Cycle through the challenges; when they've all been seen, start over.
     const old = state.challenge.id;
@@ -1271,7 +1303,7 @@ $("#challenge").addEventListener("click", (e) => {
 
 $("#optins").addEventListener("click", (e) => {
   const b = e.target.closest("[data-content]");
-  if (!b) return;
+  if (!b || isReadOnly()) return;
   state.content[b.dataset.content] = !state.content[b.dataset.content];
   localStorage.setItem("tm.content", JSON.stringify(state.content));
   state.excluded.clear();
@@ -1282,6 +1314,7 @@ $("#lockedbtn").addEventListener("click", () => $("#lockeddlg").showModal());
 $("#hiddenbtn").addEventListener("click", () => $("#hiddendlg").showModal());
 $("#hiddendlg").addEventListener("click", (e) => {
   if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
+  if (isReadOnly()) return;
   const one = e.target.closest("[data-unhide]");
   if (one) return unhide([one.dataset.unhide]);
   if (e.target.closest("[data-unhide-all]")) return unhide(Object.keys(state.hidden));
@@ -1294,6 +1327,7 @@ $("#lockeddlg").addEventListener("click", (e) => {
 $("#gtype").addEventListener("change", renderGoalFields);
 $("#goalform").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (isReadOnly()) return;
   const f = new FormData(e.target);
   const type = f.get("type") ?? $("#gtype").value;
   const g = { id: "g" + Date.now().toString(36), type };
@@ -1327,14 +1361,14 @@ $("#goalform").addEventListener("submit", (e) => {
 
 $("#goals").addEventListener("click", (e) => {
   const del = e.target.closest("[data-del]");
-  if (del) {
+  if (del && !isReadOnly()) {
     state.goals = state.goals.filter((g) => g.id !== del.dataset.del);
     saveGoals(); renderGoals(); renderCards(true);
   }
 });
 $("#goals").addEventListener("change", (e) => {
   const c = e.target.closest("[data-check]");
-  if (!c) return;
+  if (!c || isReadOnly()) return;
   const g = state.goals.find((x) => x.id === c.dataset.check);
   if (g) { g.done = c.checked; saveGoals(); renderGoals(); renderCards(true); }
 });
