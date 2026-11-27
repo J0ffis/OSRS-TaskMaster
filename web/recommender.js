@@ -1009,6 +1009,12 @@ export function goalProgress(goal, snap) {
       const pts = ca.points ?? 0;
       return { progress: need ? Math.min(1, pts / need) : 0, done: need > 0 && pts >= need, label: `${pts}/${need || "?"} pts` };
     }
+    case "caboss": {
+      const left = caBossTasks(snap, goal.monster, goal.tier);
+      const all = caBossTasks(snap, goal.monster, goal.tier, true);
+      const pts = (l) => l.reduce((n, t) => n + (CA_TIER_POINTS[t.tier] ?? 1), 0);
+      return { progress: all.length ? 1 - left.length / all.length : 0, done: all.length > 0 && !left.length, label: `${all.length - left.length}/${all.length} tasks · ${pts(left)} pts left` };
+    }
     case "pet": {
       const pet = petInfo(snap).pets.find((p) => p.name === goal.pet);
       return { progress: pet?.owned ? 1 : 0, done: !!pet?.owned, label: pet?.owned ? "obtained" : "not yet" };
@@ -1062,6 +1068,7 @@ export function goalTitle(g) {
     case "family": return `${g.title ?? `Get any missing ${g.family} piece`} (${g.page})`;
     case "catask": return g.name;
     case "cabundle": return `Finish every ${g.tier} task at ${g.monster}`;
+    case "caboss": return `${g.tier === "Easy" ? "Every Easy task" : `Every task up to ${g.tier}`} ${isGeneralCa(g.monster) ? "not tied to a boss" : `at ${g.monster}`}`;
     default: return g.text;
   }
 }
@@ -1088,6 +1095,7 @@ function advances(c, g, a) {
     case "family": return m.family === g.family && m.page === g.page || (m.page === g.page && g.items.includes(m.item));
     case "catask": return m.task === g.task;
     case "cabundle": return m.monster === g.monster && m.tier === g.tier;
+    case "caboss": return m.monster === g.monster && CA_TIERS.indexOf(m.tier) <= CA_TIERS.indexOf(g.tier);
     default: return false;
   }
 }
@@ -1141,6 +1149,7 @@ function goalEffort(g, snap, a, byId, byItem) {
     case "family": return byId.get(`clogfam:${g.page}:${g.family}`)?.effort ?? g.effort ?? "Medium";
     case "catask": return byId.get(`ca:${g.task}`)?.effort ?? g.effort ?? "Medium";
     case "cabundle": return byId.get(`cabundle:${g.monster}|${g.tier}`)?.effort ?? g.effort ?? "Medium";
+    case "caboss": return caBossEffort(caBossTasks(snap, g.monster, g.tier));
     default: return "Medium";
   }
 }
@@ -1175,6 +1184,90 @@ function goalCandidates(snap, goals, others = []) {
     });
   }
   return out;
+}
+
+// ---- Combat achievement tier planner -----------------------------------------------------------
+// Pick a reward tier to reach, then the bosses whose tasks get you there. Tasks count up to a tier
+// (by default the one you're aiming for), so "Elite" plans with Easy to Elite tasks only.
+
+/** "Other" and "None" tasks aren't tied to one boss. */
+const isGeneralCa = (m) => !m || m === "Other" || m === "None";
+
+/** A boss's tasks of `maxTier` or easier: unfinished ones, or all of them with `all`. */
+function caBossTasks(snap, monster, maxTier, all = false) {
+  const top = CA_TIERS.indexOf(maxTier);
+  const general = isGeneralCa(monster);
+  return (snap.combatAchievements?.tasks ?? []).filter((t) => (all || !t.done)
+    && (general ? isGeneralCa(t.monster) : t.monster === monster)
+    && CA_TIERS.indexOf(t.tier) <= top && CA_TIERS.indexOf(t.tier) >= 0);
+}
+
+/** Rough work per task by tier, for ordering bosses by points per effort. Never shown. */
+const CA_TASK_COST = { Easy: 1, Medium: 1.6, Hard: 2.6, Elite: 4.2, Master: 7, Grandmaster: 11 };
+/** Work for taking on a boss at all (gear, travel, learning it): fewer bosses with more tasks win. */
+const CA_BOSS_COST = 3;
+
+/** A boss's effort from its hardest task left: like the single-task cards. */
+function caBossEffort(tasks) {
+  const top = Math.max(-1, ...tasks.map((t) => CA_TIERS.indexOf(t.tier)));
+  return top <= 1 ? (tasks.length > 6 ? "Medium" : "Quick") : top <= 3 ? (tasks.length > 8 ? "Long" : "Medium") : "Long";
+}
+
+/**
+ * caTierPlan(snap, tier, { maxTier = tier }) -> the bosses with points towards a reward tier:
+ *   { tier, maxTier, need, have, gap, reached, available,
+ *     bosses: [{ monster, general, tasks, points, byTier: {Easy: n, ..}, effort, efficiency,
+ *               locked: { needs, goals } | null, wilderness }],
+ *     suggested: [monster, ..] }
+ * `need` is the tier's threshold, `gap` the points still to earn. `bosses` are best value first
+ * (points per unit of work, open ones before locked ones). `suggested` is the fewest of them, in
+ * that order, whose points cover the gap; all of them when they can't (see `available`), and
+ * none once the tier is reached.
+ */
+export function caTierPlan(snap, tier, { maxTier = tier } = {}) {
+  const a = analyse(snap);
+  const ca = snap.combatAchievements ?? {};
+  const need = ca.thresholds?.[tier] ?? 0;
+  const have = ca.points ?? 0;
+  const gap = Math.max(0, need - have);
+  const names = new Set();
+  for (const t of ca.tasks ?? []) if (!t.done) names.add(isGeneralCa(t.monster) ? "Other" : t.monster);
+  const bosses = [];
+  for (const monster of names) {
+    const tasks = caBossTasks(snap, monster, maxTier);
+    if (!tasks.length) continue;
+    const points = tasks.reduce((n, t) => n + (CA_TIER_POINTS[t.tier] ?? 1), 0);
+    const work = tasks.reduce((n, t) => n + (CA_TASK_COST[t.tier] ?? 4), 0);
+    const byTier = {};
+    for (const t of tasks) byTier[t.tier] = (byTier[t.tier] ?? 0) + 1;
+    const general = isGeneralCa(monster);
+    const lock = general ? null : lockOf({ meta: { monster } }, a);
+    bosses.push({
+      monster, general, tasks, points, byTier, effort: caBossEffort(tasks),
+      efficiency: points / (work + CA_BOSS_COST),
+      locked: lock ? { needs: lock.needs, goals: lock.goals } : null,
+      wilderness: WILDERNESS_MONSTERS.has(monster),
+    });
+  }
+  bosses.sort((x, y) => Number(!!x.locked) - Number(!!y.locked) || Number(x.general) - Number(y.general)
+    || y.efficiency - x.efficiency || y.points - x.points || x.monster.localeCompare(y.monster));
+  const available = bosses.reduce((n, b) => n + b.points, 0);
+  const suggested = [];
+  if (gap && available < gap) suggested.push(...bosses.map((b) => b.monster));
+  else if (gap) {
+    let sum = 0;
+    for (const b of bosses) {
+      if (sum >= gap) break;
+      suggested.push(b.monster);
+      sum += b.points;
+    }
+    // Drop picks the others cover anyway, cheapest-value first, so the list stays short.
+    for (const m of [...suggested].reverse()) {
+      const b = bosses.find((x) => x.monster === m);
+      if (sum - b.points >= gap) { suggested.splice(suggested.indexOf(m), 1); sum -= b.points; }
+    }
+  }
+  return { tier, maxTier, need, have, gap, reached: need > 0 && have >= need, available, bosses, suggested };
 }
 
 // ---- Progress marked by hand -------------------------------------------------------------
@@ -1782,7 +1875,13 @@ export function planRoute(snap, goals = []) {
     }
     if (!root) { done.push(title); continue; }
     root.completes.push(title);
-    goalRoots.push({ title, key: root.key });
+    goalRoots.push({ title, key: root.key, goal: g });
+  }
+  // A CA tier goal comes after the bosses picked for it (with the combat achievement planner), so
+  // those steps count towards the tier too.
+  for (const r of goalRoots) {
+    if (r.goal.type !== "ca") continue;
+    for (const b of goalRoots) if (b.goal.type === "caboss" && b.goal.forTier === r.goal.tier) nodes.get(r.key).deps.add(b.key);
   }
   if (qpNeed) node("qp", { kind: "qp", title: `Reach ${qpNeed} quest points`, note: `You have ${snap.questPoints ?? 0}; any quests count.` });
   if (combatNeed) node("combat", { kind: "combat", title: `Reach combat level ${combatNeed}`, note: `You're level ${snap.player?.combatLevel ?? "?"}.` });
@@ -1802,13 +1901,15 @@ export function planRoute(snap, goals = []) {
   for (const n of nodes.values()) n.cost ??= PLAN_ORDER_COST[n.kind] ?? 1;
 
   // Which goals each step serves (everything a goal's root depends on, directly or not).
-  const closure = (key, out = new Set()) => {
-    if (out.has(key) || !nodes.has(key)) return out;
+  // A CA tier goal waits for its bosses but doesn't share their steps: they're for the boss goals.
+  const bossKeys = new Set(goalRoots.filter((g) => g.goal.type === "caboss").map((g) => g.key));
+  const closure = (key, out = new Set(), skip = null) => {
+    if (out.has(key) || !nodes.has(key) || skip?.has(key)) return out;
     out.add(key);
-    for (const d of nodes.get(key).deps) closure(d, out);
+    for (const d of nodes.get(key).deps) closure(d, out, skip);
     return out;
   };
-  const goalSets = goalRoots.map((g) => ({ ...g, keys: closure(g.key) }));
+  const goalSets = goalRoots.map((g) => ({ ...g, keys: closure(g.key, new Set(), g.goal.type === "ca" ? bossKeys : null) }));
   for (const n of nodes.values()) n.forGoals = goalSets.filter((g) => g.keys.has(n.key)).map((g) => g.title);
 
   // Order: of the steps that are ready, take the one on the way to the goal that's closest to

@@ -142,6 +142,27 @@ are planned again on every load, so finished ones drop off and the count goes up
 A step counts as done only when the profile shows it (a level reached, a quest finished), so
 removing a goal from the route doesn't count its steps as done.
 
+## Combat achievement planner
+
+**Plan a tier** (in the Combat tab, or **Pick bosses** on a CA tier goal) plans a combat
+achievement reward tier (`caTierPlan` in `recommender.js`):
+
+1. Pick a reward tier you haven't reached, and the hardest task tier to count (**Count tasks up
+   to**, the reward tier by default). Going for Elite counts Easy to Elite tasks only, so the
+   plan stays below Master and Grandmaster content; set it lower to stay further down.
+2. Every boss with unfinished tasks in that range is listed with its points, tasks by tier, an
+   effort label and any access gate (`CONTENT_REQS`). Tasks not tied to a boss ("Other") are one
+   row. Bosses are ordered by points for the work: each task costs more the harder its tier
+   (`CA_TASK_COST`) and each boss adds a fixed cost (`CA_BOSS_COST`), so a boss with several
+   tasks beats several bosses with one each. Locked bosses come last.
+3. **Pick for me** ticks the fewest bosses, in that order, that cover the points still needed
+   (dropping any the others make redundant); when even all of them fall short it ticks them all
+   and says by how much.
+4. **Add as goals and plan a route** adds the tier as a goal plus one goal per boss ("Every task
+   up to Elite at Vorkath", type `caboss`, remembering the tier it's for), reusing goals you
+   already have, and opens the route planner with them ticked. The route puts each boss's quest
+   and Slayer unlocks before it, and the tier goal after its bosses.
+
 The quest snapshot is refreshed by `scripts/update-quest-reqs.mjs` (`npm run quest-reqs`, also
 run by `Update-GameData.ps1`). It asks the wiki only when the game has a quest the file doesn't
 cover yet (`--full` asks anyway), in one request, and the file only changes when the requirements

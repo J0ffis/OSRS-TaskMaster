@@ -8,7 +8,7 @@ import {
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
-  planRoute, hoursRangeText,
+  planRoute, hoursRangeText, caTierPlan,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
@@ -866,7 +866,7 @@ function addGoalFrom(c) {
 }
 
 // Which category's icon a goal gets when it has no item, skill or tier of its own.
-const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask: "combat", cabundle: "combat", clog: "clog", pet: "pets", item: "clog", family: "clog" };
+const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask: "combat", cabundle: "combat", caboss: "combat", clog: "clog", pet: "pets", item: "clog", family: "clog" };
 
 function renderGoals() {
   const el = $("#goals");
@@ -883,7 +883,7 @@ function renderGoals() {
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
       <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}> ` : cardIcon({ goal: g, category: GOAL_CATEGORY[g.type] })}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
-      <span class="l"${p.counterTip ? ` title="${esc(p.counterTip)}"` : ""}>${esc(p.label)} ${wikiLink({ goal: g }, "wikimini")}<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button></span>
+      <span class="l"${p.counterTip ? ` title="${esc(p.counterTip)}"` : ""}>${esc(p.label)} ${g.type === "ca" && !p.done ? `<button type="button" class="link small" data-ca-goal="${esc(g.tier)}" title="Choose the bosses that get you to ${esc(g.tier)}">Pick bosses</button> ` : ""}${wikiLink({ goal: g }, "wikimini")}<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button></span>
       ${!p.done && goalHint(g) ? `<span class="gd">${esc(goalHint(g))}</span>` : ""}
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
     </li>`;
@@ -907,6 +907,10 @@ function goalHint(g) {
     case "cabundle": {
       const left = tasks.filter((t) => t.monster === g.monster && t.tier === g.tier && !t.done).map((t) => t.name);
       return left.length ? `Still to do: ${list(left)}` : null;
+    }
+    case "caboss": {
+      const left = caTierPlan(state.snap, g.forTier ?? g.tier, { maxTier: g.tier }).bosses.find((b) => b.monster === g.monster);
+      return left ? `Still to do: ${list(left.tasks.map((t) => t.name))}` : null;
     }
     case "family": {
       const items = itemIndex(state.snap);
@@ -1070,7 +1074,7 @@ const TAB_RENDER = {
         </details>`;
     }).join("");
     return `<table class="list"><thead><tr><th>Tier</th><th class="num">Tasks</th><th class="num">Points needed</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="note">${ca.points ?? 0} points · current reward tier: ${esc(a.caRank)}${a.caNext ? ` · ${a.caNext.gap} to ${a.caNext.tier}` : ""}</p>
+      <p class="note">${ca.points ?? 0} points · current reward tier: ${esc(a.caRank)}${a.caNext ? ` · ${a.caNext.gap} to ${a.caNext.tier}` : ""}${a.caNext && tasks.length ? `<button id="cabtn" type="button" class="btn tiny" data-ca-plan>Plan a tier</button>` : ""}</p>
       ${lists ? `<div class="clogpages">${lists}</div>` : ""}`;
   },
   clog(s) {
@@ -1444,6 +1448,123 @@ $("#plandlg").addEventListener("change", (e) => {
   renderPlan();
 });
 
+// ---- Combat achievement planner ----------------------------------------------------------------
+// Choose a reward tier and the bosses to get there with (tasks up to a tier you pick), then add
+// them as goals: the tier itself plus one "every task up to X at boss" goal each, and plan a route.
+const caPick = { tier: null, maxTier: null, on: new Set() };
+/** Reward tiers not reached yet, easiest first. */
+const caTiersLeft = () => {
+  const ca = state.snap.combatAchievements ?? {};
+  return CA_TIERS.filter((t) => ca.thresholds?.[t] && (ca.points ?? 0) < ca.thresholds[t]);
+};
+const caBossName = (b) => (b.general ? "Tasks not tied to a boss" : b.monster);
+const plural = (n, w, many = `${w}s`) => `${n} ${n === 1 ? w : many}`;
+
+/** Start over for a tier: tick the bosses already on your goals for it, or else the suggestion. */
+function caReset(tier, maxTier = tier) {
+  Object.assign(caPick, { tier, maxTier });
+  const plan = caTierPlan(state.snap, tier, { maxTier });
+  const chosen = state.goals.filter((g) => g.type === "caboss" && g.forTier === tier && g.tier === maxTier && !goalProgress(g, state.snap).done).map((g) => g.monster);
+  caPick.on = new Set(chosen.length ? chosen : plan.suggested);
+}
+
+function openCaPlanner(tier = null) {
+  const left = caTiersLeft();
+  caReset(left.includes(tier) ? tier : left[0] ?? null);
+  renderCaPlanner();
+  $("#cadlg").showModal();
+}
+
+function renderCaPlanner() {
+  const left = caTiersLeft();
+  if (!caPick.tier) {
+    $("#cacontrols").innerHTML = "";
+    $("#cabody").innerHTML = `<p class="muted small">${(state.snap.combatAchievements?.tasks ?? []).length ? "You've reached every reward tier. ✓" : "This profile has no combat achievement tasks. Copy a fresh profile from the plugin."}</p>`;
+    return;
+  }
+  const opt = (list, v) => list.map((t) => `<option value="${t}" ${t === v ? "selected" : ""}>${t}</option>`).join("");
+  $("#cacontrols").innerHTML = `
+    <label>Reward tier <select data-ca="tier">${opt(left, caPick.tier)}</select></label>
+    <label>Count tasks up to <select data-ca="max">${opt(CA_TIERS, caPick.maxTier)}</select></label>`;
+  const plan = caTierPlan(state.snap, caPick.tier, { maxTier: caPick.maxTier });
+  const picked = plan.bosses.filter((b) => caPick.on.has(b.monster));
+  const pts = picked.reduce((n, b) => n + b.points, 0);
+  const pct = Math.min(100, Math.round(((plan.have + pts) / plan.need) * 100));
+  const status = pts >= plan.gap
+    ? `<span class="ok">Enough to reach ${esc(plan.tier)} ✓${pts > plan.gap ? ` (${pts - plan.gap} to spare)` : ""}</span>`
+    : `<span class="short">${plan.gap - pts} more points needed</span>`;
+  const short = plan.available < plan.gap
+    ? `<p class="plannote">Every task up to ${esc(plan.maxTier)} is worth ${plan.available} points, ${plan.gap - plan.available} short of ${esc(plan.tier)}. Count harder tasks to get there.</p>` : "";
+  const row = (b) => {
+    const tiers = CA_TIERS.filter((t) => b.byTier[t]).map((t) => `${b.byTier[t]} ${t}`).join(", ");
+    const sub = [tiers, TIER_LABEL[b.effort],
+      b.locked ? `<span class="lock">Needs ${esc(b.locked.needs.join(", "))} (planned on the route)</span>` : "",
+      b.wilderness ? "Wilderness" : ""].filter(Boolean).join(" · ");
+    return `<li class="${b.locked ? "locked" : ""}"><label>
+      <input type="checkbox" data-ca-boss="${esc(b.monster)}" ${caPick.on.has(b.monster) ? "checked" : ""}>
+      <span class="cn">${esc(caBossName(b))}</span>
+      <span class="cp">${b.points} pts · ${plural(b.tasks.length, "task")}</span>
+      <span class="cs">${sub}</span></label></li>`;
+  };
+  $("#cabody").innerHTML = `
+    <div class="casum">
+      <span>You have <b>${plan.have}</b> of the <b>${plan.need}</b> points for ${esc(plan.tier)}: ${plan.gap} to go. Picked: <b>${pts}</b> points from ${plural(picked.length, "boss", "bosses")}. ${status}</span>
+      <div class="bar" style="--c:${pts >= plan.gap ? "var(--good)" : "var(--c-combat)"}"><i style="width:${pct}%"></i></div>
+    </div>
+    <div class="caacts">
+      <button type="button" class="btn tiny" data-ca-act="suggest" ${plan.suggested.length ? "" : "disabled"} title="The fewest bosses that cover the gap, best points for the work first">Pick for me</button>
+      <button type="button" class="btn tiny ghost" data-ca-act="clear" ${picked.length ? "" : "disabled"}>Clear</button>
+    </div>
+    ${plan.bosses.length ? `<ul class="cabosses">${plan.bosses.map(row).join("")}</ul>` : `<p class="muted small">No unfinished tasks up to ${esc(plan.maxTier)}.</p>`}
+    ${short}
+    <div class="planfoot">
+      <button type="button" class="btn primary" data-ca-act="add" ${picked.length ? "" : "disabled"}>Add as goals and plan a route</button>
+      <span class="muted small">Adds the ${esc(plan.tier)} tier and ${plural(picked.length, "boss goal")}.</span>
+    </div>
+    <p class="plannote">Bosses are ordered by points for the work (easier tasks are quicker points), with locked ones last. Tasks marked done by hand count as done.</p>`;
+}
+
+/** Add the tier and the picked bosses as goals (reusing ones you have), then open the route planner. */
+function addCaGoals() {
+  const plan = caTierPlan(state.snap, caPick.tier, { maxTier: caPick.maxTier });
+  const ids = [];
+  const add = (g) => {
+    const have = state.goals.find((x) => goalTitle(x) === goalTitle(g));
+    if (have) { if (g.forTier) have.forTier = g.forTier; ids.push(have.id); return; }
+    const goal = { id: newGoalId(), ...g };
+    state.goals.push(goal);
+    ids.push(goal.id);
+  };
+  add({ type: "ca", tier: caPick.tier });
+  for (const b of plan.bosses) if (caPick.on.has(b.monster)) add({ type: "caboss", monster: b.monster, tier: caPick.maxTier, forTier: caPick.tier });
+  saveGoals();
+  renderGoals();
+  renderReach();
+  renderCards(true);
+  $("#cadlg").close();
+  openPlanner(ids);
+}
+
+$("#cadlg").addEventListener("change", (e) => {
+  const sel = e.target.closest("[data-ca]");
+  if (sel?.dataset.ca === "tier") caReset(sel.value);
+  else if (sel?.dataset.ca === "max") caReset(caPick.tier, sel.value);
+  const box = e.target.closest("[data-ca-boss]");
+  if (box) { if (box.checked) caPick.on.add(box.dataset.caBoss); else caPick.on.delete(box.dataset.caBoss); }
+  if (sel || box) {
+    const list = $("#cadlg .cabosses"), top = list?.scrollTop;
+    renderCaPlanner();
+    if (box && $("#cadlg .cabosses")) $("#cadlg .cabosses").scrollTop = top;
+  }
+});
+$("#cadlg").addEventListener("click", (e) => {
+  const act = e.target.closest("[data-ca-act]")?.dataset.caAct;
+  if (act === "suggest") { caPick.on = new Set(caTierPlan(state.snap, caPick.tier, { maxTier: caPick.maxTier }).suggested); renderCaPlanner(); return; }
+  if (act === "clear") { caPick.on.clear(); renderCaPlanner(); return; }
+  if (act === "add") { addCaGoals(); return; }
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
+});
+
 $("#gtype").addEventListener("change", renderGoalFields);
 $("#goalform").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -1479,6 +1600,8 @@ $("#goalform").addEventListener("submit", (e) => {
 });
 
 $("#goals").addEventListener("click", (e) => {
+  const pick = e.target.closest("[data-ca-goal]");
+  if (pick) { openCaPlanner(pick.dataset.caGoal); return; }
   const del = e.target.closest("[data-del]");
   if (del) {
     state.goals = state.goals.filter((g) => g.id !== del.dataset.del);
@@ -1504,6 +1627,10 @@ $("#tabbody").addEventListener("toggle", (e) => {
     state.clogOpen = null;
   }
 }, true);
+
+$("#tabbody").addEventListener("click", (e) => {
+  if (e.target.closest("[data-ca-plan]")) openCaPlanner();
+});
 
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab]");
