@@ -48,7 +48,22 @@ opens the website. Running the engine here instead would need the $5/month Worke
 Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows), uploads at most every 30 seconds per key, browsers
 only from the sites in `ALLOWED_ORIGINS` (`wrangler.toml`), and no wealth data.
 
-## Run it locally
+## Try it on your PC (one click)
+
+Double-click **`Test Auto-Upload.bat`** in the project folder. It starts this service
+(http://127.0.0.1:8789, local database in `sync/.wrangler`), this branch's website
+(http://127.0.0.1:8790, served like GitHub Pages) and RuneLite with this branch's plugin, then
+shows what to set in the plugin (Website, Upload server, Automatic upload). Closing RuneLite
+stops everything. Nothing leaves your PC and no Cloudflare account is needed. The first run
+installs the service's tools with npm.
+
+- `Test Auto-Upload.bat -Reset` starts with an empty local database.
+- `Test Auto-Upload.bat -NoRuneLite` starts only the service and the website.
+
+The plugin settings it asks you to change are shared with `Start TaskMaster.bat`: reset
+**Website** and **Upload server** (right-click > Reset) or switch Automatic upload off afterwards.
+
+## Run it locally (by hand)
 
 Needs Node.js (a portable copy lives in `%LOCALAPPDATA%\Programs\node`):
 

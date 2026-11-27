@@ -79,6 +79,7 @@ up from chat messages as you play, and from a boss's collection log page when yo
   to tune them), [what the plugin reads](docs/data-sources.md), and
   [publishing to the Plugin Hub](docs/plugin-hub.md).
 - `Start TaskMaster.bat` / `Forget TaskMaster login.bat` – double-click entry points for testers.
+- `Test Auto-Upload.bat` – try Automatic upload on this PC (`scripts/Start-AutoUploadTest.ps1`).
 - `.editorconfig` / `.gitattributes` – formatting and line-ending rules, so every editor and
   checkout stays consistent.
 
@@ -121,6 +122,10 @@ The publish workflow runs the same checks first and doesn't publish if they fail
 [How suggestions work](docs/how-suggestions-work.md#checking-an-edit) explains them.
 
 ### Running the Automatic upload service
+
+To try the whole thing on your PC (service, website and RuneLite with the plugin), double-click
+**`Test Auto-Upload.bat`**; see [sync/README.md](sync/README.md#try-it-on-your-pc-one-click).
+By hand:
 
 ```powershell
 cd sync
