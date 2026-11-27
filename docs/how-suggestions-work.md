@@ -29,6 +29,14 @@ Nothing is fetched from the internet.
    categories, then different bosses or pages, so you don't get three Zulrah cards. **Shuffle**
    adds a small, repeatable bit of randomness (the `seed`).
 
+## Not for me
+
+Every suggestion card (and the Challenge card) has **Not for me**, which hides it **for a week**
+or **for good**; the slot is refilled like Swap. Hidden suggestions are kept per player in this
+browser (`tm.hidden:*` in localStorage), are left out of every tier and the Challenge card, and
+are listed under **N hidden by you** in the filters row, where **Show again** brings one back.
+Week-long ones come back by themselves. Goal cards don't have it: remove the goal instead.
+
 ## Effort tiers
 
 | Tier | Shown as | Roughly |
@@ -69,7 +77,8 @@ until the next sync, since the profile doesn't say how many each quest is worth.
 
 Cards show a short counter beside the bar. Combat achievements that ask for a number of kills
 ("Kill Vorkath 50 times") compare against the synced kill count (`?/50 kills` when it hasn't
-synced); tasks that need kills in one trip, in a row or under conditions don't. Other combat
+synced). The plugin records kill counts from kill-count chat messages and from the header of a
+boss's collection log page when it's opened, so opening the page is enough for old kills. Tasks that need kills in one trip, in a row or under conditions don't. Other combat
 achievements show how much of their tier is done; collection log cards show slots, diaries tiers.
 
 ## Tuning it
@@ -88,6 +97,30 @@ Most changes only need [`web/knowledge-base.js`](../web/knowledge-base.js), whic
 
 After an edit, reload the page. With **Load sample data** you can check the result without a
 real profile.
+
+### Checking an edit
+
+The website silently ignores a rule it can't use: a misspelt item, page, quest or boss name, or a
+tier that doesn't exist (`"Long-Haul"` instead of `"Long"`). Two checks catch that (they need
+[Node.js](https://nodejs.org/), nothing else):
+
+```powershell
+npm run check   # knowledge-base.js against the game's own names, with "did you mean" hints
+npm test        # the checker's tests plus the suggestion snapshots
+```
+
+- **The checker** (`tests/check-knowledge-base.mjs`) compares every name in the knowledge base
+  with `tests/fixtures/game-names.json`: the game's collection log pages and items, quests,
+  diary regions and combat achievements, without any player's progress. After a game update adds
+  pages, items or quests, sync a profile and refresh that file with `npm run game-names`.
+- **The suggestion snapshots** (`tests/suggestions.test.mjs`) list what the recommender suggests
+  for two fixed test accounts: the sample profile, and a made-up account with every page, quest
+  and task. A change to the suggestions fails the test until you accept it with
+  `npm run test:update`; the diff of `tests/suggestions.test.mjs.snapshot` then shows exactly
+  which suggestions moved, appeared or went, with their tier and score.
+
+Both run before every publish of the website, so a mistake stops the deploy instead of reaching
+players.
 
 ## Where the data comes from
 

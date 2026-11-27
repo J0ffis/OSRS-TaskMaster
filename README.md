@@ -36,7 +36,7 @@ reads your client                          keeps your profile in this browser
    goals live in `localStorage`.
 
 For a complete collection log, open it in game and click **Search** once. Kill counts are picked
-up from chat messages as you play. The full list of what the plugin reads is in
+up from chat messages as you play, and from a boss's collection log page when you open it. The full list of what the plugin reads is in
 [docs/data-sources.md](docs/data-sources.md).
 
 ## Project structure
@@ -50,6 +50,9 @@ up from chat messages as you play. The full list of what the plugin reads is in
   - `app.js` – the page itself: importing profiles, rendering cards, managing goals.
   - `sample-profile.json` – the made-up account behind **Load sample data**.
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
+- `tests/` – checks for the website, run with Node.js (`npm run check`, `npm test`): the
+  knowledge-base checker, suggestion snapshots, and `fixtures/game-names.json` (the game's own
+  page, item, quest and task names, no player progress).
 - `server/` – an optional, dependency-free local server (`Server.java`) for automatic syncing.
 - `scripts/` – PowerShell scripts:
   - `Start-TaskMaster.ps1` – the tester launcher behind `Start TaskMaster.bat`.
@@ -86,7 +89,20 @@ described in the [tester guide](TESTER-GUIDE.md#2-start-it).
 
 The hosted site is published to GitHub Pages from `web/` by
 [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main` that touches
-`web/`. Locally, any static file server works, or use the local server below.
+`web/` or `tests/`. Locally, any static file server works, or use the local server below.
+
+### Checks and tests
+
+With [Node.js](https://nodejs.org/) installed (no packages needed):
+
+```powershell
+npm run check         # web/knowledge-base.js: misspelt names, tiers that don't exist
+npm test              # the checker's tests and the suggestion snapshots
+npm run test:update   # accept intended changes to the suggestions, then review the snapshot diff
+```
+
+The publish workflow runs the same checks first and doesn't publish if they fail.
+[How suggestions work](docs/how-suggestions-work.md#checking-an-edit) explains them.
 
 ### Running the local server (optional)
 

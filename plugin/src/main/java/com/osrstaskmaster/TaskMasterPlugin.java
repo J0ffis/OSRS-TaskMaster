@@ -257,8 +257,35 @@ public class TaskMasterPlugin extends Plugin
 			}
 		}
 		store.clogPages.put(title, page);
+		readClogKillCounts(header, title);
 		store.save();
 		dirty = true;
+	}
+
+	/**
+	 * The page header's kill count lines ("Zulrah kills: 87"), so bosses killed before the plugin
+	 * was installed get a count without waiting for the next kill message.
+	 */
+	private void readClogKillCounts(Widget header, String title)
+	{
+		Widget[] lines = header.getDynamicChildren();
+		if (lines == null)
+		{
+			return;
+		}
+		for (Widget w : lines)
+		{
+			String text = w.getText() == null ? "" : Text.removeTags(w.getText()).trim();
+			if (text.isEmpty() || text.equals(title))
+			{
+				continue;
+			}
+			Map.Entry<String, Integer> kc = ClogKillCounts.parse(text);
+			if (kc != null)
+			{
+				ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue());
+			}
+		}
 	}
 
 	// ---- Kill counts --------------------------------------------------------------------
@@ -274,7 +301,10 @@ public class TaskMasterPlugin extends Plugin
 		Matcher m = KC_PATTERN.matcher(msg);
 		if (m.find())
 		{
-			store.killCounts.put(m.group(1), Integer.parseInt(m.group(2).replace(",", "")));
+			// The chat message is always the latest count; merge only keeps one entry per boss
+			// whatever the capitalisation (a collection log page may have added it first).
+			int count = Integer.parseInt(m.group(2).replace(",", ""));
+			ClogKillCounts.merge(store.killCounts, m.group(1), count);
 			store.save();
 			dirty = true;
 		}

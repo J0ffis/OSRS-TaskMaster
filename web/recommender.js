@@ -989,6 +989,30 @@ function advances(c, g, a) {
 }
 
 /**
+ * Is candidate `c` the very thing goal `g` asks for (not just a step towards it)? "Train Slayer to
+ * 80" helps a goal of 85 Slayer and stays; "Sit Rat" is the goal "Sit Rat" and goes.
+ */
+function isGoalItself(c, g, a) {
+  const m = c.meta ?? {};
+  switch (g.type) {
+    case "skill": return m.skill === g.skill && m.target === g.level;
+    case "xp": return m.skill === g.skill && m.xpTarget === g.xp;
+    case "quest": return m.quest === g.quest;
+    case "diary": return m.region === g.region && m.tier === g.tier;
+    case "clog": return c.id === `clogpage:${g.page}`;
+    case "pet": return m.pet === g.pet;
+    case "item": {
+      const it = itemIndex(a.snap).get(String(g.item).toLowerCase());
+      return !!it && (m.item === it.name || m.pet === it.name);
+    }
+    case "family": return c.id === `clogfam:${g.page}:${g.family}`;
+    case "catask": return m.task === g.task;
+    case "cabundle": return c.id === `cabundle:${g.monster}|${g.tier}`;
+    default: return false;
+  }
+}
+
+/**
  * Effort for a goal card, judged by what the goal is rather than how far along it is, using the
  * same rules as the matching suggestions. `byId` holds the other suggestions for reuse.
  */
@@ -1302,8 +1326,13 @@ function evaluate(snap, goals, opts) {
       c.why = [`Moves your goal "${goalTitle(helps[0])}" forward`, ...c.why];
     }
   }
-  if (opts.includeGoals !== false) list.push(...goalCandidates(snap, open, generated).map((c) => ({ ...c, score: c.base + effortBias[c.effort] })));
   const enabled = opts.categories;
+  if (opts.includeGoals !== false) {
+    // A suggestion that is exactly one of your goals would show twice (the goal card and the
+    // suggestion): keep only the goal card. Not when goal cards are filtered out, or it'd vanish.
+    if (open.length && (!enabled || enabled.has("goals"))) list = list.filter((c) => !open.some((g) => isGoalItself(c, g, a)));
+    list.push(...goalCandidates(snap, open, generated).map((c) => ({ ...c, score: c.base + effortBias[c.effort] })));
+  }
   if (enabled) list = list.filter((c) => enabled.has(c.category));
   if (style) list = list.filter((c) => c.effort === STYLE_EFFORT[style]);
   const locked = [...locks.values()].sort((x, y) => x.content.localeCompare(y.content));

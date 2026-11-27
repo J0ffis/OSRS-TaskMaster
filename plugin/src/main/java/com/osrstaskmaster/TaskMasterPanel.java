@@ -47,7 +47,7 @@ class TaskMasterPanel extends PluginPanel
 			+ "Do this again whenever you want fresh suggestions.<br><br>"
 			+ "<b>For a complete profile</b><br>"
 			+ "&bull; Open the <b>collection log</b> and click <b>Search</b> once to record every obtained item.<br>"
-			+ "&bull; Kill counts are picked up from chat as you play.<br><br>"
+			+ "&bull; Kill counts are picked up from chat as you play, and from each boss's collection log page when you open it.<br><br>"
 			+ "Your bank, inventory and gear are never read. Your profile stays on this PC until you "
 			+ "paste it somewhere; the website keeps it in your browser only."
 			+ "</body></html>");

@@ -65,8 +65,19 @@
       <div class="optin">
         <span class="muted small">Also include:</span>
         <span id="optins" class="optins"></span>
-        <button id="lockedbtn" type="button" class="link small" hidden></button>
+        <span class="optinlinks">
+          <button id="hiddenbtn" type="button" class="link small" hidden></button>
+          <button id="lockedbtn" type="button" class="link small" hidden></button>
+        </span>
       </div>
+      <dialog id="hiddendlg" class="dlg" aria-labelledby="hidden-h">
+        <div class="dlghead">
+          <h3 id="hidden-h">Hidden by you</h3>
+          <button type="button" class="x" data-close aria-label="Close">×</button>
+        </div>
+        <p class="muted small">Suggestions you marked <b>Not for me</b>. Ones hidden for a week come back by themselves. Kept in this browser only.</p>
+        <div id="hiddenbody"></div>
+      </dialog>
       <dialog id="lockeddlg" class="dlg" aria-labelledby="locked-h">
         <div class="dlghead">
           <h3 id="locked-h">Hidden until unlocked</h3>

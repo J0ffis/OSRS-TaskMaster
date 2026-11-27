@@ -12,7 +12,7 @@ server also refuses any snapshot that contains wealth data.
 | Combat achievements | `CA_POINTS` and `CA_THRESHOLD_*` varbits, `CA_TASK_COMPLETED_*` varps, task names from the game cache |
 | Collection log | `COLLECTION_COUNT*` varps, page layout from the game cache, obtained items when you click **Search** |
 | Pets | The collection log's own "All Pets" page |
-| Kill counts | "Your X kill count is: N" chat messages |
+| Kill counts | "Your X kill count is: N" chat messages, and the kill count lines at the top of a collection log page ("Zulrah kills: 87") when it's opened. A count is never lowered |
 
 Collection log items and kill counts are only visible at certain moments, so the plugin
 remembers them per account in RuneLite's own config (`ProgressStore.java`).
