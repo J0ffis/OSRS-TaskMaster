@@ -1,8 +1,19 @@
 // OSRS TaskMaster knowledge base.
 // Hand-curated game facts the recommender uses on top of your synced data.
 // Skill requirements are the main skill gates only; prerequisite quests are listed in `note`.
-// Edit freely: everything here is plain data.
+// Edit freely: everything here is plain data. docs/how-suggestions-work.md explains what each
+// table changes.
+//
+// Sections, in order:
+//   Game basics            SKILLS, MILESTONES, QUESTS, DIARIES, combat achievement tiers,
+//                          CLOG_EASE (quick logs), RARE_ITEMS
+//   Effort rules           fixed Quick / Balanced / Long haul tiers for pages, bosses and items
+//   Drop rates -> effort   minutes per kill and the hour limits for each tier
+//   Opt-in content         what counts as Wilderness
+//   Access requirements    content hidden until a quest or level is done
+//   Slayer                 kills per hour and the bosses each task can be done at
 
+// ---- Game basics -------------------------------------------------------------------------
 export const SKILLS = [
   "attack", "hitpoints", "mining", "strength", "agility", "smithing", "defence", "herblore",
   "fishing", "ranged", "thieving", "cooking", "prayer", "crafting", "firemaking", "magic",
@@ -231,4 +242,170 @@ export const CONTENT_REQS = [
   { match: /^Thermonuclear Smoke Devil$/, skills: { slayer: 93 } },
   { match: /^Alchemical Hydra$/, skills: { slayer: 95 } },
 ];
+
+// ---- Slayer task speed -------------------------------------------------------------------
+// Rough kills per hour for a mid-to-high level account using standard methods (no cannon or
+// barraging), keyed by task name in lower case. Rough guides only: they set the card's effort tier
+// and time estimate. Unlisted tasks use the defaults.
+export const SLAYER_KILLS_PER_HOUR = {
+  "aberrant spectres": 120, "abyssal demons": 120, "adamant dragons": 40, "ankou": 150, "araxytes": 150,
+  "aviansies": 100, "bandits": 200, "banshees": 250, "basilisks": 150, "bats": 300, "bears": 200,
+  "birds": 400, "black demons": 90, "black dragons": 60, "bloodveld": 180, "blue dragons": 80,
+  "brine rats": 200, "bronze dragons": 80, "cave bugs": 400, "cave crawlers": 300, "cave horrors": 120,
+  "cave kraken": 200, "cave slimes": 300, "cockatrice": 250, "cows": 400, "crawling hands": 300,
+  "crocodiles": 200, "dagannoth": 150, "dark beasts": 90, "dogs": 300, "drakes": 100, "dust devils": 250,
+  "dwarves": 300, "earth warriors": 250, "elves": 120, "fever spiders": 250, "fire giants": 120,
+  "fossil island wyverns": 90, "gargoyles": 120, "ghosts": 250, "ghouls": 250, "goblins": 500,
+  "greater demons": 120, "hellhounds": 150, "hill giants": 250, "hobgoblins": 300, "hydras": 100,
+  "ice giants": 200, "ice warriors": 250, "icefiends": 400, "infernal mages": 200, "iron dragons": 80,
+  "jellies": 250, "jungle horrors": 200, "kalphite": 250, "killerwatts": 250, "kurask": 150,
+  "lesser demons": 200, "lizardmen": 120, "lizards": 300, "minotaurs": 400, "mithril dragons": 40,
+  "mogres": 200, "molanisks": 250, "monkeys": 500, "moss giants": 250, "mutated zygomites": 200,
+  "nechryael": 150, "ogres": 250, "otherworldly beings": 250, "pyrefiends": 300, "rats": 500,
+  "red dragons": 80, "revenants": 100, "rockslugs": 400, "rune dragons": 35, "scabarites": 150,
+  "scorpions": 400, "sea snakes": 150, "shades": 200, "skeletal wyverns": 70, "skeletons": 300,
+  "smoke devils": 200, "sourhogs": 250, "spiders": 400, "spiritual creatures": 150, "steel dragons": 70,
+  "suqahs": 120, "terror dogs": 250, "trolls": 150, "turoth": 250, "tzhaar": 150, "vampyres": 200,
+  "wall beasts": 200, "warped creatures": 200, "waterfiends": 120, "wolves": 300, "wyrms": 150,
+  "zombies": 300,
+  // Boss tasks, by boss name.
+  "abyssal sire": 25, "alchemical hydra": 25, "cerberus": 40, "dagannoth kings": 40, "giant mole": 50,
+  "grotesque guardians": 25, "kalphite queen": 20, "king black dragon": 50, "kraken": 80,
+  "sarachnis": 50, "thermonuclear smoke devil": 60, "vorkath": 25, "zulrah": 25,
+};
+export const SLAYER_DEFAULT_KILLS_PER_HOUR = { task: 150, boss: 20 };
+// Effort tiers for a Slayer task by estimated minutes left (travel and banking not included).
+export const SLAYER_EFFORT_MINUTES = { Quick: 30, Medium: 90 };
+
+// ---- Slayer task bosses -----------------------------------------------------------------
+// Bosses that count toward a Slayer task, keyed by the task name in lower case. Requirements come
+// from CONTENT_REQS above (matched by boss name) plus any listed here. Only well-known ones.
+export const SLAYER_BOSSES = {
+  "hellhounds": [{ name: "Cerberus" }],
+  "abyssal demons": [{ name: "Abyssal Sire" }],
+  "cave kraken": [{ name: "Kraken" }],
+  "smoke devils": [{ name: "Thermonuclear Smoke Devil" }],
+  "hydras": [{ name: "Alchemical Hydra" }],
+  "gargoyles": [{ name: "Grotesque Guardians" }],
+  "araxytes": [{ name: "Araxxor" }],
+  "spiders": [{ name: "Sarachnis" }, { name: "Venenatis" }, { name: "Spindel" }],
+  "kalphite": [{ name: "Kalphite Queen" }],
+  "black dragons": [{ name: "King Black Dragon" }],
+  "blue dragons": [{ name: "Vorkath" }],
+  "dagannoth": [{ name: "Dagannoth Kings" }],
+  "aviansies": [{ name: "Kree'arra", skills: { ranged: 70 } }],
+  "greater demons": [{ name: "K'ril Tsutsaroth", skills: { hitpoints: 70 } }],
+  "bears": [{ name: "Callisto" }, { name: "Artio" }],
+  "scorpions": [{ name: "Scorpia" }],
+};
+
+// ---- Requirements for "Within reach" -----------------------------------------------------
+// Taken from the OSRS Wiki (November 2026). Used to tell how close a quest or diary tier is and
+// what's still missing. Skill levels are the highest needed anywhere in the quest or tier; boosts
+// can cover some of them. `combat` is combat level and `questPoints` quest points.
+
+// Quests that must be finished first (direct prerequisites only) and quest points needed.
+// Subquests the game doesn't list as their own quest (Recipe for Disaster's "Freeing King
+// Awowogei", needed for Monkey Madness II) are left out, since their state can't be checked.
+export const QUEST_PREREQS = {
+  "Animal Magnetism": { quests: ["The Restless Ghost", "Ernest the Chicken", "Priest in Peril"] },
+  "Lost City": { quests: [] },
+  "Fairytale II - Cure a Queen": { quests: ["Fairytale I - Growing Pains"] },
+  "Bone Voyage": { quests: ["The Dig Site"] },
+  "Priest in Peril": { quests: [] },
+  "Regicide": { quests: ["Underground Pass"] },
+  "Horror from the Deep": { quests: ["Alfred Grimhand's Barcrawl"] },
+  "Heroes' Quest": { quests: ["Shield of Arrav", "Lost City", "Merlin's Crystal", "Dragon Slayer I"], questPoints: 55 },
+  "Monkey Madness I": { quests: ["The Grand Tree", "Tree Gnome Village"] },
+  "Desert Treasure I": { quests: ["The Dig Site", "Temple of Ikov", "The Tourist Trap", "Troll Stronghold", "Priest in Peril", "Waterfall Quest"] },
+  "Legends' Quest": { quests: ["Family Crest", "Heroes' Quest", "Shilo Village", "Underground Pass", "Waterfall Quest"], questPoints: 107 },
+  "A Kingdom Divided": { quests: ["The Depths of Despair", "The Queen of Thieves", "The Ascent of Arceuus", "The Forsaken Tower", "Tale of the Righteous"] },
+  "Sins of the Father": { quests: ["Vampyre Slayer", "A Taste of Hope"] },
+  "Monkey Madness II": { quests: ["Enlightened Journey", "The Eyes of Glouphrie", "Troll Stronghold", "Watchtower"] },
+  "Dragon Slayer II": { quests: ["Legends' Quest", "Dream Mentor", "A Tail of Two Cats", "Animal Magnetism", "Ghosts Ahoy", "Bone Voyage", "Client of Kourend"], questPoints: 200 },
+  "Song of the Elves": { quests: ["Mourning's End Part II", "Making History", "Druidic Ritual"] },
+  "Secrets of the North": { quests: ["Making Friends with My Arm", "The General's Shadow", "Devious Minds", "Hazeel Cult"] },
+  "Desert Treasure II - The Fallen Empire": { quests: ["Desert Treasure I", "Secrets of the North", "Enakhra's Lament", "Temple of the Eye", "The Garden of Death", "Below Ice Mountain", "His Faithful Servants"] },
+  "Lunar Diplomacy": { quests: ["The Fremennik Trials", "Lost City", "Rune Mysteries", "Shilo Village"] },
+  // The final subquest's own requirements; every earlier subquest is needed too.
+  "Recipe for Disaster": { quests: ["Desert Treasure I", "Horror from the Deep"], questPoints: 175 },
+};
+
+// Everything a diary tier needs: skills (plus combat / questPoints) and quests to have finished.
+// `allQuests` means every quest (Lumbridge & Draynor Elite needs the Quest point cape).
+// Subquests (Recipe for Disaster's "Freeing King Awowogei" for Western Provinces) are left out.
+export const DIARY_REQS = {
+  "Ardougne": {
+    easy: { skills: { thieving: 5 }, quests: ["Biohazard", "Rune Mysteries"] },
+    medium: { skills: { agility: 39, strength: 38, ranged: 21, farming: 31, magic: 51, firemaking: 50, thieving: 38 }, quests: ["Enlightened Journey", "The Hand in the Sand", "Plague City", "Rune Mysteries", "Tower of Life", "Underground Pass"] },
+    hard: { skills: { magic: 66, thieving: 72, hunter: 59, farming: 70, smithing: 68, construction: 50, runecraft: 65 }, quests: ["Enlightened Journey", "The Hand in the Sand", "Legends' Quest", "Monkey Madness I", "Mourning's End Part II", "Rune Mysteries", "Tower of Life", "Watchtower"] },
+    elite: { skills: { fishing: 81, cooking: 91, thieving: 82, crafting: 10, smithing: 91, fletching: 69, farming: 85, agility: 90, magic: 94 }, quests: ["Desert Treasure I", "Enlightened Journey", "The Hand in the Sand", "Haunted Mine", "Legends' Quest", "Monkey Madness I", "Mourning's End Part II", "Rune Mysteries", "Tower of Life", "Watchtower"] },
+  },
+  "Desert": {
+    easy: { skills: { hunter: 5, thieving: 21 }, quests: [] },
+    medium: { skills: { agility: 30, slayer: 22, hunter: 47, thieving: 25, herblore: 36, construction: 20, woodcutting: 35 }, quests: ["Eagles' Peak", "Enakhra's Lament", "The Golem", "Spirits of the Elid"] },
+    hard: { skills: { thieving: 65, mining: 45, magic: 68, agility: 70, slayer: 65, defence: 10, attack: 50, firemaking: 60, smithing: 68 }, quests: ["Contact!", "Desert Treasure I", "Dream Mentor", "Eagles' Peak", "Enakhra's Lament", "The Feud", "The Golem", "Spirits of the Elid"] },
+    elite: { skills: { cooking: 85, magic: 94, fletching: 95, construction: 78, thieving: 91, prayer: 85 }, quests: ["Contact!", "Desert Treasure I", "Dream Mentor", "Eagles' Peak", "Enakhra's Lament", "The Feud", "The Golem", "Priest in Peril", "Spirits of the Elid"] },
+  },
+  "Falador": {
+    easy: { skills: { construction: 16, agility: 5, mining: 10, smithing: 13 }, quests: ["Doric's Quest", "The Knight's Sword"] },
+    medium: { skills: { firemaking: 49, magic: 37, farming: 23, slayer: 32, agility: 42, strength: 37, ranged: 19, thieving: 40, prayer: 10, defence: 20, crafting: 40, mining: 40, woodcutting: 30 }, quests: ["Doric's Quest", "The Knight's Sword", "Recruitment Drive", "Skippy and the Mogres"] },
+    hard: { skills: { runecraft: 56, prayer: 70, construction: 16, slayer: 72, agility: 50, mining: 60, thieving: 50, defence: 50 }, quests: ["Doric's Quest", "Grim Tales", "Heroes' Quest", "The Knight's Sword", "Skippy and the Mogres", "The Slug Menace"] },
+    elite: { skills: { runecraft: 88, farming: 91, woodcutting: 75, agility: 80, herblore: 81 }, quests: ["Doric's Quest", "Grim Tales", "Heroes' Quest", "The Knight's Sword", "Skippy and the Mogres", "The Slug Menace", "Wanted!"] },
+  },
+  "Fremennik": {
+    easy: { skills: { hunter: 11, crafting: 23, mining: 20, smithing: 20, thieving: 5, woodcutting: 15, firemaking: 15 }, quests: ["The Fremennik Trials"] },
+    medium: { skills: { slayer: 47, mining: 40, thieving: 42, hunter: 45, construction: 37, defence: 30 }, quests: ["Between a Rock...", "Eagles' Peak", "Horror from the Deep", "The Fremennik Trials"] },
+    hard: { skills: { magic: 72, hunter: 55, herblore: 66, thieving: 75, woodcutting: 56, mining: 70, smithing: 60 }, quests: ["Between a Rock...", "Eadgar's Ruse", "Eagles' Peak", "Horror from the Deep", "Lunar Diplomacy", "Throne of Miscellania"] },
+    elite: { skills: { runecraft: 82, crafting: 80, agility: 80, hitpoints: 70, strength: 70, ranged: 70, slayer: 83 }, quests: ["Between a Rock...", "Eadgar's Ruse", "Eagles' Peak", "Horror from the Deep", "Lunar Diplomacy", "Throne of Miscellania"] },
+  },
+  "Kandarin": {
+    easy: { skills: { fishing: 16, farming: 13, agility: 20 }, quests: [] },
+    medium: { skills: { agility: 36, herblore: 48, ranged: 40, strength: 22, fishing: 46, cooking: 43, magic: 45, fletching: 50, farming: 26, thieving: 47, mining: 30 }, quests: ["Alfred Grimhand's Barcrawl", "Waterfall Quest"] },
+    hard: { skills: { fishing: 70, agility: 60, strength: 50, fletching: 70, woodcutting: 60, prayer: 70, defence: 70, magic: 56, firemaking: 65, thieving: 53, construction: 50, smithing: 75 }, quests: ["Alfred Grimhand's Barcrawl", "King's Ransom"] },
+    elite: { skills: { farming: 79, fishing: 76, cooking: 80, herblore: 86, agility: 60, smithing: 90, firemaking: 85, crafting: 85, magic: 87 }, quests: ["Alfred Grimhand's Barcrawl", "Family Crest", "Lunar Diplomacy"] },
+  },
+  "Karamja": {
+    easy: { skills: { mining: 40, agility: 15 }, quests: [] },
+    medium: { skills: { woodcutting: 50, cooking: 16, fishing: 65, farming: 27, hunter: 41, agility: 12, mining: 40 }, quests: ["Jungle Potion", "Shilo Village", "The Grand Tree"] },
+    hard: { skills: { cooking: 50, runecraft: 44, agility: 53, thieving: 50, mining: 52, strength: 50, ranged: 42, slayer: 50, woodcutting: 10, combat: 100 }, quests: ["Shilo Village", "Tai Bwo Wannai Trio", "The Grand Tree"] },
+    elite: { skills: { runecraft: 91, farming: 72, herblore: 87 }, quests: ["Tai Bwo Wannai Trio", "The Grand Tree"] },
+  },
+  "Kourend & Kebos": {
+    easy: { skills: { mining: 15, thieving: 25, construction: 25, herblore: 12, fishing: 20 }, quests: ["Druidic Ritual"] },
+    medium: { skills: { mining: 42, farming: 45, crafting: 30, construction: 30, fishing: 43, hunter: 53, agility: 49, firemaking: 50, woodcutting: 50 }, quests: ["The Ascent of Arceuus", "The Depths of Despair", "The Forsaken Tower", "The Queen of Thieves", "Tale of the Righteous"] },
+    hard: { skills: { woodcutting: 60, smithing: 70, mining: 65, farming: 74, thieving: 49, slayer: 62, magic: 66 }, quests: ["The Ascent of Arceuus", "The Depths of Despair", "Dream Mentor", "The Forsaken Tower", "The Queen of Thieves", "Tale of the Righteous"] },
+    elite: { skills: { runecraft: 77, mining: 38, crafting: 38, woodcutting: 90, fishing: 82, cooking: 84, slayer: 95, magic: 90, farming: 85, fletching: 40 }, quests: ["The Ascent of Arceuus", "The Depths of Despair", "Dream Mentor", "The Forsaken Tower", "The Queen of Thieves", "Tale of the Righteous"] },
+  },
+  "Lumbridge & Draynor": {
+    easy: { skills: { slayer: 7, runecraft: 5, woodcutting: 15, firemaking: 15, fishing: 15, mining: 15 }, quests: ["Cook's Assistant", "Rune Mysteries"] },
+    medium: { skills: { agility: 20, strength: 19, ranged: 50, magic: 31, fishing: 30, crafting: 38, woodcutting: 30, thieving: 38, hunter: 42, runecraft: 23, combat: 70 }, quests: ["Animal Magnetism", "Cook's Assistant", "Lost City", "Rune Mysteries"] },
+    hard: { skills: { magic: 60, agility: 46, runecraft: 59, woodcutting: 57, farming: 63, firemaking: 65, prayer: 52, crafting: 70 }, quests: ["Animal Magnetism", "Another Slice of H.A.M.", "Lost City", "Recipe for Disaster", "Rune Mysteries", "Tears of Guthix"] },
+    elite: { skills: { thieving: 78, agility: 70, ranged: 70, strength: 70, woodcutting: 75, smithing: 88, runecraft: 76, combat: 85 }, quests: [], allQuests: true },
+  },
+  "Morytania": {
+    easy: { skills: { crafting: 15, cooking: 12, combat: 20, slayer: 15, farming: 23 }, quests: ["Nature Spirit"] },
+    medium: { skills: { hunter: 29, agility: 40, woodcutting: 45, slayer: 42, cooking: 40, smithing: 35, herblore: 22 }, quests: ["Cabin Fever", "Dwarf Cannon", "Ghosts Ahoy", "Lair of Tarn Razorlor"] },
+    hard: { skills: { magic: 66, construction: 50, agility: 71, farming: 53, woodcutting: 50, firemaking: 50, slayer: 58, prayer: 70, defence: 70, mining: 55 }, quests: ["Cabin Fever", "Desert Treasure I", "Dwarf Cannon", "Ghosts Ahoy", "Haunted Mine", "In Aid of the Myreque", "Lair of Tarn Razorlor"] },
+    elite: { skills: { fishing: 96, strength: 76, firemaking: 80, magic: 83, crafting: 84, slayer: 85, defence: 70 }, quests: ["Desert Treasure I", "Dwarf Cannon", "Ghosts Ahoy", "In Aid of the Myreque", "Lair of Tarn Razorlor", "Lunar Diplomacy", "Shades of Mort'ton"] },
+  },
+  "Varrock": {
+    easy: { skills: { mining: 15, agility: 13, crafting: 8, runecraft: 9, fishing: 20, thieving: 5 }, quests: ["Rune Mysteries"] },
+    medium: { skills: { magic: 49, combat: 40, farming: 30, firemaking: 40, agility: 30, questPoints: 32 }, quests: ["A Soul's Bane", "The Dig Site", "Enlightened Journey", "Garden of Tranquillity", "Gertrude's Cat", "Rune Mysteries", "Tree Gnome Village"] },
+    hard: { skills: { hunter: 66, woodcutting: 60, magic: 54, firemaking: 60, construction: 50, farming: 68, prayer: 52, agility: 51 }, quests: ["A Soul's Bane", "Desert Treasure I", "Enlightened Journey", "Garden of Tranquillity", "Gertrude's Cat", "Rune Mysteries", "Tree Gnome Village"] },
+    elite: { skills: { herblore: 90, magic: 86, cooking: 95, smithing: 89, fletching: 81, runecraft: 78 }, quests: ["A Soul's Bane", "Desert Treasure I", "Dream Mentor", "Druidic Ritual", "Enlightened Journey", "Garden of Tranquillity", "Gertrude's Cat", "The Tourist Trap", "Tree Gnome Village"] },
+  },
+  "Western Provinces": {
+    easy: { skills: { hunter: 9, mining: 15, fletching: 20, combat: 40 }, quests: ["Big Chompy Bird Hunting", "Rune Mysteries"] },
+    medium: { skills: { agility: 37, hunter: 31, fishing: 46, woodcutting: 35, firemaking: 35, combat: 70, cooking: 42, mining: 40 }, quests: ["Big Chompy Bird Hunting", "Eagles' Peak", "The Eyes of Glouphrie", "The Grand Tree", "Tree Gnome Village"] },
+    hard: { skills: { ranged: 70, fishing: 62, cooking: 62, combat: 100, hunter: 69, agility: 48, woodcutting: 50, firemaking: 50, mining: 70, farming: 68, construction: 65, magic: 64, thieving: 75 }, quests: ["Big Chompy Bird Hunting", "Eagles' Peak", "The Eyes of Glouphrie", "Roving Elves", "Swan Song"] },
+    elite: { skills: { fletching: 85, slayer: 93, farming: 75, agility: 85, thieving: 85, prayer: 22, attack: 42, strength: 42, defence: 42, hitpoints: 42, ranged: 42, magic: 42 }, quests: ["Big Chompy Bird Hunting", "Eagles' Peak", "Swan Song", "The Eyes of Glouphrie", "Underground Pass"] },
+  },
+  "Wilderness": {
+    easy: { skills: { magic: 21, agility: 15, mining: 15 }, quests: ["Enter the Abyss"] },
+    medium: { skills: { mining: 55, woodcutting: 61, agility: 60, magic: 60, slayer: 50, smithing: 50 }, quests: ["Enter the Abyss"] },
+    hard: { skills: { magic: 66, hunter: 67, smithing: 75, agility: 64, slayer: 68, fishing: 53, herblore: 25 }, quests: ["Death Plateau", "Enter the Abyss", "Mage Arena I"] },
+    elite: { skills: { magic: 96, fishing: 85, cooking: 90, mining: 85, smithing: 90, thieving: 84, agility: 60, slayer: 83, woodcutting: 75, firemaking: 75 }, quests: ["Death Plateau", "Desert Treasure I", "Enter the Abyss", "Mage Arena I"] },
+  },
+};
 

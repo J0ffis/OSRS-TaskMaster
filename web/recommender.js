@@ -1,12 +1,26 @@
 // OSRS TaskMaster recommendation engine.
 // Pure functions: (snapshot, goals, options) -> ranked suggestions. No network access.
+//
+// How a suggestion is made (docs/how-suggestions-work.md explains this in more detail):
+//   1. Generate: each "candidate generator" (levels, quests, diaries, combat, collection log, pets)
+//      turns the snapshot into possible suggestions, each with a base score and an effort tier.
+//   2. Filter:   opt-in content (minigames, Wilderness, clues) that's switched off, and content
+//      you can't access yet (see CONTENT_REQS), is removed.
+//   3. Score:    each suggestion that moves one of your goals forward gets +25 per goal.
+//   4. Pick:     pickThree / pickMix / pickChallenge choose varied cards from the sorted list.
+//
+// Sections below, in order: drop rates, XP table, derived facts about the account, candidate
+// generators, Slayer task, completion badges, items, goals, ranking.
+// Game facts and tuning numbers live in knowledge-base.js, not here.
 
 import {
   SKILLS, MILESTONES, QUESTS, DIARIES, DIARY_TIER_TOTAL,
   CA_TIER_POINTS, CA_TIERS, CLOG_EASE, RARE_ITEMS,
   PAGE_EFFORT, MONSTER_EFFORT, PROTECTED_ITEMS, CLUE_PAGE_BASE, KC_REWARDS,
-  WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS,
+  WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS, SLAYER_BOSSES,
+  SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
+  QUEST_PREREQS, DIARY_REQS,
 } from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
@@ -283,6 +297,7 @@ function diaryCandidates(snap, a) {
       detail: `${idx} of 4 tiers done. Open the diary in-game for the exact task list.`,
       why,
       progress: idx / 4,
+      counter: `${idx}/4 tiers`,
       effort: next === "easy" ? "Quick" : next === "medium" ? "Medium" : "Long",
       base: diaryInfo.weight * 4 + (reach ? 25 : -15) + (3 - idx) * 6,
       meta: { region, tier: next },
@@ -314,6 +329,8 @@ function combatCandidates(snap, a) {
     if (list.length < 2) continue; // a single task is already its own suggestion
     const [monster, tier] = key.split("|");
     if (monster === "Other") continue;
+    const all = ca.tasks.filter((t) => t.monster === monster && t.tier === tier);
+    const doneHere = all.length - list.length;
     const tierIdx = CA_TIERS.indexOf(tier);
     const taskEffort = tierIdx <= 1 ? 0 : tierIdx <= 3 ? 1 : 2;
     const pts = list.reduce((s, t) => s + (CA_TIER_POINTS[t.tier] ?? 1), 0);
@@ -324,7 +341,8 @@ function combatCandidates(snap, a) {
       // Task names are titles ("Let them fight"), so quote them to keep a list of them readable.
       detail: "Tasks: " + list.slice(0, 3).map((t) => `“${t.name}”`).join(", ") + (list.length > 3 ? ` and ${list.length - 3} more` : ""),
       why: [`${list.length} tasks, worth ${pts} points together`, caNextLine(a)].filter(Boolean),
-      progress: null,
+      progress: doneHere / all.length,
+      counter: `${doneHere}/${all.length} tasks`,
       effort: MONSTER_EFFORT[monster] ?? EFFORTS[Math.min(2, taskEffort + 1)],
       group: monster,
       base: 36 + Math.min(20, pts * 2) - tierIdx * 8,
@@ -339,14 +357,20 @@ function combatCandidates(snap, a) {
     const kcKey = Object.keys(kc).find((k) => k.toLowerCase() === String(t.monster).toLowerCase());
     const why = [`${/^[AEIOU]/.test(t.tier) ? "An" : "A"} ${t.tier} task, worth ${pts} point${pts > 1 ? "s" : ""}`];
     if (a.caNext) why.push(caNextLine(a));
-    if (kcKey) why.push(`You already have ${fmt(kc[kcKey])} kills here`);
+    // Kill-count tasks ("Kill Vorkath 50 times") track kills; any other task shows how much of
+    // its tier is done, so the bar always says what it measures.
+    const kp = caKillProgress(t, snap);
+    if (kcKey && !kp) why.push(`You already have ${fmt(kc[kcKey])} kills here`);
+    const bar = kp ? killBar(kp)
+      : tierStats?.total ? { progress: tierStats.done / tierStats.total, counter: `${tierStats.done}/${tierStats.total} ${t.tier} tasks` }
+      : { progress: null };
     out.push({
       id: `ca:${t.id}`,
       category: "combat",
       title: `${t.name}`,
       detail: `${t.monster === "Other" ? "" : `${t.monster}: `}${t.description}`,
       why,
-      progress: tierStats?.total ? tierStats.done / tierStats.total : null,
+      ...bar,
       effort: MONSTER_EFFORT[t.monster] ?? (tierIdx <= 1 ? "Quick" : tierIdx <= 3 ? "Medium" : "Long"),
       group: t.monster,
       base: 40 + pts * 2 - tierIdx * 9 + (kcKey ? 10 : 0) + (t.monster === "Other" ? -10 : 0),
@@ -354,6 +378,41 @@ function combatCandidates(snap, a) {
     });
   }
   return out;
+}
+
+/** The synced kill count for a boss or monster (any capitalisation), or null if not synced. */
+function killCountOf(snap, monster) {
+  const kc = snap.killCounts ?? {};
+  const key = Object.keys(kc).find((k) => k.toLowerCase() === String(monster ?? "").toLowerCase());
+  return key ? kc[key] : null;
+}
+
+// Tasks that need N kills within one trip, in a row, or under conditions aren't counted by the
+// overall kill count, so they get no kill bar.
+const NOT_CUMULATIVE = /\b(in (one|a single) (trip|run|kill|attempt)|in a row|without|in under|within|at once|before|while|using only|solo)\b/i;
+
+/**
+ * For a combat achievement that asks for a number of kills ("Kill Vorkath 50 times"):
+ * { need, have }, where `have` is the synced kill count or null when it hasn't synced.
+ * Null for any other kind of task.
+ */
+export function caKillProgress(task, snap) {
+  const d = String(task?.description ?? "");
+  if (!/\b(kill|defeat|complete|subdue|finish|loot)\b/i.test(d) || NOT_CUMULATIVE.test(d)) return null;
+  const m = d.match(/\b(\d[\d,]*)\s+times\b/i);
+  const need = m ? parseInt(m[1].replace(/,/g, ""), 10) : null;
+  if (!need || need < 2) return null;
+  return { need, have: killCountOf(snap, task.monster) };
+}
+
+/** Bar and counter for a kill-count task. */
+function killBar({ need, have }) {
+  if (have == null) return { progress: 0, counter: `?/${need} kills`, counterTip: "Kill count not synced yet. Check it in-game, or sync after your next kill." };
+  return {
+    progress: Math.min(1, have / need),
+    counter: `${Math.min(have, need).toLocaleString()}/${need.toLocaleString()} kills`,
+    counterTip: have >= need ? `${have.toLocaleString()} kills: past the target, so sync again (or mark it done) once it shows complete in-game.` : `${(need - have).toLocaleString()} kills to go`,
+  };
 }
 
 // The game's own "All Pets" collection log page is the source of truth for what counts as a pet.
@@ -577,7 +636,7 @@ function clogCandidates(snap) {
         rares.length ? `Includes ${rares.length > 1 ? "rare drops" : "a rare drop"}: ${rares.slice(0, 2).map((i) => i.name).join(", ")}` : null,
         `In the ${p.tab} tab of the collection log`,
       ].filter(Boolean),
-      progress: ratio,
+      progress: ratio, counter: `${shownGot}/${p.items.length}`,
       effort: pageEffort,
       group: name,
       base: 22 + ratio * 30 + ease + (missing.length <= 2 ? 10 : 0) - rares.length * 3,
@@ -598,7 +657,7 @@ function clogCandidates(snap) {
         title: fam.title,
         detail: `${fam.items.length} still missing from ${name}: ${fam.items.slice(0, 4).map((i) => i.name).join(", ")}${fam.items.length > 4 ? "…" : ""}`,
         why: [ease >= 6 ? `${name} is one of the quicker logs to fill` : "Any one of these counts", progressLine],
-        progress: ratio,
+        progress: ratio, counter: `${shownGot}/${p.items.length}`,
         effort,
         group: name,
         base: 24 + ratio * 15 + ease + Math.min(10, fam.items.length),
@@ -631,7 +690,7 @@ function clogCandidates(snap) {
         title: `Get ${item.name}`,
         detail: `From ${/^the /i.test(name) ? name : `the ${name}`} collection log page (${p.tab} tab).`,
         why,
-        progress: ratio,
+        progress: ratio, counter: `${shownGot}/${p.items.length}`,
         effort: kc && rank > 0 ? "Long" : effortOf(item),
         group: name,
         base: 20 + ratio * 20 + ease - (band ? RARITY_COST[band] : 0) - rank * 3,
@@ -683,6 +742,15 @@ function petCandidates(snap) {
 
 // ---- Slayer task -----------------------------------------------------------------------
 
+/** "under 5 minutes", "40 minutes", "1 h 45 min", rounded to 5 minutes. */
+function fmtMinutes(m) {
+  if (m < 5) return "under 5 minutes";
+  const r = Math.round(m / 5) * 5;
+  if (r < 60) return `${r} minutes`;
+  const h = Math.floor(r / 60), min = r % 60;
+  return min ? `${h} h ${min} min` : `${h} hour${h > 1 ? "s" : ""}`;
+}
+
 /**
  * The Slayer assignment the player has right now, as a standalone card (never one of the regular
  * picks): { title, detail, why, progress, effort, task, stored, wilderness } or null without a task.
@@ -720,13 +788,31 @@ export function slayerTask(snap, goals = []) {
   if (goal) why.push(`Moves your goal "${goalTitle(goal)}" forward`);
   if (s.streak) why.push(`${s.streak}-task streak${s.points != null ? ` · ${fmt(s.points)} Slayer points` : ""}`);
 
+  const perHour = SLAYER_KILLS_PER_HOUR[String(t.name).toLowerCase()]
+    ?? (t.boss ? SLAYER_DEFAULT_KILLS_PER_HOUR.boss : SLAYER_DEFAULT_KILLS_PER_HOUR.task);
+  const minutesLeft = (t.remaining / perHour) * 60;
+
+  // Bosses that also count for this task, each with what still locks it (empty when open).
+  const a = analyse(snap);
+  const bosses = t.boss ? [] : (SLAYER_BOSSES[String(t.name).toLowerCase()] ?? []).map((b) => {
+    const req = CONTENT_REQS.find((r) => r.match.test(b.name)) ?? {};
+    const needs = [
+      ...(req.quests ?? []).filter((q) => !a.done(q)),
+      ...a.missingReqs({ ...req.skills, ...b.skills }).map((x) => `${x.level} ${cap(x.skill)}`),
+    ];
+    return { name: b.name, needs, wilderness: WILDERNESS_MONSTERS.has(b.name) };
+  });
+
   return {
     task: t,
+    bosses,
     title: `${t.boss ? "Slayer boss task" : "Slayer task"}: ${t.remaining} ${t.name} left`,
-    detail: `${done}/${total} killed${t.location ? ` in ${t.location}` : ""}.`,
+    detail: `${done}/${total} killed${t.location ? ` in ${t.location}` : ""}. About ${fmtMinutes(minutesLeft)} of killing left.`,
     why,
     progress: total ? done / total : null,
-    effort: t.boss ? (t.remaining <= 5 ? "Medium" : "Long") : t.remaining <= 40 ? "Quick" : t.remaining <= 150 ? "Medium" : "Long",
+    minutesLeft,
+    // By estimated time, not kill count: 150 Rockslugs is minutes, 150 Gargoyles over an hour.
+    effort: minutesLeft <= SLAYER_EFFORT_MINUTES.Quick ? "Quick" : minutesLeft <= SLAYER_EFFORT_MINUTES.Medium ? "Medium" : "Long",
     wilderness: !!t.wilderness,
     stored,
     meta: { monster: t.name, skill: "slayer" },
@@ -837,7 +923,11 @@ export function goalProgress(goal, snap) {
     }
     case "catask": {
       const t = snap.combatAchievements?.tasks?.find((x) => x.id === goal.task);
-      return { progress: t?.done ? 1 : 0, done: !!t?.done, label: t?.done ? "complete" : `${goal.tier} task` };
+      if (t?.done) return { progress: 1, done: true, label: "complete" };
+      // Kill-count tasks show kills so far, so there's no need to check the boss's counter in-game.
+      const kp = t ? caKillProgress(t, snap) : null;
+      if (kp) return { ...killBar(kp), done: false, label: killBar(kp).counter };
+      return { progress: 0, done: false, label: `${goal.tier} task` };
     }
     case "cabundle": {
       const list = (snap.combatAchievements?.tasks ?? []).filter((t) => t.monster === goal.monster && t.tier === goal.tier);
@@ -965,6 +1055,159 @@ function goalCandidates(snap, goals, others = []) {
   return out;
 }
 
+// ---- Progress marked by hand -------------------------------------------------------------
+
+/**
+ * The snapshot with progress the player marked by hand laid over it, for players who don't sync
+ * after every session. `marks` is { quests: { name: time }, diaries: { "Region|tier": time },
+ * ca: { taskId: time } }, times in ms. Returns a new object, so every per-snapshot memo rebuilds,
+ * or the snapshot itself when nothing is marked. Quest points aren't added: the profile doesn't
+ * say how many each quest gives, so they update on the next sync.
+ */
+export function applyManual(snap, marks) {
+  const q = marks?.quests ?? {}, d = marks?.diaries ?? {}, c = marks?.ca ?? {};
+  if (!Object.keys(q).length && !Object.keys(d).length && !Object.keys(c).length) return snap;
+  const out = { ...snap };
+  out.quests = (snap.quests ?? []).map((x) => (q[x.name] && x.state !== "FINISHED" ? { ...x, state: "FINISHED", manual: true } : x));
+  out.diaries = Object.fromEntries(Object.entries(snap.diaries ?? {}).map(([region, tiers]) =>
+    [region, { ...tiers, ...Object.fromEntries(DIARY_TIERS.filter((t) => d[`${region}|${t}`]).map((t) => [t, true])) }]));
+  const ca = snap.combatAchievements;
+  if (ca?.tasks) {
+    let extra = 0;
+    const tasks = ca.tasks.map((t) => {
+      if (t.done || !c[t.id]) return t;
+      extra += CA_TIER_POINTS[t.tier] ?? 0;
+      return { ...t, done: true, manual: true };
+    });
+    out.combatAchievements = { ...ca, tasks, points: (ca.points ?? 0) + extra };
+  }
+  return out;
+}
+
+// ---- Within reach ------------------------------------------------------------------------
+// Quests and diary tiers you can do now, or nearly can, judged from their full requirement lists
+// (QUEST_PREREQS and DIARY_REQS). Recent progress (a level reached since the previous sync, a
+// quest or tier just finished or marked done) is called out and ranks first.
+
+/** How far short a requirement may be and still count as "nearly there". */
+const REACH_CLOSE = { skill: 5, combat: 3, questPoints: 10, quest: 1, quests: 3 };
+const REACH_MAX_MISSING = 2;
+const REACH_RECENT_MS = 14 * 864e5; // marks made by hand count as recent for two weeks
+
+/**
+ * Every requirement in a { skills, quests, questPoints, allQuests } list with whether it's met:
+ * [{ kind, key, label, need, have, met, gap, unknown }]. Quests missing from the profile are
+ * shown as unknown and don't block.
+ */
+function requirementList(snap, a, req) {
+  const out = [];
+  const skills = { ...(req.skills ?? {}) };
+  const qpNeed = req.questPoints ?? skills.questPoints;
+  delete skills.questPoints;
+  for (const [k, need] of Object.entries(skills)) {
+    if (k === "combat") {
+      const have = snap.player?.combatLevel ?? null;
+      out.push({ kind: "combat", key: k, label: `Combat level ${need}`, need, have, met: have != null && have >= need, gap: have == null ? 0 : Math.max(0, need - have), unknown: have == null });
+      continue;
+    }
+    const have = a.lvl(k);
+    out.push({ kind: "skill", key: k, label: `${need} ${cap(k)}`, need, have, met: have >= need, gap: Math.max(0, need - have) });
+  }
+  if (qpNeed) {
+    const have = snap.questPoints ?? 0;
+    out.push({ kind: "questPoints", key: "qp", label: `${qpNeed} quest points`, need: qpNeed, have, met: have >= qpNeed, gap: Math.max(0, qpNeed - have) });
+  }
+  for (const q of req.quests ?? []) {
+    const st = a.questState[q];
+    out.push({ kind: "quest", key: q, label: q, have: st ?? null, met: st == null || st === "FINISHED", unknown: st == null, gap: st === "FINISHED" || st == null ? 0 : 1 });
+  }
+  if (req.allQuests) {
+    const left = (snap.quests ?? []).filter((x) => x.state !== "FINISHED").length;
+    out.push({ kind: "quests", key: "all", label: "Every quest (Quest point cape)", have: left, met: left === 0, gap: left });
+  }
+  // Unmet first (closest first), then met; skills before quests within each.
+  const order = { skill: 0, combat: 1, questPoints: 2, quest: 3, quests: 4 };
+  return out.sort((x, y) => Number(x.met) - Number(y.met) || order[x.kind] - order[y.kind] || x.gap - y.gap);
+}
+
+/**
+ * Quests and diary tiers that are ready to do or one or two requirements away, best first:
+ * [{ id, kind: "quest"|"diary", title, ready, reqs, missing, triggers, category, effort, meta }].
+ * `prev` is a compact earlier profile { skills: { skill: level }, quests: { name: state },
+ * diaries } (what the page saw before the latest sync), and `marks` the progress marked by hand;
+ * both only decide what counts as "just happened".
+ */
+export function withinReach(snap, { prev = null, marks = null, now = Date.now(), max = 10 } = {}) {
+  const a = analyse(snap);
+  const markedRecently = (bucket, key) => {
+    const at = marks?.[bucket]?.[key];
+    return !!at && now - at < REACH_RECENT_MS;
+  };
+  // What just happened that this requirement is now met because of, if anything.
+  const triggerFor = (r) => {
+    if (!r.met || r.unknown) return null;
+    if (r.kind === "skill" && prev?.skills?.[r.key] != null && prev.skills[r.key] < r.need) return `You just reached ${r.need} ${cap(r.key)}`;
+    if (r.kind === "quest") {
+      if (markedRecently("quests", r.key)) return `You marked ${r.key} as done`;
+      if (prev?.quests?.[r.key] != null && prev.quests[r.key] !== "FINISHED") return `You just finished ${r.key}`;
+    }
+    return null;
+  };
+  const isClose = (r) => r.met || (!r.unknown && r.gap <= REACH_CLOSE[r.kind]);
+
+  const entries = [];
+  const consider = (base) => {
+    const missing = base.reqs.filter((r) => !r.met);
+    const ready = missing.length === 0;
+    if (!ready && (missing.length > REACH_MAX_MISSING || !missing.every(isClose))) return;
+    const triggers = [...base.reqs.map(triggerFor).filter(Boolean), ...(base.extraTriggers ?? [])];
+    const gap = missing.reduce((s, r) => s + (r.kind === "quest" ? 4 : r.kind === "questPoints" ? r.gap / 3 : r.gap), 0);
+    // Count only what can be checked; quests missing from the profile are listed separately.
+    const known = base.reqs.filter((r) => !r.unknown);
+    const met = known.filter((r) => r.met).length;
+    entries.push({
+      ...base, ready, missing, triggers,
+      progress: known.length ? met / known.length : 1,
+      counter: `${met}/${known.length} requirements`,
+      score: (ready ? 100 : 40) + triggers.length * 60 + (base.weight ?? 5) * 2 - gap * 4,
+    });
+  };
+
+  // Quests: only the notable ones have full requirement lists.
+  for (const [name, info] of Object.entries(QUESTS)) {
+    const st = a.questState[name];
+    if (st == null || st === "FINISHED") continue;
+    const pre = QUEST_PREREQS[name] ?? {};
+    consider({
+      id: `reach:quest:${name}`, kind: "quest", category: "quests", title: name,
+      why: info.why, weight: info.weight, inProgress: st === "IN_PROGRESS",
+      reqs: requirementList(snap, a, { skills: info.reqs, quests: pre.quests, questPoints: pre.questPoints }),
+      effort: "Medium", meta: { quest: name },
+    });
+  }
+
+  // Diaries: the lowest tier not yet done in each region.
+  for (const [region, tiers] of Object.entries(snap.diaries ?? {})) {
+    const next = DIARY_TIERS.find((t) => !tiers[t]);
+    const req = next && DIARY_REQS[region]?.[next];
+    if (!req) continue;
+    const idx = DIARY_TIERS.indexOf(next);
+    const below = DIARY_TIERS[idx - 1];
+    const extraTriggers = [];
+    if (below && (markedRecently("diaries", `${region}|${below}`) || (prev?.diaries?.[region] && !prev.diaries[region][below]))) {
+      extraTriggers.push(`You just finished the ${cap(below)} tier`);
+    }
+    const info = DIARIES[region];
+    consider({
+      id: `reach:diary:${region}:${next}`, kind: "diary", category: "diaries", title: `${region} ${cap(next)} diary`,
+      why: info ? `${info.reward} ${idx + 1}: ${info.highlight}` : null, weight: info?.weight,
+      reqs: requirementList(snap, a, req), extraTriggers,
+      effort: next === "easy" ? "Quick" : next === "medium" ? "Medium" : "Long", meta: { region, tier: next },
+    });
+  }
+  return entries.sort((x, y) => y.score - x.score).slice(0, max);
+}
+
 // ---- Ranking ---------------------------------------------------------------------------
 
 /** Each grind style shows exactly one effort tier, so the three never share a suggestion. */
@@ -1029,6 +1272,8 @@ function evaluate(snap, goals, opts) {
   const a = analyse(snap);
   const style = opts.style; // quick | balanced | long; omit for every tier
   const content = opts.content ?? {}; // { minigames, wilderness, clues }: opt-in, off by default
+  // Extra score per effort tier. All zero today: a knob for nudging the mix without touching
+  // every generator.
   const effortBias = { Quick: 0, Medium: 0, Long: 0, [CHALLENGE]: 0 };
 
   const locks = new Map();
@@ -1127,6 +1372,10 @@ export function pickChallenge(list, { seed = 0, exclude = new Set() } = {}) {
   return pickThree(list.filter((c) => c.effort === CHALLENGE), { seed, exclude, n: 1 })[0] ?? null;
 }
 
+/**
+ * A tiny seeded random number generator (the "Mulberry32" algorithm): the same seed always gives
+ * the same sequence, so a Shuffle can be repeated. Returns a function giving numbers in [0, 1).
+ */
 function mulberry32(a) {
   return function () {
     a |= 0; a = (a + 0x6d2b79f5) | 0;

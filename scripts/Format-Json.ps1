@@ -5,8 +5,8 @@
 
   Layout:
     - Objects and arrays that hold other objects or arrays get one entry per line, indented 2 spaces.
-    - Short objects of plain values stay on one line:  {"level": 80, "xp": 1986068}
-    - Arrays of plain values (numbers, strings) always stay on one line:  [1, 2, 3]
+    - Short objects and arrays of plain values stay on one line:  {"level": 80, "xp": 1986068}, [1, 2, 3]
+      Longer ones (over 100 characters) get one entry per line.
 
   Other scripts can dot-source this file and call Format-JsonText on a string.
 #>
@@ -23,7 +23,7 @@ namespace TaskMaster
 {
     public static class JsonFormatter
     {
-        // Objects of plain values longer than this are split over several lines.
+        // Objects and arrays of plain values longer than this are split over several lines.
         const int MaxInline = 100;
 
         class Node
@@ -132,7 +132,7 @@ namespace TaskMaster
 
         static void Write(Node n, StringBuilder sb, int depth)
         {
-            if (n.Literal != null || n.Items.Count == 0 || (AllPlain(n) && (!n.IsObject || Inline(n).Length <= MaxInline)))
+            if (n.Literal != null || n.Items.Count == 0 || (AllPlain(n) && Inline(n).Length <= MaxInline))
             {
                 sb.Append(Inline(n));
                 return;

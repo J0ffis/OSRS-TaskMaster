@@ -4,12 +4,21 @@
 // recommender.js; game facts from knowledge-base.js. Pasted profiles stay in localStorage;
 // uploaded ones are read from, and their goals and picks saved to, the sync service (config.js).
 
-import { CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask, goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel } from "./recommender.js";
+import {
+  CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates,
+  candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
+  goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
+  applyManual, withinReach,
+} from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { SYNC_API } from "./config.js";
 
+// Small helpers used everywhere below.
+/** The first element matching a CSS selector, e.g. $("#cards"). */
 const $ = (s) => document.querySelector(s);
+/** Makes text safe to put inside HTML (player names, item names...). Use it on anything not written here. */
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+/** "slayer" -> "Slayer". */
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 // Collection log page names the way the game orders them: "The Whisperer" sorts under W and
 // is shown as "Whisperer, The".
@@ -18,19 +27,25 @@ const pageLabel = (n) => (/^the\s+/i.test(n) ? `${n.replace(/^the\s+/i, "")}, Th
 const byPageName = (a, b) => pageSortKey(a).localeCompare(pageSortKey(b));
 const SAMPLE = "__sample__";
 
+// Everything the page is currently showing. Settings that should survive a reload are also kept
+// in localStorage under "tm.*" keys.
 const state = {
-  name: null,
-  snap: null,
+  name: null, // the loaded player's name (SAMPLE for the sample data)
+  raw: null, // their profile ("snapshot") as the plugin wrote it
+  snap: null, // the same with progress marked by hand laid over it; everything renders from this
+  marks: { quests: {}, diaries: {}, ca: {} }, // progress marked by hand: { bucket: { key: time } }
+  manualMode: localStorage.getItem("tm.manualMode") === "1", // show the "mark done" controls
+  prev: null, // compact copy of the profile from before the latest sync (for "Within reach")
   goals: [],
-  style: localStorage.getItem("tm.style") || "balanced",
+  style: localStorage.getItem("tm.style") || "balanced", // grind style: quick | balanced | long | mix
   // Remember the categories switched *off*, so new categories show up by default.
   cats: new Set(Object.keys(CATEGORIES).filter((k) => !JSON.parse(localStorage.getItem("tm.off") || "[]").includes(k))),
   // Opt-in content (minigames, Wilderness, clues): off until the player switches it on.
   content: JSON.parse(localStorage.getItem("tm.content") || "{}"),
-  seed: 0,
-  excluded: new Set(),
-  picks: [],
-  tab: "skills",
+  seed: 0, // bumped by Shuffle; the same seed gives the same picks
+  excluded: new Set(), // suggestion ids the player swapped away
+  picks: [], // the cards on screen now
+  tab: "skills", // open tab in the Account panel
   // Where the open profile came from: sample | local (pasted) | server (Start-LocalServer.ps1) | sync (uploaded)
   source: null,
 };
@@ -59,8 +74,7 @@ const local = {
     localStorage.setItem("tm.profileNames", JSON.stringify([name, ...names]));
   },
   forget(name) {
-    localStorage.removeItem(`tm.profile:${keyOf(name)}`);
-    localStorage.removeItem(`tm.goals:${keyOf(name)}`);
+    for (const k of ["profile", "goals", "marks", "seen", "prev"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
     localStorage.setItem("tm.profileNames", JSON.stringify(local.names().filter((n) => keyOf(n) !== keyOf(name))));
   },
   goals: (name) => JSON.parse(localStorage.getItem(`tm.goals:${keyOf(name)}`) || "[]"),
@@ -133,6 +147,10 @@ async function load(name, opts = {}) {
     // Wealth tracking was removed; drop any old net-worth goals.
     state.goals = (state.goals ?? []).filter((g) => g.type !== "wealth");
     delete state.snap.wealth;
+    state.raw = state.snap;
+    state.prev = trackPrevious(name, state.raw);
+    state.marks = loadMarks(name, state.raw);
+    state.snap = applyManual(state.raw, state.marks);
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
     // A name lookup that can't reach the upload service reads like "not found": pasting still works.
@@ -270,6 +288,79 @@ async function saveGoals() {
   }).catch(() => showToastError());
 }
 
+// ---- Progress marked by hand ---------------------------------------------------------------
+// For players who don't sync after every session: quests, diary tiers and combat achievements can
+// be ticked off here. Marks are kept in this browser (in both modes) and dropped once a sync shows
+// the same thing done, so the game always wins.
+
+const marksKey = (name) => `tm.marks:${keyOf(name)}`;
+
+function loadMarks(name, raw) {
+  const m = { quests: {}, diaries: {}, ca: {}, ...JSON.parse(localStorage.getItem(marksKey(name)) || "{}") };
+  const finished = new Set((raw.quests ?? []).filter((q) => q.state === "FINISHED").map((q) => q.name));
+  const caDone = new Set((raw.combatAchievements?.tasks ?? []).filter((t) => t.done).map((t) => String(t.id)));
+  for (const q of Object.keys(m.quests)) if (finished.has(q)) delete m.quests[q];
+  for (const k of Object.keys(m.diaries)) { const [r, t] = k.split("|"); if (raw.diaries?.[r]?.[t]) delete m.diaries[k]; }
+  for (const id of Object.keys(m.ca)) if (caDone.has(id)) delete m.ca[id];
+  localStorage.setItem(marksKey(name), JSON.stringify(m));
+  return m;
+}
+
+const markCount = () => Object.values(state.marks).reduce((n, b) => n + Object.keys(b).length, 0);
+
+/** Mark something done (or undo a mark), then redraw everything from the updated profile. */
+function setMark(bucket, key, on) {
+  const b = (state.marks[bucket] ??= {});
+  if (on) b[key] = Date.now(); else delete b[key];
+  localStorage.setItem(marksKey(state.name), JSON.stringify(state.marks));
+  state.snap = applyManual(state.raw, state.marks);
+  renderAll();
+}
+
+/** What a card would mark done: { bucket, key, label } for quests, diary tiers and CA tasks. */
+function markFor(c) {
+  const m = { ...(c.goal ?? {}), ...(c.meta ?? {}) };
+  const raw = state.raw;
+  if (m.quest && (raw.quests ?? []).some((q) => q.name === m.quest && q.state !== "FINISHED")) return { bucket: "quests", key: m.quest };
+  if (m.region && m.tier && raw.diaries?.[m.region] && !raw.diaries[m.region][m.tier]) return { bucket: "diaries", key: `${m.region}|${m.tier}` };
+  if (m.task != null && (raw.combatAchievements?.tasks ?? []).some((t) => t.id === m.task && !t.done)) return { bucket: "ca", key: String(m.task) };
+  return null;
+}
+/** Marking controls show when the toggle is on, and never on someone else's (view-only) profile. */
+const canMark = () => state.manualMode && !isReadOnly();
+const isMarked = (mk) => !!mk && !!state.marks[mk.bucket]?.[mk.key];
+function markButton(c) {
+  if (!canMark()) return "";
+  const mk = markFor(c);
+  if (!mk) return "";
+  const on = isMarked(mk);
+  return `<button class="btn tiny markbtn" type="button" data-mark="${mk.bucket}" data-key="${esc(mk.key)}" aria-pressed="${on}" title="${on ? "Undo: you marked this done by hand" : "Done it in-game? Mark it here until your next sync"}">${on ? "✓ Marked done" : "Mark done"}</button>`;
+}
+
+// ---- Before the latest sync ----------------------------------------------------------------
+// "Within reach" calls out what changed since the previous sync (a level reached, a quest or tier
+// finished). The page keeps a compact copy of each profile it has seen; when a newer sync arrives,
+// the old copy becomes the "previous" one.
+
+const compactProfile = (s) => ({
+  syncedAt: s.syncedAt ?? 0,
+  skills: Object.fromEntries(Object.entries(s.skills ?? {}).map(([k, v]) => [k, v.level])),
+  quests: Object.fromEntries((s.quests ?? []).map((q) => [q.name, q.state])),
+  diaries: s.diaries ?? {},
+});
+
+function trackPrevious(name, raw) {
+  const k = keyOf(name);
+  const seen = JSON.parse(localStorage.getItem(`tm.seen:${k}`) || "null");
+  if (!seen || seen.syncedAt !== (raw.syncedAt ?? 0)) {
+    try {
+      if (seen) localStorage.setItem(`tm.prev:${k}`, JSON.stringify(seen));
+      localStorage.setItem(`tm.seen:${k}`, JSON.stringify(compactProfile(raw)));
+    } catch { /* storage full: "Within reach" just won't call out what's new */ }
+  }
+  return JSON.parse(localStorage.getItem(`tm.prev:${k}`) || "null");
+}
+
 function showError(msg) {
   const el = $("#error");
   el.hidden = !msg;
@@ -282,6 +373,7 @@ function showToastError() { alert("Couldn't save goals: the server didn't respon
 
 function renderAll() {
   renderSummary();
+  renderReach();
   renderControls();
   renderSlayer();
   renderCards(true);
@@ -306,6 +398,10 @@ function renderSummary() {
     <div class="who">
       <h2>${esc(p.name)}</h2>
       <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `${state.source.kind === "sync" ? "Uploaded" : "Synced"} <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}${isReadOnly() ? ` · <span class="viewonly" title="Opened from a share link or public profile: you can see the suggestions but not change the goals">View only</span>` : ""}</div>
+      ${isReadOnly() ? "" : `<div class="manualrow">
+        <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't ${state.source.kind === "sync" ? "uploaded" : "synced"} since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until your profile shows them done.">Mark progress by hand</button>
+        ${markCount() ? `<span class="muted small">${markCount()} marked by hand, waiting for a sync</span>` : ""}
+      </div>`}
     </div>
     <div class="stats">
       ${stat(a.total, "Total level")}
@@ -319,6 +415,68 @@ function renderSummary() {
       `<span class="badge" title="${esc(b.detail)}"><span aria-hidden="true">✦</span> ${esc(b.label)}</span>`).join("")}</div>` : ""}`;
 }
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+
+/** A progress bar with an optional short counter ("30/50 kills") beside it. */
+function barHTML(c) {
+  if (c.progress == null) return "";
+  const pct = Math.round(Math.max(0, Math.min(1, c.progress)) * 100);
+  const tip = c.counterTip ?? `${pct}%`;
+  return `<div class="barrow" title="${esc(tip)}"><div class="bar"><i style="width:${pct}%"></i></div>${c.counter ? `<span class="counter">${esc(c.counter)}</span>` : ""}</div>`;
+}
+
+// ---- Within reach ---------------------------------------------------------------------------
+// A carousel under the summary: quests and diary tiers you can do now, or are one or two
+// requirements from, with what's still missing. Progress since the last sync (or marked by hand)
+// that opened one up is called out and ranks first.
+
+function renderReach() {
+  const el = $("#reach");
+  state.reach = withinReach(state.snap, { prev: state.prev, marks: state.marks });
+  el.hidden = !state.reach.length;
+  if (!state.reach.length) { el.innerHTML = ""; return; }
+  const ready = state.reach.filter((e) => e.ready).length;
+  el.innerHTML = `
+    <div class="reachhead">
+      <div>
+        <h2>Within reach</h2>
+        <p class="muted small">${ready ? `${ready} ready to do now` : "Nothing fully unlocked yet"}${state.reach.length > ready ? ` · ${state.reach.length - ready} a requirement or two away` : ""}. Requirements are from the OSRS Wiki; some levels can be boosted.</p>
+      </div>
+      ${state.reach.length > 3 ? `<div class="mixnav"><button type="button" class="btn tiny" data-reach-scroll="-1" aria-label="Previous">‹</button><button type="button" class="btn tiny" data-reach-scroll="1" aria-label="Next">›</button></div>` : ""}
+    </div>
+    <div class="track" tabindex="0" aria-label="Quests and diaries within reach">${state.reach.map(reachHTML).join("")}</div>`;
+}
+
+function reachHTML(e, i) {
+  const met = e.reqs.filter((r) => r.met && !r.unknown);
+  const unknown = e.reqs.filter((r) => r.unknown);
+  const status = e.ready ? `<span class="reachstate ready">Ready now</span>`
+    : `<span class="reachstate close">${e.missing.length} to go</span>`;
+  const need = (r) => {
+    const have = r.kind === "skill" || r.kind === "combat" || r.kind === "questPoints" ? ` <span class="have">you: ${esc(r.have ?? "?")}</span>`
+      : r.kind === "quest" ? ` <span class="have">${esc(String(r.have ?? "").replace("_", " ").toLowerCase())}</span>` : "";
+    return `<li class="no"><span aria-hidden="true">✗</span> ${esc(r.label)}${have}</li>`;
+  };
+  const metLine = met.length
+    ? `<li class="yes" title="${esc(met.map((r) => r.label).join(", "))}"><span aria-hidden="true">✓</span> ${esc(met.slice(0, 3).map((r) => r.label).join(", "))}${met.length > 3 ? ` and ${met.length - 3} more` : ""}</li>` : "";
+  const unknownLine = unknown.length
+    ? `<li class="unk" title="Not in your synced quest list, so TaskMaster can't check it"><span aria-hidden="true">?</span> ${esc(unknown.map((r) => r.label).join(", "))}</li>` : "";
+  const goal = toGoal(e);
+  const isGoal = goal && state.goals.some((x) => goalTitle(x) === goalTitle(goal));
+  return `
+    <article class="card reach ${e.ready ? "ready" : ""}" style="--c:var(--c-${e.category})">
+      <div class="cat"><span class="catname">${e.kind === "quest" ? (e.inProgress ? "Quest · started" : "Quest") : "Achievement diary"}</span>${status}</div>
+      ${e.triggers.length ? `<p class="trigger"><span aria-hidden="true">✦</span> ${esc(e.triggers.slice(0, 2).join(" · "))}</p>` : ""}
+      ${e.meta.region === "Wilderness" ? wildBadge({ wilderness: true }) : ""}<h3>${esc(e.title)}</h3>
+      ${e.why ? `<p class="detail">${esc(e.why)}</p>` : ""}
+      ${barHTML(e)}
+      <ul class="reqs">${e.missing.map(need).join("")}${metLine}${unknownLine}</ul>
+      <div class="actions">
+        ${goal && !isGoal && !isReadOnly() ? `<button class="btn tiny ghost" data-reach-goal="${i}" type="button">Make it a goal</button>` : ""}
+        ${markButton(e)}
+        ${wikiLink(e)}
+      </div>
+    </article>`;
+}
 
 const TIER_HINT = {
   quick: "Quick wins: things you can finish in a session or two.",
@@ -434,7 +592,7 @@ function renderChallenge() {
       </div>
       ${wildBadge(c)}<h3>${esc(c.title)}</h3>
       <p class="detail">${esc(c.detail)}</p>
-      ${c.progress != null ? `<div class="bar" title="${Math.round(c.progress * 100)}%"><i style="width:${Math.round(c.progress * 100)}%"></i></div>` : ""}
+      ${barHTML(c)}
       <div class="actions">
         <button class="btn tiny" data-challenge-swap type="button">Another challenge</button>
         ${!isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-challenge-goal type="button">Take on this challenge</button>` : ""}
@@ -445,6 +603,17 @@ function renderChallenge() {
 
 // The current Slayer assignment: its own card above the picks, since it's already been chosen for
 // you by a Slayer master. Not affected by Shuffle, tiers or category filters.
+// Bosses that count for the task: green when you can fight them, red with what's missing when not.
+// Each opens the boss's wiki page.
+function bossChips(bosses) {
+  if (!bosses?.length) return "";
+  return `<p class="bosses small"><span class="muted">Also counts:</span> ${bosses.map((b) => {
+    const open = !b.needs.length;
+    const tip = open ? `You can fight ${b.name} on this task` : `Needs ${b.needs.join(", ")}`;
+    return `<a class="bosschip ${open ? "open" : "locked"}" href="${wikiPage(b.name)}" target="_blank" rel="noopener" title="${esc(tip)}">${b.wilderness ? `<span class="skull" aria-hidden="true">☠</span> ` : ""}${esc(b.name)}${open ? "" : ` <span class="need">(${esc(b.needs.join(", "))})</span>`}</a>`;
+  }).join(" ")}</p>`;
+}
+
 function renderSlayer() {
   const el = $("#slayer");
   const c = slayerTask(state.snap, state.goals);
@@ -469,6 +638,7 @@ function renderSlayer() {
       <p class="detail">${esc(c.detail)}</p>
       ${pct != null ? `<div class="bar" title="${pct}%"><i style="width:${pct}%"></i></div>` : ""}
       ${c.why.length ? `<ul>${c.why.slice(0, 4).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+      ${bossChips(c.bosses)}
       ${storedLine}
       <div class="actions">${wikiLink({ meta: { monster: c.task.name } })}</div>
     </article>`;
@@ -520,11 +690,12 @@ function cardHTML(c, i) {
         : `<span class="effort">${esc(c.effort)}</span>`}</div>
       ${wildBadge(c)}<h3>${esc(c.title)}</h3>
       <p class="detail">${esc(c.detail)}</p>
-      ${c.progress != null ? `<div class="bar" title="${Math.round(c.progress * 100)}%"><i style="width:${Math.round(c.progress * 100)}%"></i></div>` : ""}
+      ${barHTML(c)}
       <ul>${c.why.slice(0, 3).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
       <div class="actions">
         <button class="btn tiny" data-swap="${i}" type="button">Swap</button>
         ${c.category !== "goals" && !isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
+        ${markButton(c)}
         ${wikiLink(c)}
       </div>
     </article>`;
@@ -564,7 +735,7 @@ function renderGoals() {
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
       <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}${ro ? " disabled" : ""}> ` : ""}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
-      <span class="l">${esc(p.label)} ${wikiLink({ goal: g }, "wikimini")}${ro ? "" : `<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button>`}</span>
+      <span class="l"${p.counterTip ? ` title="${esc(p.counterTip)}"` : ""}>${esc(p.label)} ${wikiLink({ goal: g }, "wikimini")}${ro ? "" : `<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button>`}</span>
       ${!p.done && goalHint(g) ? `<span class="gd">${esc(goalHint(g))}</span>` : ""}
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
     </li>`;
@@ -688,7 +859,13 @@ const TAB_RENDER = {
   quests(s) {
     const order = { IN_PROGRESS: 0, NOT_STARTED: 1, FINISHED: 2 };
     const qs = [...(s.quests ?? [])].sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name));
-    return `<table class="list"><tbody>${qs.map((q) => `<tr><td>${esc(q.name)}</td><td class="num"><span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
+    // Marking by hand: every quest the last sync didn't show as finished gets a toggle.
+    const mark = (q) => {
+      if (!canMark() || (q.state === "FINISHED" && !q.manual)) return "";
+      return `<button type="button" class="markmini" data-mark="quests" data-key="${esc(q.name)}" aria-pressed="${!!q.manual}" title="${q.manual ? "Undo your mark" : "Mark as finished until your next sync"}">${q.manual ? "Undo" : "Mark done"}</button>`;
+    };
+    return `${canMark() ? `<p class="note manualnote">Marking by hand: tick off quests you've finished since your last sync.</p>` : ""}
+      <table class="list"><tbody>${qs.map((q) => `<tr><td>${esc(q.name)}</td><td class="num">${mark(q)}<span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.manual ? "finished (marked)" : q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
   },
   diaries(s) {
     // One column per tier; each square links to that tier on the wiki. A region counts as started
@@ -698,14 +875,21 @@ const TAB_RENDER = {
       const nextTier = tiers.find((t) => !done[t]);
       const started = s.diaryStarted?.[region] === true;
       const cells = tiers.map((t) => {
+        const marked = !!state.marks.diaries?.[`${region}|${t}`];
         const status = done[t] ? "done" : started && t === nextTier ? "started" : "todo";
-        const label = `${region} ${cap(t)}: ${{ done: "complete", started: "in progress", todo: "not started" }[status]}`;
-        return `<td class="tiercell"><a class="tierbox ${status}" href="${esc(wikiPage(`${region} Diary`, cap(t)))}" target="_blank" rel="noopener noreferrer" title="${esc(label)}. Open on the OSRS Wiki" aria-label="${esc(label)}"></a></td>`;
+        const label = `${region} ${cap(t)}: ${marked ? "complete (marked by hand)" : { done: "complete", started: "in progress", todo: "not started" }[status]}`;
+        // Marking by hand: tiers the last sync didn't show as done become toggles.
+        if (canMark() && (!done[t] || marked)) {
+          return `<td class="tiercell"><button type="button" class="tierbox ${status}${marked ? " marked" : ""}" data-mark="diaries" data-key="${esc(`${region}|${t}`)}" aria-pressed="${marked}" title="${esc(label)}. Click to ${marked ? "undo your mark" : "mark it done until your next sync"}" aria-label="${esc(label)}"></button></td>`;
+        }
+        return `<td class="tiercell"><a class="tierbox ${status}${marked ? " marked" : ""}" href="${esc(wikiPage(`${region} Diary`, cap(t)))}" target="_blank" rel="noopener noreferrer" title="${esc(label)}. Open on the OSRS Wiki" aria-label="${esc(label)}"></a></td>`;
       }).join("");
       return `<tr><td><a class="plainlink" href="${esc(wikiPage(`${region} Diary`))}" target="_blank" rel="noopener noreferrer">${esc(region)}</a></td>${cells}</tr>`;
     }).join("");
     return `<table class="list diarytable"><thead><tr><th>Region</th>${tiers.map((t) => `<th class="tiercell">${cap(t)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
-      <p class="note legend"><span class="tierbox done"></span> Complete <span class="tierbox started"></span> In progress <span class="tierbox todo"></span> Not started · Click a square to open that tier on the wiki.</p>`;
+      <p class="note legend"><span class="tierbox done"></span> Complete <span class="tierbox started"></span> In progress <span class="tierbox todo"></span> Not started${markCount() ? ` <span class="tierbox done marked"></span> Marked by hand` : ""} · ${canMark()
+        ? "Marking by hand: click a tier you've finished since your last sync."
+        : "Click a square to open that tier on the wiki."}</p>`;
   },
   combat(s) {
     const a = analyse(s);
@@ -937,6 +1121,40 @@ $("#tabs").addEventListener("click", (e) => {
   if (!b) return;
   state.tab = b.dataset.tab;
   renderTabs();
+});
+
+// Marking by hand: the toggle in the summary, and every "Mark done" control on cards and tabs.
+$("#summary").addEventListener("click", (e) => {
+  if (!e.target.closest("#manualbtn")) return;
+  state.manualMode = !state.manualMode;
+  localStorage.setItem("tm.manualMode", state.manualMode ? "1" : "0");
+  renderAll();
+});
+$("#app").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mark]");
+  if (!b || !state.raw || isReadOnly()) return;
+  setMark(b.dataset.mark, b.dataset.key, b.getAttribute("aria-pressed") !== "true");
+});
+
+$("#reach").addEventListener("click", (e) => {
+  const nav = e.target.closest("[data-reach-scroll]");
+  if (nav) {
+    const track = $("#reach .track");
+    const step = track.querySelector(".card")?.getBoundingClientRect().width ?? 280;
+    track.scrollBy({ left: +nav.dataset.reachScroll * (step + 14), behavior: "smooth" });
+    return;
+  }
+  const g = e.target.closest("[data-reach-goal]");
+  if (g) {
+    const goal = toGoal(state.reach[+g.dataset.reachGoal]);
+    if (goal && !state.goals.some((x) => goalTitle(x) === goalTitle(goal))) {
+      state.goals.push(goal);
+      saveGoals();
+      renderGoals();
+      renderReach();
+      renderCards(true);
+    }
+  }
 });
 
 // ---- Boot --------------------------------------------------------------------------------
