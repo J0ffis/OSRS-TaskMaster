@@ -221,7 +221,7 @@ Zalcano: Song of the Elves (7)
 `;
 
 exports[`sample account, default filters 1`] = `
-59 suggestions (Quick 13, Medium 30, Long 16, Challenge 0)
+58 suggestions (Quick 13, Medium 29, Long 16, Challenge 0)
 
 == Quick: top 13 of 13
 Quick     levels    87  Train Crafting to 62  | 61 → 62: 32K XP to go. Under an hour.
@@ -238,22 +238,22 @@ Quick     levels    30  Train Prayer to 75  | 70 → 75: 473K XP to go. Under an
 Quick     levels    30  Train Firemaking to 80  | 75 → 80: 776K XP to go. About 2–3 hours.
 Quick     levels    30  Train Farming to 75  | 74 → 75: 114K XP to go.
 
-== Medium: top 15 of 30
-Medium    quests   112  Finish Recipe for Disaster  | You meet the main skill requirements.
-Medium    quests    80  Finish A Kingdom Divided  | You meet the main skill requirements.
-Medium    quests    62  Complete Sins of the Father  | You meet the main skill requirements.
+== Medium: top 15 of 29
+Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
+Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
 Medium    levels    61  Train Construction to 70  | 62 → 70: 404K XP to go.
 Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
 Medium    levels    61  Train Hunter to 70  | 63 → 70: 369K XP to go.
-Medium    quests    57  Complete Secrets of the North  | You meet the main skill requirements.
 Medium    diaries   57  Desert Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
 Medium    diaries   57  Fremennik Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
 Medium    levels    55  Train Slayer to 80  | 78 → 80: 357K XP to go.
-Medium    quests    47  Complete The Fremennik Exiles  | Not started yet.
+Medium    quests    50  Complete Sins of the Father  | You meet the main skill requirements.
+Medium    quests    45  Complete Secrets of the North  | You meet the main skill requirements.
 Medium    combat    38  Sample task C  | Barrows: Loot a chest without taking damage from any brother.
 Medium    combat    38  Sample task E  | Zulrah: Kill the boss without taking venom damage.
 Medium    combat    38  Sample task F  | Zulrah: Kill the boss in under 1:20.
 Medium    combat    36  Finish every Medium task at Giant Mole  | Tasks: “Sample task H”, “Sample task I”
+Medium    levels    30  Train Agility to 75  | 70 → 75: 473K XP to go. About 9–10 hours.
 
 == Long: top 15 of 16
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -280,21 +280,20 @@ Medium: Finish Recipe for Disaster / Train Construction to 70 / Western Province
 Long: Lumbridge & Draynor Hard diary / Complete the Barrows Chests log / Goal: 85 Slayer
 Mixed: Train Crafting to 62 / Sample task B / Finish Recipe for Disaster / Western Provinces Medium diary / Get Magic fang / Goal: 85 Slayer / Lumbridge & Draynor Hard diary
 Challenge: none
-Shuffled once (seed 7919): Finish Recipe for Disaster / Train Construction to 70 / Fremennik Medium diary
+Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium diary / Train Construction to 70
 
 == Slayer: Slayer task: 118 Hellhounds left (Medium)
 
 == Within reach
 Recipe for Disaster
 A Kingdom Divided
-Sins of the Father
-Western Provinces Medium diary
-Secrets of the North
-Desert Medium diary
-Fremennik Medium diary
 Wilderness Easy diary
-Falador Hard diary  | missing: 56 runecraft
-Kourend & Kebos Hard diary  | missing: 70 smithing
+Sins of the Father  | missing: A Taste of Hope
+Western Provinces Medium diary  | missing: The Eyes of Glouphrie
+Desert Medium diary  | missing: Enakhra's Lament
+Fremennik Medium diary  | missing: Between a Rock...
+Kourend & Kebos Hard diary  | missing: 70 smithing, Dream Mentor
+Varrock Hard diary  | missing: 66 hunter, Garden of Tranquillity
 
 == Hidden until unlocked
 Desert Treasure II - The Fallen Empire: 70 Thieving, 60 Runecraft (1)
