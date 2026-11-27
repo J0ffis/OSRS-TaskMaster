@@ -32,6 +32,25 @@ export function iconImg(url, { alt = "", cls = "gicon", title = "" } = {}) {
   return `<img class="${cls}" src="${attr(url)}" alt="${attr(alt)}"${alt ? "" : ' aria-hidden="true"'}${title ? ` title="${attr(title)}"` : ""} loading="lazy" decoding="async">`;
 }
 
+/**
+ * The sprite name of the helm the game shows in front of this account type's name ("Hardcore
+ * Group Ironman" -> "helm-hardcore-group"), or null for normal accounts and unknown types.
+ * Uses the type names the plugin writes (SnapshotCollector.ACCOUNT_TYPES).
+ */
+export function accountHelm(type) {
+  const t = String(type ?? "").toLowerCase();
+  if (!t.includes("iron")) return null;
+  if (t.includes("group")) return t.includes("hardcore") ? "helm-hardcore-group" : t.includes("unranked") ? "helm-unranked-group" : "helm-group";
+  if (t.includes("ultimate")) return "helm-ultimate";
+  if (t.includes("hardcore")) return "helm-hardcore";
+  return "helm-ironman";
+}
+
+/** The account type's helm as an <img> (with the type as its tooltip), or "" when there's none. */
+export function helmHTML(type, cls = "gicon ghelm") {
+  return iconImg(spriteUrl(accountHelm(type)), { cls, alt: String(type), title: String(type) });
+}
+
 /** The PvP skull, or the ☠ character when the icon isn't there. */
 export function skullHTML(cls = "skull") {
   const url = spriteUrl("skull");

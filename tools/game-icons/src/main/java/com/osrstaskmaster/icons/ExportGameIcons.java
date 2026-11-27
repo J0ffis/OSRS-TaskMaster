@@ -36,7 +36,8 @@ import net.runelite.cache.item.ItemSpriteFactory;
  * is only read. Run through scripts\Update-GameIcons.ps1 after a game update.
  *
  * Writes into the output folder (web/icons/game):
- *   sprites/<name>.png   interface sprites: the PvP skull, skill icons, category icons, CA tiers
+ *   sprites/<name>.png   interface sprites: the PvP skull, skill icons, category icons, CA tiers,
+ *                        account type helms
  *   items/<id>.png       inventory-style icons of every collection log item (pets included)
  *   index.json           what was exported and when, read by the website
  *
@@ -65,6 +66,9 @@ public final class ExportGameIcons
 		// Combat achievement tiers, small swords: Easy .. Grandmaster.
 		{"ca-easy", 3399, 0}, {"ca-medium", 3400, 0}, {"ca-hard", 3401, 0},
 		{"ca-elite", 3402, 0}, {"ca-master", 3403, 0}, {"ca-grandmaster", 3404, 0},
+		// Account type helms, the chat badges in front of a player's name (MOD_ICONS frames).
+		{"helm-ironman", 423, 2}, {"helm-ultimate", 423, 3}, {"helm-hardcore", 423, 10},
+		{"helm-group", 423, 41}, {"helm-hardcore-group", 423, 42}, {"helm-unranked-group", 423, 43},
 	};
 
 	public static void main(String[] args) throws IOException

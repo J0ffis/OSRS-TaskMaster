@@ -10,7 +10,7 @@ import {
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
-import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML } from "./game-icons.js";
+import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
 
 // Small helpers used everywhere below.
 /** The first element matching a CSS selector, e.g. $("#cards"). */
@@ -25,11 +25,29 @@ const pageSortKey = (n) => n.replace(/^the\s+/i, "");
 const pageLabel = (n) => (/^the\s+/i.test(n) ? `${n.replace(/^the\s+/i, "")}, The` : n);
 const byPageName = (a, b) => pageSortKey(a).localeCompare(pageSortKey(b));
 const SAMPLE = "__sample__";
+// The sample accounts, one per account type, each its own made-up profile in samples/<id>.json
+// (made by tests/make-sample-profiles.mjs; samples/index.json has each one's starting goals).
+const SAMPLE_ACCOUNTS = [
+  { id: "main", label: "Main account" },
+  { id: "iron", label: "Ironman" },
+  { id: "hcim", label: "Hardcore Ironman" },
+  { id: "uim", label: "Ultimate Ironman" },
+  { id: "gim", label: "Group Ironman" },
+  { id: "hcgim", label: "Hardcore Group Ironman" },
+];
+const sampleAccount = (id) => SAMPLE_ACCOUNTS.find((a) => a.id === id) ?? SAMPLE_ACCOUNTS[1];
+// "#sample=hcim" opens the sample as that account type, so testers can share a link to one.
+// OSRS names can't contain "=", so this never clashes with a player's name.
+// What a profile's browser storage (marks, Not for me, history) is kept under: each sample
+// account has its own. Real names can't start with "_", so these never clash with a player.
+const storeName = (name) => (name === SAMPLE ? `${SAMPLE} ${state.sampleType}` : name);
+const sampleFromHash = (h) => (/^sample=\w+$/i.test(h) ? sampleAccount(h.slice(7).toLowerCase()).id : null);
 
 // Everything the page is currently showing. Settings that should survive a reload are also kept
 // in localStorage under "tm.*" keys.
 const state = {
   name: null, // the loaded player's name (SAMPLE for the sample data)
+  sampleType: sampleAccount(localStorage.getItem("tm.sampleType")).id, // which SAMPLE_ACCOUNTS the sample shows
   raw: null, // their profile ("snapshot") as the plugin wrote it
   snap: null, // the same with progress marked by hand laid over it; everything renders from this
   marks: { quests: {}, diaries: {}, ca: {} }, // progress marked by hand: { bucket: { key: time } }
@@ -83,11 +101,11 @@ async function load(name) {
   showError(null);
   try {
     if (name === SAMPLE) {
-      state.snap = await api("sample-profile.json");
-      state.goals = JSON.parse(localStorage.getItem("tm.sampleGoals") || "null") ?? [
-        { id: "g1", type: "skill", skill: "slayer", level: 85 },
-        { id: "g2", type: "quest", quest: "Dragon Slayer II" },
-      ];
+      const id = sampleAccount(state.sampleType).id;
+      const [snap, index] = await Promise.all([api(`samples/${id}.json`), api("samples/index.json")]);
+      state.snap = snap;
+      state.goals = JSON.parse(localStorage.getItem(`tm.sampleGoals:${id}`) || "null")
+        ?? index.accounts.find((a) => a.id === id)?.goals ?? [];
     } else if (!serverMode) {
       state.snap = local.get(name);
       if (!state.snap) throw Object.assign(new Error("not imported"), { status: 404 });
@@ -101,10 +119,11 @@ async function load(name) {
     state.goals = state.goals.filter((g) => g.type !== "wealth");
     delete state.snap.wealth;
     state.raw = state.snap;
-    state.prev = trackPrevious(name, state.raw, state.goals);
-    state.marks = loadMarks(name, state.raw);
+    const key = storeName(name);
+    state.prev = trackPrevious(key, state.raw, state.goals);
+    state.marks = loadMarks(key, state.raw);
     state.snap = applyManual(state.raw, state.marks);
-    state.hidden = loadHidden(name);
+    state.hidden = loadHidden(key);
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
     if (e.status === 404 && !serverMode) return showError(`No profile for "${name}" in this browser yet. In RuneLite, open the OSRS TaskMaster panel, click Copy my profile, then paste it here.`);
@@ -119,6 +138,8 @@ async function load(name) {
   if (name !== SAMPLE) {
     localStorage.setItem("tm.last", name);
     history.replaceState(null, "", `#${encodeURIComponent(name)}`);
+  } else {
+    history.replaceState(null, "", `#sample=${state.sampleType}`);
   }
   $("#intro").hidden = true;
   $("#app").hidden = false;
@@ -126,7 +147,7 @@ async function load(name) {
 }
 
 async function saveGoals() {
-  if (state.name === SAMPLE) return localStorage.setItem("tm.sampleGoals", JSON.stringify(state.goals));
+  if (state.name === SAMPLE) return localStorage.setItem(`tm.sampleGoals:${state.sampleType}`, JSON.stringify(state.goals));
   if (!serverMode) return local.saveGoals(state.name, state.goals);
   await api(`/api/goals/${encodeURIComponent(state.name)}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state.goals),
@@ -167,7 +188,7 @@ function loadHidden(name) {
   return h;
 }
 function saveHidden() {
-  localStorage.setItem(hiddenKey(state.name), JSON.stringify(state.hidden));
+  localStorage.setItem(hiddenKey(storeName(state.name)), JSON.stringify(state.hidden));
 }
 const isHidden = (c) => {
   const e = state.hidden[c.id];
@@ -189,7 +210,7 @@ function unhide(ids) {
 function setMark(bucket, key, on) {
   const b = (state.marks[bucket] ??= {});
   if (on) b[key] = Date.now(); else delete b[key];
-  localStorage.setItem(marksKey(state.name), JSON.stringify(state.marks));
+  localStorage.setItem(marksKey(storeName(state.name)), JSON.stringify(state.marks));
   state.snap = applyManual(state.raw, state.marks);
   renderAll();
 }
@@ -294,7 +315,8 @@ function renderSummary() {
   const { badges } = completions(s);
   $("#summary").innerHTML = `
     <div class="who">
-      <h2>${esc(p.name)}</h2>
+      <h2>${helmHTML(p.accountType)}${esc(p.name)}</h2>
+      ${sampleTypeHTML()}
       <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `Synced <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}</div>
       <div class="manualrow">
         <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't synced since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until a sync shows them done.">Mark progress by hand</button>
@@ -315,6 +337,21 @@ function renderSummary() {
       `<span class="badge" title="${esc(b.detail)}"><span aria-hidden="true">✦</span> ${esc(b.label)}</span>`).join("")}</div>` : ""}`;
 }
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+
+/** On the sample data: a drop-down to view it as another account type. */
+function sampleTypeHTML() {
+  if (state.name !== SAMPLE) return "";
+  return `<label class="sampletype muted small">View the sample as
+    <select id="sampletype">${SAMPLE_ACCOUNTS.map((a) =>
+      `<option value="${a.id}"${a.id === state.sampleType ? " selected" : ""}>${esc(a.label)}</option>`).join("")}</select></label>`;
+}
+
+/** Switch the sample to another account type (goals and settings stay as they are). */
+function setSampleType(id) {
+  state.sampleType = sampleAccount(id).id;
+  localStorage.setItem("tm.sampleType", state.sampleType);
+  return load(SAMPLE);
+}
 
 // "Since last time": progress over the last 8 hours of syncs (see trackPrevious), from the raw profile
 // (progress marked by hand isn't counted until a sync confirms it). Hover a part for details.
@@ -1191,6 +1228,9 @@ $("#summary").addEventListener("click", (e) => {
   localStorage.setItem("tm.manualMode", state.manualMode ? "1" : "0");
   renderAll();
 });
+$("#summary").addEventListener("change", (e) => {
+  if (e.target.id === "sampletype") setSampleType(e.target.value);
+});
 $("#app").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-mark]");
   if (!b || !state.raw) return;
@@ -1222,6 +1262,8 @@ $("#reach").addEventListener("click", (e) => {
 
 window.addEventListener("hashchange", () => {
   const n = decodeURIComponent(location.hash.slice(1));
+  const sample = sampleFromHash(n);
+  if (sample) { if (state.name !== SAMPLE || sample !== state.sampleType) setSampleType(sample); return; }
   if (n && n !== state.name) { $("#name").value = n; load(n); }
 });
 
@@ -1355,6 +1397,8 @@ function setupImport() {
   });
   refreshKnown();
   const fromHash = decodeURIComponent(location.hash.slice(1));
+  const sample = sampleFromHash(fromHash);
+  if (sample) return setSampleType(sample);
   const last = fromHash || localStorage.getItem("tm.last");
   if (last) {
     $("#name").value = last;

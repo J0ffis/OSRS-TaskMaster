@@ -15,14 +15,15 @@ export function loadDropRates() {
   setDropRates(readJson("web", "data", "drop-rates.json"));
 }
 
-/** The website's own sample profile ("Sample Iron"), unchanged. */
-export function sampleAccount() {
-  return readJson("web", "sample-profile.json");
+/** One of the website's sample profiles (web/samples/<id>.json), unchanged. "iron" is "Sample Iron". */
+export function sampleAccount(id = "iron") {
+  return readJson("web", "samples", `${id}.json`);
 }
-export const SAMPLE_GOALS = [
-  { id: "g1", type: "skill", skill: "slayer", level: 85 },
-  { id: "g2", type: "quest", quest: "Dragon Slayer II" },
-];
+const sampleIndex = () => readJson("web", "samples", "index.json").accounts;
+/** The sample accounts' ids, in the website's order. */
+export const SAMPLE_IDS = sampleIndex().map((a) => a.id);
+/** The goals a sample account starts with on the website. */
+export const sampleGoals = (id = "iron") => sampleIndex().find((a) => a.id === id).goals;
 
 // A small fixed hash: spreads ids evenly over 0..99.
 const bucket = (n) => (((n * 2654435761) >>> 0) % 1000) % 100;

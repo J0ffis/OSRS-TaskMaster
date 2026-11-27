@@ -1,4 +1,5 @@
-// Suggestion snapshots: what the recommender suggests for two fixed test accounts, written out
+// Suggestion snapshots: what the recommender suggests for fixed test accounts (the website's six
+// sample accounts and a made-up full account), written out
 // as readable text and compared with the saved copy in suggestions.test.mjs.snapshot.
 //
 //   npm test                 fails if any suggestion, tier, score or wording changed
@@ -11,7 +12,7 @@ import { test, snapshot } from "node:test";
 import {
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask, withinReach, CHALLENGE,
 } from "../web/recommender.js";
-import { loadDropRates, sampleAccount, fullAccount, SAMPLE_GOALS, FULL_GOALS } from "./test-account.mjs";
+import { loadDropRates, sampleAccount, sampleGoals, SAMPLE_IDS, fullAccount, FULL_GOALS } from "./test-account.mjs";
 
 // Plain text snapshots: one line per suggestion, so Git diffs read like a changelog.
 snapshot.setDefaultSnapshotSerializers([(v) => (typeof v === "string" ? v : JSON.stringify(v, null, 2))]);
@@ -48,9 +49,11 @@ function report(snap, goals, content) {
   return out.join("\n") + "\n";
 }
 
-test("sample account, default filters", (t) => {
-  t.assert.snapshot(report(sampleAccount(), SAMPLE_GOALS, {}));
-});
+for (const id of SAMPLE_IDS) {
+  test(`sample account "${id}", default filters`, (t) => {
+    t.assert.snapshot(report(sampleAccount(id), sampleGoals(id), {}));
+  });
+}
 
 test("full test account, default filters", (t) => {
   t.assert.snapshot(report(fullAccount(), FULL_GOALS, {}));

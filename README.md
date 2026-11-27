@@ -48,7 +48,8 @@ up from chat messages as you play, and from a boss's collection log page when yo
   - `knowledge-base.js` – hand-written game facts (quest requirements, diary rewards, effort
     estimates). Edit this to tune suggestions.
   - `app.js` – the page itself: importing profiles, rendering cards, managing goals.
-  - `sample-profile.json` – the made-up account behind **Load sample data**.
+  - `samples/` – the made-up accounts behind **Load sample data**, one per account type (made by
+    `tests/make-sample-profiles.mjs`, `npm run samples`).
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
   - `icons/game/` and `game-icons.js` – game icons exported from the game cache (see
     [Game icons](#game-icons)).
