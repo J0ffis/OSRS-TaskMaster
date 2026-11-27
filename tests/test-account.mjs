@@ -28,6 +28,13 @@ export const SAMPLE_GOALS = [
   { id: "g2", type: "quest", quest: "Dragon Slayer II" },
 ];
 
+// The 24 quests the sample profile listed before it was filled in with every quest.
+const SAMPLE_OWN_QUESTS = new Set(["Animal Magnetism", "Lost City", "Fairytale II - Cure a Queen", "Bone Voyage",
+  "Priest in Peril", "Regicide", "Horror from the Deep", "Heroes' Quest", "Monkey Madness I", "Desert Treasure I",
+  "Legends' Quest", "Family Crest", "Eagles' Peak", "A Kingdom Divided", "Sins of the Father", "Monkey Madness II",
+  "Dragon Slayer II", "Song of the Elves", "Secrets of the North", "Desert Treasure II - The Fallen Empire",
+  "Lunar Diplomacy", "Recipe for Disaster", "The Fremennik Exiles", "Cook's Assistant"]);
+
 // A small fixed hash: spreads ids evenly over 0..99.
 const bucket = (n) => (((n * 2654435761) >>> 0) % 1000) % 100;
 
@@ -58,7 +65,9 @@ export function fullAccount() {
   const total = Object.values(cats).reduce((n, c) => n + c.total, 0);
   const obtained = Object.values(cats).reduce((n, c) => n + c.obtained, 0);
 
-  const sampleQuests = Object.fromEntries((base.quests ?? []).map((q) => [q.name, q.state]));
+  // The quests the sample was first made with keep the sample's state; the rest come from the hash,
+  // so this account stays a mix (the sample itself now lists every quest).
+  const sampleQuests = Object.fromEntries((base.quests ?? []).filter((q) => SAMPLE_OWN_QUESTS.has(q.name)).map((q) => [q.name, q.state]));
   const quests = game.quests.map((name, i) => ({
     name,
     state: sampleQuests[name] ?? (bucket(i + 1000) < 55 ? "FINISHED" : bucket(i + 2000) < 30 ? "IN_PROGRESS" : "NOT_STARTED"),
