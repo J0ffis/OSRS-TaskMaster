@@ -76,7 +76,7 @@ const local = {
     localStorage.setItem("tm.profileNames", JSON.stringify([name, ...names]));
   },
   forget(name) {
-    for (const k of ["profile", "goals", "marks", "hidden", "seen", "prev"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
+    for (const k of ["profile", "goals", "marks", "hidden", "history", "seen", "prev"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
     localStorage.setItem("tm.profileNames", JSON.stringify(local.names().filter((n) => keyOf(n) !== keyOf(name))));
   },
   goals: (name) => JSON.parse(localStorage.getItem(`tm.goals:${keyOf(name)}`) || "[]"),
@@ -381,21 +381,51 @@ function markButton(c) {
   return `<button class="btn tiny markbtn" type="button" data-mark="${mk.bucket}" data-key="${esc(mk.key)}" aria-pressed="${on}" title="${on ? "Undo: you marked this done by hand" : "Done it in-game? Mark it here until your next sync"}">${on ? "✓ Marked done" : "Mark done"}</button>`;
 }
 
-// ---- Before the latest sync ----------------------------------------------------------------
-// "Within reach" calls out what changed since the previous sync (a level reached, a quest or tier
-// finished). The page keeps a compact copy of each profile it has seen; when a newer sync arrives,
-// the old copy becomes the "previous" one.
+// ---- Recent progress -------------------------------------------------------------------------
+// "Since last time" and "Within reach" compare the profile with how it was about 8 hours earlier,
+// so frequent syncs (Automatic upload sends one every few minutes) don't reset them. The page keeps
+// a short history of compact profiles it has seen (tm.history:*): at most one every 30 minutes,
+// plus the newest, and nothing older than the one that's 8 hours back.
 
+const RECENT_HOURS = 8;
+const HISTORY_GAP_MS = 30 * 60e3;
+const HISTORY_MAX = 40;
+
+/** Record this sync in the history; returns the profile to compare with (or null). */
 function trackPrevious(name, raw, goals) {
   const k = keyOf(name);
-  const seen = JSON.parse(localStorage.getItem(`tm.seen:${k}`) || "null");
-  if (!seen || seen.syncedAt !== (raw.syncedAt ?? 0)) {
-    try {
-      if (seen) localStorage.setItem(`tm.prev:${k}`, JSON.stringify(seen));
-      localStorage.setItem(`tm.seen:${k}`, JSON.stringify(compactProfile(raw, goals)));
-    } catch { /* storage full: "Within reach" just won't call out what's new */ }
+  const key = `tm.history:${k}`;
+  let hist = JSON.parse(localStorage.getItem(key) || "[]");
+  // First run after this change: start from the copies kept before (previous and latest sync).
+  if (!hist.length) {
+    for (const old of ["prev", "seen"]) {
+      const c = JSON.parse(localStorage.getItem(`tm.${old}:${k}`) || "null");
+      if (c && !hist.some((h) => h.syncedAt === c.syncedAt)) hist.push(c);
+    }
   }
-  return JSON.parse(localStorage.getItem(`tm.prev:${k}`) || "null");
+  const cur = compactProfile(raw, goals);
+  hist = hist.filter((h) => h.syncedAt <= cur.syncedAt).sort((x, y) => x.syncedAt - y.syncedAt);
+  const last = hist[hist.length - 1];
+  if (!last || last.syncedAt < cur.syncedAt) {
+    // Keep the newest sync, but don't let one every few minutes crowd the history: replace the
+    // newest entry when it's less than 30 minutes after the one before it.
+    const before = hist[hist.length - 2];
+    if (last && before && last.syncedAt - before.syncedAt < HISTORY_GAP_MS) hist[hist.length - 1] = cur;
+    else hist.push(cur);
+  }
+  // Drop everything older than the newest entry that's at least 8 hours old (the baseline).
+  const cutoff = cur.syncedAt - RECENT_HOURS * 36e5;
+  const baseIdx = hist.reduce((b, h, i) => (h.syncedAt <= cutoff ? i : b), -1);
+  if (baseIdx > 0) hist = hist.slice(baseIdx);
+  if (hist.length > HISTORY_MAX) hist = [hist[0], ...hist.slice(-(HISTORY_MAX - 1))];
+  try {
+    localStorage.setItem(key, JSON.stringify(hist));
+    localStorage.removeItem(`tm.prev:${k}`);
+    localStorage.removeItem(`tm.seen:${k}`);
+  } catch { /* storage full: recent progress just won't show */ }
+  // Compare with the profile from 8 hours back, or the oldest one seen if it's all more recent.
+  const base = hist[0];
+  return base && base.syncedAt < cur.syncedAt ? base : null;
 }
 
 function showError(msg) {
@@ -455,15 +485,18 @@ function renderSummary() {
 }
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
 
-// "Since last time": what changed between the previous sync and this one, from the raw profile
+// "Since last time": progress over the last 8 hours of syncs (see trackPrevious), from the raw profile
 // (progress marked by hand isn't counted until a sync confirms it). Hover a part for details.
 function sinceLastHTML() {
   if (!state.prev || state.name === SAMPLE) return "";
   const parts = sinceLast(state.raw, state.prev, state.goals);
   if (!parts.length) return "";
-  const days = Math.round(((state.raw.syncedAt ?? 0) - (state.prev.syncedAt ?? 0)) / 864e5);
-  const when = days >= 2 ? `${days} days before` : days === 1 ? "the day before" : "earlier";
-  return `<p class="since small"><span class="muted" title="Compared with your previous sync (${when}). Kept in this browser.">Since last time:</span> ${parts.map((p) =>
+  // A rolling 8 hours when there's a profile that old; otherwise since the oldest one seen.
+  const span = (state.raw.syncedAt ?? 0) - (state.prev.syncedAt ?? 0);
+  const full = span >= RECENT_HOURS * 36e5;
+  const ago = span < 36e5 ? `${Math.max(1, Math.round(span / 6e4))} min` : span < 864e5 ? `${Math.round(span / 36e5)} h` : `${Math.round(span / 864e5)} days`;
+  const label = full && span < 2 * RECENT_HOURS * 36e5 ? `Last ${RECENT_HOURS} hours:` : `Last ${ago}:`;
+  return `<p class="since small"><span class="muted" title="Progress over the last ${RECENT_HOURS} hours of syncs this browser has seen (compared with your profile from ${ago} before this sync).">${label}</span> ${parts.map((p) =>
     `<span class="sincepart k-${p.kind}"${p.detail ? ` title="${esc(p.detail)}"` : ""}>${esc(p.text)}</span>`).join('<span class="muted"> · </span>')}</p>`;
 }
 
@@ -987,7 +1020,7 @@ const TAB_RENDER = {
       return `<button type="button" class="markmini" data-mark="quests" data-key="${esc(q.name)}" aria-pressed="${!!q.manual}" title="${q.manual ? "Undo your mark" : "Mark as finished until your next sync"}">${q.manual ? "Undo" : "Mark done"}</button>`;
     };
     return `${canMark() ? `<p class="note manualnote">Marking by hand: tick off quests you've finished since your last sync.</p>` : ""}
-      <table class="list"><tbody>${qs.map((q) => `<tr><td>${esc(q.name)}</td><td class="num">${mark(q)}<span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.manual ? "finished (marked)" : q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
+      <table class="list"><tbody>${qs.map((q) => `<tr><td><a class="plainlink" href="${esc(wikiPage(q.name))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(q.name)} on the OSRS Wiki">${esc(q.name)}</a></td><td class="num">${mark(q)}<span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.manual ? "finished (marked)" : q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
   },
   diaries(s) {
     // One column per tier; each square links to that tier on the wiki. A region counts as started
@@ -1016,12 +1049,34 @@ const TAB_RENDER = {
   combat(s) {
     const a = analyse(s);
     const ca = s.combatAchievements ?? {};
+    const tierLink = (t) => `<a class="plainlink" href="${esc(wikiGo(`${t} Combat Achievements`))}" target="_blank" rel="noopener noreferrer" title="Open the ${t} combat achievements on the OSRS Wiki">${t}</a>`;
     const rows = CA_TIERS.map((t) => {
       const b = a.caByTier[t];
-      return `<tr><td>${iconImg(spriteUrl(`ca-${t.toLowerCase()}`), { cls: "gicon tiny" })}${t}</td><td class="num">${b.total ? `${b.done}/${b.total}` : "—"}</td><td class="num">${ca.thresholds?.[t] ?? "—"}</td></tr>`;
+      return `<tr><td>${iconImg(spriteUrl(`ca-${t.toLowerCase()}`), { cls: "gicon tiny" })}${tierLink(t)}</td><td class="num">${b.total ? `${b.done}/${b.total}` : "—"}</td><td class="num">${ca.thresholds?.[t] ?? "—"}</td></tr>`;
+    }).join("");
+    // Every task, by tier: unfinished first, each linking to its wiki entry. One tier open at a
+    // time, like the collection log pages.
+    const tasks = ca.tasks ?? [];
+    const lists = CA_TIERS.map((t) => {
+      const list = tasks.filter((x) => x.tier === t).sort((x, y) => Number(!!x.done) - Number(!!y.done) || String(x.monster).localeCompare(String(y.monster)) || x.name.localeCompare(y.name));
+      if (!list.length) return "";
+      const done = list.filter((x) => x.done).length;
+      const key = `ca:${t}`;
+      return `
+        <details class="clogpage" name="clogpage" data-page="${esc(key)}" ${state.clogOpen === key ? "open" : ""}>
+          <summary><span>${iconImg(spriteUrl(`ca-${t.toLowerCase()}`), { cls: "gicon tiny" })}${t} tasks</span>
+            <span class="pill ${done === list.length ? "ok" : ""}">${done}/${list.length}</span></summary>
+          <ul class="clogitems catasks">${list.map((x) => `
+            <li class="${x.done ? "have" : "need"}" title="${esc(x.description ?? "")}">
+              <span><span><a class="plainlink" href="${esc(wikiGo(x.name))}" target="_blank" rel="noopener noreferrer">${esc(x.name)}</a>${x.monster && x.monster !== "Other" ? ` <span class="muted small">· ${esc(x.monster)}</span>` : ""}</span>
+                ${x.description ? `<span class="catdesc">${esc(x.description)}</span>` : ""}</span>
+              <span class="q">${x.done ? (x.manual ? "marked" : "✓") : "to do"}</span>
+            </li>`).join("")}</ul>
+        </details>`;
     }).join("");
     return `<table class="list"><thead><tr><th>Tier</th><th class="num">Tasks</th><th class="num">Points needed</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="note">${ca.points ?? 0} points · current reward tier: ${esc(a.caRank)}${a.caNext ? ` · ${a.caNext.gap} to ${a.caNext.tier}` : ""}</p>`;
+      <p class="note">${ca.points ?? 0} points · current reward tier: ${esc(a.caRank)}${a.caNext ? ` · ${a.caNext.gap} to ${a.caNext.tier}` : ""}</p>
+      ${lists ? `<div class="clogpages">${lists}</div>` : ""}`;
   },
   clog(s) {
     const log = s.collectionLog ?? {};

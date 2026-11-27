@@ -75,19 +75,22 @@ skill levels, 3 combat levels, 10 quest points or one quest). Requirements come 
 `QUEST_PREREQS`, `QUESTS[...].reqs` and `DIARY_REQS` in the knowledge base (taken from the OSRS
 Wiki). Quests a profile doesn't list are shown with a **?** and don't block.
 
-Anything that just opened up ranks first and says why: a level reached since the previous sync, a
-quest or the tier below finished since then, or something marked done by hand in the last two
-weeks. The page keeps a small copy of each profile it has seen (`tm.seen:*` / `tm.prev:*` in
-localStorage) to tell what changed between syncs.
+Anything that just opened up ranks first and says why: a level reached in the last 8 hours, a
+quest or the tier below finished in that time, or something marked done by hand in the last two
+weeks. "Recent" uses the same 8-hour history as the next section.
 
-## Since last time
+## Since last time (the last 8 hours)
 
-Under your name, a line sums up what changed between your previous sync and this one: levels
-(hover for which), XP, quests, diary tiers, combat achievements, new collection log slots, pets
-and goals finished. It compares the synced profiles only, so progress marked by hand counts once
-a sync confirms it. The previous sync is the small copy kept in `tm.prev:*` (`compactProfile`);
-copies saved before this feature only have levels, quests and diaries, so the first sync after an
-update may show fewer totals.
+Under your name, a line sums up your progress over a rolling 8 hours: levels (hover for which),
+XP, quests, diary tiers, combat achievements, new collection log slots, pets and goals finished,
+e.g. "Last 8 hours: +3 levels · +1.9M XP · 2 new log slots". It compares the synced profile with
+how it was 8 hours earlier, so frequent syncs (Automatic upload sends one every few minutes) add
+up instead of resetting it. When this browser hasn't seen a profile that old yet, it says so
+("Last 3 h").
+
+The page keeps a short history of compact profiles it has seen in `tm.history:*`
+(`compactProfile`): at most one every 30 minutes plus the newest, trimmed to the one 8 hours back.
+It compares synced profiles only, so progress marked by hand counts once a sync confirms it.
 
 ## Marking progress by hand
 
