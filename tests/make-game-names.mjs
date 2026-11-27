@@ -6,27 +6,35 @@
 // the suggestion tests build their test account on it.
 //
 // Run it again after a game update adds pages, items, quests or tasks:
-//   node tests/make-game-names.mjs                  # newest profile in server/data/profiles
+//   node tests/make-game-names.mjs                  # newest profile on this PC (see below)
 //   node tests/make-game-names.mjs path/to/profile.json
+//
+// Without a path it uses the newest of: the profiles the plugin saves on this PC
+// (%USERPROFILE%\.runelite\osrs-taskmaster\*.json, written by Copy my profile and on login) and
+// profiles synced to the local server (server/data/profiles).
 
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "tests", "fixtures", "game-names.json");
 
-let path = process.argv[2];
-if (!path) {
-  const dir = join(root, "server", "data", "profiles");
-  const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")) : [];
-  files.sort((a, b) => statSync(join(dir, b)).mtimeMs - statSync(join(dir, a)).mtimeMs);
-  if (!files.length) {
-    console.error("No synced profile found. Pass one: node tests/make-game-names.mjs path/to/profile.json");
-    process.exit(1);
-  }
-  path = join(dir, files[0]);
+/** The newest profile file on this PC, or null. */
+export function newestProfile() {
+  const dirs = [join(homedir(), ".runelite", "osrs-taskmaster"), join(root, "server", "data", "profiles")];
+  const files = dirs.flatMap((d) => (existsSync(d) ? readdirSync(d).filter((f) => f.endsWith(".json")).map((f) => join(d, f)) : []));
+  files.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  return files[0] ?? null;
 }
+
+let path = process.argv[2] || newestProfile();
+if (!path) {
+  console.error("No profile found on this PC. In RuneLite, click Copy my profile once, or pass a path: node tests/make-game-names.mjs path/to/profile.json");
+  process.exit(1);
+}
+console.log(`Reading game names from ${path}`);
 
 const snap = JSON.parse(readFileSync(path, "utf8"));
 const pages = {};
@@ -49,9 +57,19 @@ const data = {
 };
 
 // One entry per line keeps diffs readable when the game adds things.
-const lines = JSON.stringify(data, null, 1)
+const layout = (d) => JSON.stringify(d, null, 1)
   .replace(/\{\s*"id": (\d+),\s*"name": ("(?:[^"\\]|\\.)*")\s*\}/g, '{ "id": $1, "name": $2 }')
-  .replace(/\{\s*("id": \d+,\s*"name"[^{}]*?)\}/g, (m, body) => `{ ${body.replace(/\s*\n\s*/g, " ").trim()} }`);
-writeFileSync(out, lines + "\n");
+  .replace(/\{\s*("id": \d+,\s*"name"[^{}]*?)\}/g, (m, body) => `{ ${body.replace(/\s*\n\s*/g, " ").trim()} }`) + "\n";
+
+// Same names as last time: keep the file (and its date) as it is, so there's nothing to commit.
 const items = Object.values(pages).reduce((n, p) => n + p.items.length, 0);
-console.log(`Wrote ${out}: ${Object.keys(pages).length} pages, ${items} item slots, ${data.quests.length} quests, ${data.combatAchievements.length} combat achievements.`);
+const summary = `${Object.keys(pages).length} pages, ${items} item slots, ${data.quests.length} quests, ${data.combatAchievements.length} combat achievements`;
+if (existsSync(out)) {
+  const old = JSON.parse(readFileSync(out, "utf8"));
+  if (layout({ ...data, generated: old.generated }) === layout(old)) {
+    console.log(`No new game names (${summary}); ${out} is unchanged.`);
+    process.exit(0);
+  }
+}
+writeFileSync(out, layout(data));
+console.log(`Wrote ${out}: ${summary}.`);

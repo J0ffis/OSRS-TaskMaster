@@ -29,6 +29,19 @@ Nothing is fetched from the internet.
    categories, then different bosses or pages, so you don't get three Zulrah cards. **Shuffle**
    adds a small, repeatable bit of randomness (the `seed`).
 
+## Account types
+
+The plugin records the account type, and suggestions follow it (`applyAccountType` in
+`recommender.js`, tables in `knowledge-base.js`):
+
+- **Ironmen** (every kind): quests and diary regions in `IRON_PRIORITIES` that help you supply
+  yourself (Barrows gloves, Ava's device, Fossil Island, fairy rings...) get extra score, and the
+  card says why.
+- **Group Ironmen**: team content (raids and `TEAM_PAGES` such as Nex) gets `GROUP_CONTENT_BOOST`
+  and a note that it suits the group.
+- **Hardcore** accounts: Wilderness cards and the Wilderness toggle carry a stronger warning, since
+  a death there also ends Hardcore status. Wilderness stays opt-in as for everyone.
+
 ## Not for me
 
 Every suggestion card (and the Challenge card) has **Not for me**, which hides it **for a week**
@@ -47,7 +60,9 @@ Week-long ones come back by themselves. Goal cards don't have it: remove the goa
 | `Challenge` | Challenge card | A huge collection log page, weeks to months. Shown on its own, never among the regular picks |
 
 For collection log items the tier comes from the drop rate: expected hours =
-(1 ÷ chance per kill) × minutes per kill. The hour limits are `EFFORT_HOURS`; the minutes are
+(1 ÷ chance per kill) × minutes per kill. Kill-count combat achievements ("Kill Vorkath 50
+times") show the time for the kills left (kills left × minutes per kill), and their tier is the
+harder of the task's own tier and that time. The hour limits are `EFFORT_HOURS`; the minutes are
 `MINUTES_PER_ATTEMPT` (per boss) and `TAB_MINUTES` (fallback per collection log tab). Fixed rules
 in `PAGE_EFFORT`, `MONSTER_EFFORT` and `ITEM_EFFORT` win over the maths, for things like the Fire
 cape or team content.
@@ -64,6 +79,15 @@ Anything that just opened up ranks first and says why: a level reached since the
 quest or the tier below finished since then, or something marked done by hand in the last two
 weeks. The page keeps a small copy of each profile it has seen (`tm.seen:*` / `tm.prev:*` in
 localStorage) to tell what changed between syncs.
+
+## Since last time
+
+Under your name, a line sums up what changed between your previous sync and this one: levels
+(hover for which), XP, quests, diary tiers, combat achievements, new collection log slots, pets
+and goals finished. It compares the synced profiles only, so progress marked by hand counts once
+a sync confirms it. The previous sync is the small copy kept in `tm.prev:*` (`compactProfile`);
+copies saved before this feature only have levels, quests and diaries, so the first sync after an
+update may show fewer totals.
 
 ## Marking progress by hand
 
@@ -112,7 +136,8 @@ npm test        # the checker's tests plus the suggestion snapshots
 - **The checker** (`tests/check-knowledge-base.mjs`) compares every name in the knowledge base
   with `tests/fixtures/game-names.json`: the game's collection log pages and items, quests,
   diary regions and combat achievements, without any player's progress. After a game update adds
-  pages, items or quests, sync a profile and refresh that file with `npm run game-names`.
+  pages, items or quests, log in with the plugin and run `scripts\Update-GameData.ps1` (or just
+  `npm run game-names`), which refreshes that file from the profile the plugin saved.
 - **The suggestion snapshots** (`tests/suggestions.test.mjs`) list what the recommender suggests
   for two fixed test accounts: the sample profile, and a made-up account with every page, quest
   and task. A change to the suggestions fails the test until you accept it with

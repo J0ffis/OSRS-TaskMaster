@@ -20,7 +20,7 @@ import {
   WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS, SLAYER_BOSSES,
   SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
-  QUEST_PREREQS, DIARY_REQS,
+  QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES,
 } from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
@@ -364,6 +364,13 @@ function combatCandidates(snap, a) {
     const bar = kp ? killBar(kp)
       : tierStats?.total ? { progress: tierStats.done / tierStats.total, counter: `${tierStats.done}/${tierStats.total} ${t.tier} tasks` }
       : { progress: null };
+    // Kill-count tasks: time for the kills left, and the tier is the harder of the task's tier and
+    // that time (50 Vorkath kills isn't a quick win just because the task is Medium).
+    const tierEffort = tierIdx <= 1 ? "Quick" : tierIdx <= 3 ? "Medium" : "Long";
+    const est = kp ? killHours(kp, t.monster, snap) : null;
+    if (est) why.push(est.line);
+    const effort = MONSTER_EFFORT[t.monster]
+      ?? (est ? EFFORTS[Math.max(EFFORTS.indexOf(tierEffort), EFFORTS.indexOf(hoursToEffort(est.hours)))] : tierEffort);
     out.push({
       id: `ca:${t.id}`,
       category: "combat",
@@ -371,7 +378,7 @@ function combatCandidates(snap, a) {
       detail: `${t.monster === "Other" ? "" : `${t.monster}: `}${t.description}`,
       why,
       ...bar,
-      effort: MONSTER_EFFORT[t.monster] ?? (tierIdx <= 1 ? "Quick" : tierIdx <= 3 ? "Medium" : "Long"),
+      effort,
       group: t.monster,
       base: 40 + pts * 2 - tierIdx * 9 + (kcKey ? 10 : 0) + (t.monster === "Other" ? -10 : 0),
       meta: { monster: t.monster, tier: t.tier, task: t.id, taskName: t.name },
@@ -403,6 +410,25 @@ export function caKillProgress(task, snap) {
   const need = m ? parseInt(m[1].replace(/,/g, ""), 10) : null;
   if (!need || need < 2) return null;
   return { need, have: killCountOf(snap, task.monster) };
+}
+
+/** "under an hour", "1 hour", "12 hours". */
+const hoursText = (h) => (h < 1 ? "under an hour" : `${Math.round(h)} hour${Math.round(h) === 1 ? "" : "s"}`);
+
+/**
+ * Rough time for the kills a kill-count task still needs: kills left x minutes per kill, from
+ * MINUTES_PER_ATTEMPT (or the boss's collection log tab). Null when there's nothing to go on or
+ * the kills are done. { hours, line }.
+ */
+function killHours({ need, have }, monster, snap) {
+  const tab = snap.collectionLog?.pages?.[monster]?.tab;
+  const minutes = MINUTES_PER_ATTEMPT[monster] ?? (tab ? TAB_MINUTES[tab] : null);
+  if (!minutes) return null;
+  const left = have == null ? need : need - have;
+  if (left <= 0) return null;
+  const hours = left * minutes / 60;
+  const each = minutes >= 1 ? `${minutes} min` : `${Math.round(minutes * 60)} s`;
+  return { hours, line: `About ${hoursText(hours)} for the ${left.toLocaleString()} kill${left === 1 ? "" : "s"} ${have == null ? "needed" : "left"} (${each} each)` };
 }
 
 /** Bar and counter for a kill-count task. */
@@ -680,7 +706,7 @@ function clogCandidates(snap) {
       else if (kc) why.push(rank ? "A kill-count reward: needs many more completions than the last rank" : "A kill-count reward: unlocks after a set number of completions");
       else if (chance) {
         const h = expectedHours(chance, name, p.tab);
-        why.push(`${chance.rarity} from ${chance.from}: about ${h < 1 ? "under an hour" : `${Math.round(h)} hour${Math.round(h) === 1 ? "" : "s"}`} on average`);
+        why.push(`${chance.rarity} from ${chance.from}: about ${hoursText(h)} on average`);
       } else if (band) why.push(`A ${band} drop: plan for a long haul`);
       else if (ease >= 6) why.push(`${name} is one of the quicker logs to fill`);
       why.push(progressLine);
@@ -1232,6 +1258,70 @@ export function withinReach(snap, { prev = null, marks = null, now = Date.now(),
   return entries.sort((x, y) => y.score - x.score).slice(0, max);
 }
 
+// ---- Since last time ----------------------------------------------------------------------
+
+/**
+ * A small copy of a profile, kept by the page between syncs: levels, quests and diaries (for
+ * "Within reach") plus totals and the goals already done (for "Since last time").
+ */
+export function compactProfile(snap, goals = []) {
+  const tasks = snap.combatAchievements?.tasks ?? [];
+  return {
+    syncedAt: snap.syncedAt ?? 0,
+    skills: Object.fromEntries(Object.entries(snap.skills ?? {}).map(([k, v]) => [k, v.level])),
+    xp: Object.values(snap.skills ?? {}).reduce((n, v) => n + (v.xp ?? 0), 0),
+    quests: Object.fromEntries((snap.quests ?? []).map((q) => [q.name, q.state])),
+    diaries: snap.diaries ?? {},
+    clog: snap.collectionLog?.obtained ?? null,
+    caPoints: snap.combatAchievements?.points ?? null,
+    caDone: tasks.length ? tasks.filter((t) => t.done).length : null,
+    pets: petInfo(snap).pets.length ? petInfo(snap).owned : null,
+    goalsDone: goals.filter((g) => goalProgress(g, snap).done).map((g) => g.id),
+  };
+}
+
+/**
+ * What changed between the previous sync (`prev`, a compactProfile) and this one:
+ * [{ kind, text, detail? }] in a fixed order, empty when nothing did. Totals missing from an
+ * older saved copy are skipped rather than guessed.
+ */
+export function sinceLast(snap, prev, goals = []) {
+  if (!prev) return [];
+  const now = compactProfile(snap, goals);
+  const out = [];
+  const plural = (n, one, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  const ups = Object.entries(now.skills)
+    .filter(([k, lvl]) => prev.skills?.[k] != null && lvl > prev.skills[k])
+    .map(([k, lvl]) => ({ skill: k, from: prev.skills[k], to: lvl }))
+    .sort((x, y) => y.to - y.from - (x.to - x.from));
+  if (ups.length) {
+    const levels = ups.reduce((n, u) => n + u.to - u.from, 0);
+    out.push({
+      kind: "levels",
+      text: `+${plural(levels, "level")}`,
+      detail: ups.map((u) => `${cap(u.skill)} ${u.from} → ${u.to}`).join(", "),
+    });
+  }
+  if (prev.xp != null && now.xp > prev.xp) out.push({ kind: "xp", text: `+${fmt(now.xp - prev.xp)} XP` });
+  const quests = Object.entries(now.quests).filter(([q, st]) => st === "FINISHED" && prev.quests?.[q] != null && prev.quests[q] !== "FINISHED").map(([q]) => q);
+  if (quests.length) out.push({ kind: "quests", text: plural(quests.length, "quest"), detail: quests.join(", ") });
+  const tiers = [];
+  for (const [region, t] of Object.entries(now.diaries)) {
+    for (const [tier, done] of Object.entries(t ?? {})) if (done && prev.diaries?.[region] && !prev.diaries[region][tier]) tiers.push(`${region} ${cap(tier)}`);
+  }
+  if (tiers.length) out.push({ kind: "diaries", text: plural(tiers.length, "diary tier"), detail: tiers.join(", ") });
+  if (prev.caDone != null && now.caDone > prev.caDone) {
+    out.push({ kind: "combat", text: plural(now.caDone - prev.caDone, "combat achievement"), detail: `+${now.caPoints - (prev.caPoints ?? now.caPoints)} points` });
+  }
+  if (prev.clog != null && now.clog > prev.clog) out.push({ kind: "clog", text: plural(now.clog - prev.clog, "new log slot") });
+  if (prev.pets != null && now.pets > prev.pets) out.push({ kind: "pets", text: plural(now.pets - prev.pets, "new pet") });
+  if (prev.goalsDone) {
+    const done = goals.filter((g) => now.goalsDone.includes(g.id) && !prev.goalsDone.includes(g.id));
+    if (done.length) out.push({ kind: "goals", text: `${plural(done.length, "goal")} done`, detail: done.map(goalTitle).join(", ") });
+  }
+  return out;
+}
+
 // ---- Ranking ---------------------------------------------------------------------------
 
 /** Each grind style shows exactly one effort tier, so the three never share a suggestion. */
@@ -1326,6 +1416,7 @@ function evaluate(snap, goals, opts) {
       c.why = [`Moves your goal "${goalTitle(helps[0])}" forward`, ...c.why];
     }
   }
+  applyAccountType(list, snap);
   const enabled = opts.categories;
   if (opts.includeGoals !== false) {
     // A suggestion that is exactly one of your goals would show twice (the goal card and the
@@ -1337,6 +1428,45 @@ function evaluate(snap, goals, opts) {
   if (style) list = list.filter((c) => c.effort === STYLE_EFFORT[style]);
   const locked = [...locks.values()].sort((x, y) => x.content.localeCompare(y.content));
   return { list: list.sort((x, y) => y.score - x.score), locked };
+}
+
+/**
+ * The account type from the profile ("Hardcore Group Ironman" etc.) as flags. Unknown or missing
+ * types count as a normal account.
+ */
+export function accountKind(snap) {
+  const t = String(snap?.player?.accountType ?? snap?.accountType ?? "");
+  const iron = /iron/i.test(t);
+  return { type: t || "Normal", iron, hardcore: iron && /hardcore/i.test(t), ultimate: /ultimate/i.test(t), group: iron && /group/i.test(t) };
+}
+
+/**
+ * Ironman priorities (IRON_PRIORITIES) and Group Ironman team content (GROUP_CONTENT_BOOST):
+ * extra score and a reason on the card. Hardcore accounts get the Hardcore Wilderness warning on
+ * the website (app.js); their suggestions aren't changed here.
+ */
+function applyAccountType(list, snap) {
+  const k = accountKind(snap);
+  if (!k.iron) return;
+  const pages = snap.collectionLog?.pages ?? {};
+  // Cards show the first three reasons: put this one first, after a "Moves your goal" line.
+  const addWhy = (c, text) => {
+    const at = c.why[0]?.startsWith("Moves your goal") ? 1 : 0;
+    c.why = [...c.why.slice(0, at), text, ...c.why.slice(at)];
+  };
+  for (const c of list) {
+    const m = c.meta ?? {};
+    const rule = (m.quest && IRON_PRIORITIES.quests[m.quest]) || (c.category === "diaries" && m.region && IRON_PRIORITIES.diaries[m.region]);
+    if (rule) {
+      c.score += rule.boost;
+      addWhy(c, rule.why);
+    }
+    const team = (m.page && (pages[m.page]?.tab === "Raids" || TEAM_PAGES.has(m.page))) || TEAM_PAGES.has(m.monster);
+    if (k.group && team) {
+      c.score += GROUP_CONTENT_BOOST;
+      addWhy(c, "Team content: a good fit for your Ironman group");
+    }
+  }
 }
 
 /**
