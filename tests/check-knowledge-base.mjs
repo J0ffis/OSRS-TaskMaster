@@ -247,11 +247,29 @@ if (uncovered.length) {
 return { errors, warnings };
 }
 
+/**
+ * Warnings for game data that hasn't been refreshed in a while: the game gets new items, pages
+ * and quests every few weeks, and old data means new content is missed or misjudged. Only the
+ * command-line report uses it (the tests stay the same whatever the date).
+ */
+export const STALE_DAYS = 90;
+export function staleData(dates, now = Date.now()) {
+  const out = [];
+  for (const [what, when] of Object.entries(dates)) {
+    const t = Date.parse(when);
+    if (!Number.isFinite(t)) { out.push(`${what}: no date recorded, so its age is unknown.`); continue; }
+    const days = Math.floor((now - t) / 864e5);
+    if (days > STALE_DAYS) out.push(`${what} is ${days} days old. Run scripts/Update-GameData.ps1 to catch up with game updates.`);
+  }
+  return out;
+}
+
 // ---- Report (when run from the command line) ---------------------------------------------
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const KB = await import("../web/knowledge-base.js");
   const game = loadGameNames();
   const { errors, warnings } = checkKnowledgeBase(KB, game);
+  warnings.push(...staleData({ "Game names (tests/fixtures/game-names.json)": game.generated, "Drop rates (web/data/drop-rates.json)": loadDropRates().generated, "Quest requirements (web/data/quest-reqs.json)": loadQuestReqs().generated }));
   for (const w of warnings) console.log(`warning  ${w}`);
   for (const e of errors) console.log(`ERROR    ${e}`);
   console.log(errors.length

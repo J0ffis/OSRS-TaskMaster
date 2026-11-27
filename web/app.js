@@ -12,6 +12,8 @@ import {
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
+// Data guards (tests/guards.test.mjs): values a profile can't really have.
+import { profileIssues } from "./recommender.js";
 
 // Small helpers used everywhere below.
 /** The first element matching a CSS selector, e.g. $("#cards"). */
@@ -377,10 +379,13 @@ const missingWhy = (n = 1) => `Profiles from older versions of the TaskMaster pl
 const isMissing = (key) => missingSections(state.raw).some((m) => m.key === key);
 
 function missingHTML() {
+  if (state.name === SAMPLE) return "";
   const m = missingSections(state.raw);
-  if (!m.length || state.name === SAMPLE) return "";
-  return `<p class="missing small"><span aria-hidden="true">ⓘ</span> Not in this profile: ${m.map((x) =>
-    `<b title="${esc(cap(x.detail))}">${esc(x.label)}</b>`).join(", ")}. <span class="muted">${esc(missingWhy(m.length))}</span></p>`;
+  // Values that can't be right: say so, rather than quietly suggesting things from them.
+  const issues = profileIssues(state.raw);
+  return (m.length ? `<p class="missing small"><span aria-hidden="true">ⓘ</span> Not in this profile: ${m.map((x) =>
+    `<b title="${esc(cap(x.detail))}">${esc(x.label)}</b>`).join(", ")}. <span class="muted">${esc(missingWhy(m.length))}</span></p>` : "")
+    + (issues.length ? `<p class="missing small"><span aria-hidden="true">⚠</span> Some of this profile doesn't add up, so a few suggestions may be off: ${esc(issues.map((i) => i.text).join("; "))}. <span class="muted">Sync or copy a fresh profile from the plugin to fix it.</span></p>` : "");
 }
 
 /** A progress bar with an optional short counter ("30/50 kills") beside it. */
