@@ -32,6 +32,21 @@ Nothing is fetched from the internet.
    categories, then different bosses or pages, so you don't get three Zulrah cards. **Shuffle**
    adds a small, repeatable bit of randomness (the `seed`).
 
+## Fastest logs first (clog hunting)
+
+The **Fastest logs first** toggle (under the category chips, shown while Collection log or Pets
+is on) serves collection log and pet cards in order of a rough time estimate, quickest first,
+instead of by score. Other categories keep their usual places, and in Mixed each tier is ordered
+on its own. **Shuffle** and **Swap** move on to the next quickest, since cards already shown are
+skipped. Each log card shows its estimate (for example "~12 h"). Switch off the other categories to
+see only log cards.
+
+The estimate (`hours` on each suggestion) comes from the wiki drop rate and `MINUTES_PER_ATTEMPT`
+where there is one, otherwise from `EFFORT_FALLBACK_HOURS` for the item's tier. "Complete the log"
+adds up its missing items, and "any missing piece" takes the quickest one. An estimate is never
+shown below its tier's lower limit in `EFFORT_HOURS` ("20+ h" on a Long haul): ties there are
+ordered by the raw drop-rate time.
+
 ## Account types
 
 The plugin records the account type, and suggestions follow it (`applyAccountType` in

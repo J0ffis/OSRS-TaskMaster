@@ -263,3 +263,55 @@ test("hidden until unlocked: each row says which goals unlock it, and the planne
     assert.deepEqual(plan.done, [], `${l.content}: none of its goals are done yet`);
   }
 });
+
+// ---- Clog hunting ------------------------------------------------------------------------------
+
+test("stale baguette: a random-event rarity is a Long haul, not Balanced", () => {
+  const snap = clone(sampleAccount());
+  const page = snap.collectionLog.pages["Random Events"];
+  for (const i of page.items) if (i.name === "Stale baguette") i.quantity = 0;
+  const c = candidates(snap, [], {}).find((x) => x.title === "Get Stale baguette");
+  assert.ok(c, "the baguette is suggested");
+  assert.equal(c.effort, "Long");
+  assert.match(c.why[0], /random events/i);
+  assert.ok(c.hours >= 100, `about ${c.hours} hours`);
+});
+
+test("fastest logs first: log and pet cards come quickest first, other categories keep their places", async () => {
+  const { pickThree, pickMix, fastestFirst, HUNT_CATEGORIES } = await import("../web/recommender.js");
+  for (const id of SAMPLE_IDS) {
+    const all = candidates(sampleAccount(id), [], {});
+    for (const c of all.filter((x) => HUNT_CATEGORIES.has(x.category))) {
+      assert.ok(c.hours > 0 && Number.isFinite(c.hours), `${id}: ${c.title} has a time estimate`);
+    }
+    // Only collection log cards: the picks are the quickest ones, in order, even after Shuffle.
+    const clog = all.filter((c) => c.category === "clog" && c.effort === "Medium");
+    for (const seed of [0, 7]) {
+      const picks = pickThree(clog, { seed, fastest: true });
+      const hours = picks.map((c) => c.hours);
+      assert.deepEqual(hours, [...hours].sort((a, b) => a - b), `${id}: in time order`);
+      // Quickest per page: no unpicked card on a page not already shown is quicker than the last pick.
+      const shown = new Set(picks.map((c) => c.group));
+      const quicker = clog.filter((c) => !picks.includes(c) && !shown.has(c.group) && c.hours < Math.min(...hours));
+      assert.deepEqual(quicker.map((c) => c.title), [], `${id}: nothing quicker was skipped`);
+    }
+    // Mixed: each tier's log cards in time order, and the tiers stay Quick -> Balanced -> Long.
+    const mix = pickMix(all.filter((c) => HUNT_CATEGORIES.has(c.category)), { fastest: true });
+    for (const t of ["Quick", "Medium", "Long"]) {
+      const h = mix.filter((c) => c.effort === t).map((c) => c.hours);
+      assert.deepEqual(h, [...h].sort((a, b) => a - b), `${id}: ${t} in time order`);
+    }
+    assert.deepEqual(mix.map((c) => c.effort), [...mix.map((c) => c.effort)].sort((a, b) => ["Quick", "Medium", "Long"].indexOf(a) - ["Quick", "Medium", "Long"].indexOf(b)));
+  }
+  // Other categories stay where they were; only the log and pet slots are reordered.
+  const list = [
+    { id: "a", category: "levels", score: 9 },
+    { id: "b", category: "clog", score: 8, hours: 40 },
+    { id: "c", category: "quests", score: 7 },
+    { id: "d", category: "pets", score: 6, hours: 5 },
+  ];
+  assert.deepEqual(fastestFirst(list).map((c) => c.id), ["a", "d", "c", "b"]);
+  // Off by default: picks are unchanged.
+  const all = candidates(sampleAccount(), [], {});
+  assert.deepEqual(pickThree(all, { seed: 3 }).map((c) => c.id), pickThree(all, { seed: 3, fastest: false }).map((c) => c.id));
+});

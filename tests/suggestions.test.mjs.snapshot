@@ -1,5 +1,5 @@
 exports[`full test account, default filters 1`] = `
-791 suggestions (Quick 99, Medium 242, Long 440, Challenge 10)
+791 suggestions (Quick 99, Medium 241, Long 441, Challenge 10)
 
 == Quick: top 15 of 99
 Quick     levels    87  Train Crafting to 62  | 61 → 62: 12K XP to go. Under an hour.
@@ -18,7 +18,7 @@ Quick     combat    42  The Demonic Punching Bag  | Bloodveld: Kill a Bloodveld.
 Quick     combat    42  Obor Novice  | Obor: Open Obor's chest once.
 Quick     combat    42  Master of Buckets  | Tempoross: Extinguish at least 5 fires during a single Tempoross fight.
 
-== Medium: top 15 of 242
+== Medium: top 15 of 241
 Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
 Medium    levels    61  Train Construction to 70  | 62 → 70: 386K XP to go.
@@ -35,7 +35,7 @@ Medium    quests    53  Finish Mage Arena II  | Pick up where you left off.
 Medium    quests    53  Finish Tears of Guthix  | Pick up where you left off.
 Medium    clog      52  Complete the Amoxliatl log  | 3/4 slots. Missing: Frozen tear.
 
-== Long: top 15 of 440
+== Long: top 15 of 441
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -113,7 +113,7 @@ Zalcano: Song of the Elves (7)
 `;
 
 exports[`full test account, minigames, Wilderness and clues on 1`] = `
-1131 suggestions (Quick 161, Medium 425, Long 531, Challenge 14)
+1131 suggestions (Quick 161, Medium 424, Long 532, Challenge 14)
 
 == Quick: top 15 of 161
 Quick     levels    87  Train Crafting to 62  | 61 → 62: 12K XP to go. Under an hour.
@@ -132,7 +132,7 @@ Quick     clog      48  Get any missing black piece  | 5 still missing from Easy
 Quick     clog      47  Get any missing piece of Black trimmed armour  | 4 still missing from Easy Treasure Trails: Black full helm (t), Black platebody (t), Black platelegs (t), Black plateskirt (t)
 Quick     clog      47  Get any missing piece of Iron trimmed armour  | 4 still missing from Easy Treasure Trails: Iron platebody (t), Iron platelegs (t), Iron plateskirt (t), Iron kiteshield (t)
 
-== Medium: top 15 of 425
+== Medium: top 15 of 424
 Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
 Medium    levels    61  Train Construction to 70  | 62 → 70: 386K XP to go.
@@ -149,7 +149,7 @@ Medium    quests    53  Finish Getting Ahead  | Pick up where you left off.
 Medium    quests    53  Finish Mage Arena II  | Pick up where you left off.
 Medium    quests    53  Finish Tears of Guthix  | Pick up where you left off.
 
-== Long: top 15 of 531
+== Long: top 15 of 532
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -231,7 +231,7 @@ Zalcano: Song of the Elves (7)
 `;
 
 exports[`sample account \"gim\", default filters 1`] = `
-929 suggestions (Quick 85, Medium 279, Long 553, Challenge 12)
+929 suggestions (Quick 85, Medium 278, Long 554, Challenge 12)
 
 == Quick: top 15 of 85
 Quick     levels    56  Train Sailing to 50  | 45 → 50: 37K XP to go. About 2 hours.
@@ -250,7 +250,7 @@ Quick     clog      32  Get any missing defender  | 8 still missing from Cyclope
 Quick     clog      32  Get Guild hunter headwear  | From the Hunter Guild collection log page (Other tab).
 Quick     clog      32  Get Guild hunter top  | From the Hunter Guild collection log page (Other tab).
 
-== Medium: top 15 of 279
+== Medium: top 15 of 278
 Medium    quests    65  Complete Desert Treasure II - The Fallen Empire  | You meet the main skill requirements.
 Medium    goals     60  Goal: Dragon Slayer II  | Currently in progress.
 Medium    quests    53  Finish A Porcine of Interest  | Pick up where you left off.
@@ -267,7 +267,7 @@ Medium    levels    40  Train Runecraft to 70  | 66 → 70: 217K XP to go. About
 Medium    clog      38  Get any missing piece of Chompy bird set  | 13 still missing from Chompy Bird Hunting: Chompy bird hat, Chompy bird hat, Chompy bird hat, Chompy bird hat…
 Medium    combat    38  Zulrah Adept  | Zulrah: Kill Zulrah 25 times.
 
-== Long: top 15 of 553
+== Long: top 15 of 554
 Long      diaries   63  Lumbridge & Draynor Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   62  Ardougne Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   59  Kandarin Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -334,7 +334,7 @@ Vorkath: Dragon Slayer II (20)
 `;
 
 exports[`sample account \"hcgim\", default filters 1`] = `
-954 suggestions (Quick 114, Medium 292, Long 537, Challenge 11)
+954 suggestions (Quick 114, Medium 291, Long 538, Challenge 11)
 
 == Quick: top 15 of 114
 Quick     levels    59  Train Hunter to 70  | 68 → 70: 79K XP to go.
@@ -353,7 +353,7 @@ Quick     combat    35  Deranged Archaeologist Champion  | Deranged Archaeologis
 Quick     combat    35  Mage of the Swamp  | Deranged Archaeologist: Kill the Deranged Archaeologist with only magical attacks.
 Quick     combat    35  I'd Rather Be Illiterate  | Deranged Archaeologist: Kill the Deranged Archaeologist without anyone being hit by his "Learn to Read" attack.
 
-== Medium: top 15 of 292
+== Medium: top 15 of 291
 Medium    quests    70  Complete Dragon Slayer II  | You meet the main skill requirements.
 Medium    quests    66  Complete Monkey Madness II  | You meet the main skill requirements.
 Medium    quests    65  Complete Desert Treasure II - The Fallen Empire  | You meet the main skill requirements.
@@ -370,7 +370,7 @@ Medium    combat    40  Finish every Medium task at Deranged Archaeologist  | Ta
 Medium    combat    40  Finish every Medium task at Royal Titans  | Tasks: “Royal Titan Champion”, “Royal Titan Adept”, “It takes too long”
 Medium    clog      40  Complete the Bryophyta log  | 0/1 slots. Missing: Bryophyta's essence.
 
-== Long: top 15 of 537
+== Long: top 15 of 538
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -448,7 +448,7 @@ Zalcano: Song of the Elves (9)
 `;
 
 exports[`sample account \"hcim\", default filters 1`] = `
-1011 suggestions (Quick 145, Medium 315, Long 538, Challenge 13)
+1011 suggestions (Quick 145, Medium 314, Long 539, Challenge 13)
 
 == Quick: top 15 of 145
 Quick     levels    70  Train Runecraft to 50  | 40 → 50: 61K XP to go. About 1–2 hours.
@@ -467,7 +467,7 @@ Quick     combat    52  Obor Novice  | Obor: Open Obor's chest once.
 Quick     combat    52  Sleeping Giant  | Obor: Kill Obor whilst he is immobilized.
 Quick     combat    52  Fighting as Intended  | Obor: Kill Obor on a free to play world.
 
-== Medium: top 15 of 315
+== Medium: top 15 of 314
 Medium    diaries   69  Morytania Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
 Medium    diaries   65  Kourend & Kebos Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
 Medium    levels    62  Train Construction to 60  | 50 → 60: 165K XP to go.
@@ -484,7 +484,7 @@ Medium    quests    53  Finish A Ruff Situation  | Pick up where you left off.
 Medium    quests    53  Finish A Soul's Bane  | Pick up where you left off.
 Medium    quests    53  Finish Fallen From Grace  | Pick up where you left off.
 
-== Long: top 15 of 538
+== Long: top 15 of 539
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   65  Kandarin Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -567,7 +567,7 @@ Zalcano: Song of the Elves (9)
 `;
 
 exports[`sample account \"iron\", default filters 1`] = `
-946 suggestions (Quick 103, Medium 296, Long 536, Challenge 11)
+946 suggestions (Quick 103, Medium 295, Long 537, Challenge 11)
 
 == Quick: top 15 of 103
 Quick     levels    87  Train Crafting to 62  | 61 → 62: 12K XP to go. Under an hour.
@@ -586,7 +586,7 @@ Quick     clog      41  Get any missing Spirit piece  | 3 still missing from Tem
 Quick     clog      36  Get any missing Ancient page  | 23 still missing from My Notes: Ancient page, Ancient page, Ancient page, Ancient page…
 Quick     combat    35  Deranged Archaeologist Champion  | Deranged Archaeologist: Kill the Deranged Archaeologist 25 times.
 
-== Medium: top 15 of 296
+== Medium: top 15 of 295
 Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
 Medium    levels    61  Train Construction to 70  | 62 → 70: 386K XP to go.
@@ -603,7 +603,7 @@ Medium    quests    53  Finish Tears of Guthix  | Pick up where you left off.
 Medium    clog      53  Complete the Shooting Stars log  | 1/2 slots. Missing: Celestial ring (uncharged).
 Medium    clog      52  Complete the Amoxliatl log  | 2/4 slots. Missing: Frozen tear (plus the pet).
 
-== Long: top 15 of 536
+== Long: top 15 of 537
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -683,7 +683,7 @@ Zalcano: Song of the Elves (9)
 `;
 
 exports[`sample account \"main\", default filters 1`] = `
-865 suggestions (Quick 78, Medium 239, Long 541, Challenge 7)
+865 suggestions (Quick 78, Medium 238, Long 542, Challenge 7)
 
 == Quick: top 15 of 78
 Quick     levels    54  Train Sailing to 60  | 55 → 60: 93K XP to go. About 1 hour.
@@ -702,7 +702,7 @@ Quick     clog      32  Get Ancient essence  | From the Phantom Muspah collectio
 Quick     clog      32  Get Dark claw  | From the Skotizo collection log page (Bosses tab).
 Quick     clog      32  Get any missing piece of Dark mystic robes  | 4 still missing from Slayer: Mystic hat (dark), Mystic robe bottom (dark), Mystic gloves (dark), Mystic boots (dark)
 
-== Medium: top 15 of 239
+== Medium: top 15 of 238
 Medium    quests    83  Finish Desert Treasure II - The Fallen Empire  | You meet the main skill requirements.
 Medium    levels    55  Train Slayer to 95  | 93 → 95: 1.2M XP to go.
 Medium    clog      55  Complete the Dagannoth Kings log  | 6/10 slots. Missing: Seers ring (plus the pet).
@@ -719,7 +719,7 @@ Medium    clog      38  Get any missing boots  | 10 still missing from Slayer: G
 Medium    clog      37  Get any missing piece of Shayzien armour  | 11 still missing from Shayzien Armour: Shayzien gloves (1), Shayzien boots (1), Shayzien gloves (2), Shayzien boots (2)…
 Medium    clog      37  Get any missing piece of Chompy bird set  | 15 still missing from Chompy Bird Hunting: Chompy bird hat, Chompy bird hat, Chompy bird hat, Chompy bird hat…
 
-== Long: top 15 of 541
+== Long: top 15 of 542
 Long      goals     63  Goal: 99 Slayer  | Currently 93/99 Slayer.
 Long      diaries   57  Ardougne Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   57  Lumbridge & Draynor Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -772,7 +772,7 @@ Vardorvis: Desert Treasure II - The Fallen Empire (17)
 `;
 
 exports[`sample account \"uim\", default filters 1`] = `
-972 suggestions (Quick 125, Medium 300, Long 535, Challenge 12)
+972 suggestions (Quick 125, Medium 299, Long 536, Challenge 12)
 
 == Quick: top 15 of 125
 Quick     levels    66  Train Smithing to 60  | 55 → 60: 96K XP to go. Under an hour.
@@ -791,7 +791,7 @@ Quick     combat    42  A Slow Death  | Bryophyta: Kill Bryophyta with either po
 Quick     combat    42  The Walking Volcano  | Fire Giant: Kill a Fire Giant.
 Quick     combat    42  Sleeping Giant  | Obor: Kill Obor whilst he is immobilized.
 
-== Medium: top 15 of 300
+== Medium: top 15 of 299
 Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    clog      65  Complete the Tempoross log  | 10/12 slots. Missing: Spirit flakes (plus the pet).
 Medium    clog      65  Complete the Wintertodt log  | 8/10 slots. Missing: Pyromancer robe (plus the pet).
@@ -808,7 +808,7 @@ Medium    quests    53  Finish The Birds and the Wasps  | Pick up where you left
 Medium    quests    53  Finish The Enchanted Key  | Pick up where you left off.
 Medium    quests    53  Finish The Forsaken Tower  | Pick up where you left off.
 
-== Long: top 15 of 535
+== Long: top 15 of 536
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.

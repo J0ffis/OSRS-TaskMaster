@@ -146,6 +146,8 @@ export const ITEM_EFFORT = {
   "Mist battlestaff": { effort: "Medium", why: SUPERIOR_COMMON },
   "Dust battlestaff": { effort: "Medium", why: SUPERIOR_COMMON },
   "Helmet of the moon": { effort: "Long", why: MOON_KEYS },
+  // Only from a rare roll on random event rewards, and random events come about once an hour.
+  "Stale baguette": { effort: "Long", why: "A rare roll from the Sandwich lady or a Mystery box, and random events only come about once an hour: a long haul" },
 };
 
 // Kill-count rewards: unlocked by reaching a number of completions (raid shrouds and records,
@@ -197,6 +199,7 @@ export const MINUTES_PER_ATTEMPT = {
   "Skotizo": 3, "Tempoross": 7, "Thermonuclear Smoke Devil": 0.75, "The Gauntlet": 7, "Vardorvis": 2.5,
   "Venenatis and Spindel": 2, "Vet'ion and Calvar'ion": 2, "Vorkath": 2, "The Whisperer": 3,
   "Wintertodt": 6, "Yama": 4, "Zalcano": 4, "Zulrah": 2,
+  "Random Events": 60, // one random event roughly every hour of play
 };
 // Wiki sources that are a second roll or a reward table rather than a kill. `page` links the
 // source to its collection log page, `perAttempt` is the chance of reaching that table per
@@ -209,6 +212,9 @@ export const SOURCE_RULES = {
 export const TAB_MINUTES = { Bosses: 2.5, Raids: 30, Clues: 10, Minigames: 10, Other: 1 };
 // Expected hours at or under these limits count as Quick / Balanced; anything longer is a Long haul.
 export const EFFORT_HOURS = { Quick: 3, Medium: 20 };
+// Typical hours for a collection log item with no drop rate to go on, by its effort tier. Only
+// used to put log cards in order under "Fastest logs first"; never shown as a time on its own.
+export const EFFORT_FALLBACK_HOURS = { Quick: 1.5, Medium: 10, Long: 60 };
 
 // ---- Opt-in content --------------------------------------------------------------------
 // Minigames and clues follow the collection log's own tabs. Wilderness content is listed here.
