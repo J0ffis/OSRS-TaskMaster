@@ -47,7 +47,8 @@ class TaskMasterPanel extends PluginPanel
 		void deleteUploaded();
 		/** New links for this account: every old link (yours and shared ones) stops working. */
 		void resetLinks();
-		void refreshPicks();
+		/** Sync: upload the profile now and fetch the website's latest list. */
+		void syncPicks();
 		/** Open the website on one suggestion. */
 		void openPick(String pickId);
 	}
@@ -113,6 +114,13 @@ class TaskMasterPanel extends PluginPanel
 	private final JLabel picksNote = new JLabel();
 	private Picks picks;
 	private long picksAt;
+	/** Rows shown at a time; Refresh steps to the next ones. */
+	private static final int PAGE_SIZE = 5;
+	/** Which page of each tier is showing. */
+	private final int[] page = new int[Picks.TIERS.length];
+	private final JButton nextButton = new JButton("Refresh");
+	/** Suggestions finished since the website made the list (from the plugin's own profile). */
+	private java.util.function.Predicate<String> isDone = id -> false;
 	private Function<String, BufferedImage> skillIcons = skill -> null;
 	private BiConsumer<Integer, JLabel> itemIcons = (id, label) -> { };
 	/** Interface sprites from the game: "skull" and one per category ("quests", "diaries", ...). */
@@ -258,12 +266,26 @@ class TaskMasterPanel extends PluginPanel
 		JLabel title = new JLabel("Your next grinds");
 		title.setFont(FontManager.getRunescapeBoldFont());
 		title.setForeground(Color.WHITE);
-		JButton refresh = new JButton("Refresh");
-		refresh.setToolTipText("Fetch the website's latest suggestions");
-		refresh.setMargin(new Insets(1, 6, 1, 6));
-		refresh.addActionListener(e -> actions.refreshPicks());
+		// Refresh: show the next suggestions in this tier (no network). Sync: upload now and fetch
+		// the website's latest list, dropping anything finished in game.
+		nextButton.setToolTipText("Show different suggestions from this tier");
+		nextButton.setMargin(new Insets(1, 6, 1, 6));
+		nextButton.addActionListener(e ->
+		{
+			int t = Math.max(0, tierBox.getSelectedIndex());
+			page[t]++;
+			renderPicks();
+		});
+		JButton sync = new JButton("Sync");
+		sync.setToolTipText("Upload your progress now and fetch the website's latest list. Finished tasks drop off.");
+		sync.setMargin(new Insets(1, 6, 1, 6));
+		sync.addActionListener(e -> actions.syncPicks());
+		JPanel buttons = new JPanel(new GridLayout(1, 2, 4, 0));
+		buttons.setOpaque(false);
+		buttons.add(nextButton);
+		buttons.add(sync);
 		head.add(title, BorderLayout.CENTER);
-		head.add(refresh, BorderLayout.EAST);
+		head.add(buttons, BorderLayout.EAST);
 
 		tierBox.setToolTipText("Which tier of suggestions to show");
 		tierBox.addActionListener(e -> renderPicks());
@@ -292,8 +314,23 @@ class TaskMasterPanel extends PluginPanel
 	{
 		SwingUtilities.invokeLater(() ->
 		{
+			// A new list from the website starts every tier at its top suggestions again.
+			if (picks == null || picksAt != this.picksAt)
+			{
+				java.util.Arrays.fill(page, 0);
+			}
 			this.picks = picks;
 			this.picksAt = picksAt;
+			renderPicks();
+		});
+	}
+
+	/** How to tell a suggestion is finished; the list redraws with it. */
+	void setDoneCheck(java.util.function.Predicate<String> isDone)
+	{
+		SwingUtilities.invokeLater(() ->
+		{
+			this.isDone = isDone;
 			renderPicks();
 		});
 	}
@@ -302,7 +339,7 @@ class TaskMasterPanel extends PluginPanel
 	{
 		picksList.removeAll();
 		int tier = Math.max(0, tierBox.getSelectedIndex());
-		List<Picks.Pick> list = picks == null ? null : picks.tier(Picks.TIERS[tier]);
+		nextButton.setVisible(false);
 		if (picks == null)
 		{
 			picksList.add(note("Click Open website once: the website fills this list with your suggestions."));
@@ -310,18 +347,39 @@ class TaskMasterPanel extends PluginPanel
 		}
 		else
 		{
-			if (list.isEmpty())
+			List<Picks.Pick> all = picks.tier(Picks.TIERS[tier]);
+			List<Picks.Pick> open = new java.util.ArrayList<>();
+			for (Picks.Pick p : all)
 			{
-				picksList.add(note("No " + TIER_LABELS[tier].toLowerCase() + " right now. Try another tier."));
+				if (!isDone.test(p.id))
+				{
+					open.add(p);
+				}
 			}
-			for (Picks.Pick p : list)
+			int finished = all.size() - open.size();
+			int pages = Math.max(1, (open.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+			int current = Math.floorMod(page[tier], pages);
+			page[tier] = current;
+			nextButton.setVisible(open.size() > PAGE_SIZE);
+			if (open.isEmpty())
+			{
+				picksList.add(note(all.isEmpty()
+					? "No " + TIER_LABELS[tier].toLowerCase() + " right now. Try another tier."
+					: "You've finished every " + TIER_LABELS[tier].toLowerCase() + " suggestion here. Open the website for new ones."));
+			}
+			int from = current * PAGE_SIZE;
+			for (Picks.Pick p : open.subList(Math.min(from, open.size()), Math.min(from + PAGE_SIZE, open.size())))
 			{
 				picksList.add(row(p, TIER_COLORS[tier]));
 				picksList.add(Box.createVerticalStrut(4));
 			}
+			String showing = open.size() > PAGE_SIZE
+				? (from + 1) + "–" + Math.min(from + PAGE_SIZE, open.size()) + " of " + open.size() + " (Refresh for more). "
+				: "";
+			String done = finished > 0 ? finished + " finished since then. " : "";
 			String filters = picks.filters == null || picks.filters.isEmpty() ? "" : " (" + picks.filters + ")";
-			picksNote.setText("<html><body style='width:145px'>From the website, " + (picksAt > 0 ? ago(picksAt) : "earlier")
-				+ esc(filters) + ". Open the website to refresh.</body></html>");
+			picksNote.setText("<html><body style='width:145px'>" + showing + done + "From the website, "
+				+ (picksAt > 0 ? ago(picksAt) : "earlier") + esc(filters) + ". Open the website for a fresh list.</body></html>");
 		}
 		picksList.revalidate();
 		picksList.repaint();

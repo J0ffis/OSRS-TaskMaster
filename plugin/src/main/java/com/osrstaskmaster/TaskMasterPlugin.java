@@ -137,7 +137,7 @@ public class TaskMasterPlugin extends Plugin
 			@Override public void copyShareLink() { clientThread.invokeLater(TaskMasterPlugin.this::copyShareLink); }
 			@Override public void deleteUploaded() { clientThread.invokeLater(TaskMasterPlugin.this::deleteUploadedData); }
 			@Override public void resetLinks() { clientThread.invokeLater(TaskMasterPlugin.this::resetLinks); }
-			@Override public void refreshPicks() { clientThread.invokeLater(TaskMasterPlugin.this::fetchPicks); }
+			@Override public void syncPicks() { clientThread.invokeLater(TaskMasterPlugin.this::syncPicks); }
 			@Override public void openPick(String pickId) { clientThread.invokeLater(() -> openWebsiteOn(pickId)); }
 		});
 		// Item icons load in the background and appear in the label when ready (safe from any thread).
@@ -544,6 +544,9 @@ public class TaskMasterPlugin extends Plugin
 		dirty = false;
 		lastSyncAt = System.currentTimeMillis();
 		writeExport(gson.toJson(snap));
+		// The panel drops suggestions this profile shows finished, without waiting for the website.
+		com.google.gson.JsonObject profile = gson.toJsonTree(snap).getAsJsonObject();
+		panel.setDoneCheck(id -> PickProgress.isDone(id, profile));
 		if (config.autoUpload())
 		{
 			upload(snap, manual);
@@ -642,7 +645,8 @@ public class TaskMasterPlugin extends Plugin
 			{
 				inFlight = false;
 				dirty = true;
-				panel.setStatus("Couldn't reach the upload server. Your profile is saved on this PC and will upload later.", false);
+				// Name the address: a wrong or not-yet-running Upload server setting is the usual cause.
+				panel.setStatus("Couldn't reach the upload server (" + serverUrl() + "). Your profile is saved on this PC and will upload later.", false);
 			}
 
 			@Override
@@ -726,6 +730,22 @@ public class TaskMasterPlugin extends Plugin
 	}
 
 	// ---- Your next grinds: the website's picks, shown in the panel ------------------------
+
+	/**
+	 * The panel's Sync button: refresh the profile and upload it now (the upload then fetches the
+	 * website's latest list), so finished tasks drop off. Not logged in: just fetch the list.
+	 */
+	private void syncPicks()
+	{
+		if (client.getGameState() == GameState.LOGGED_IN && config.autoUpload())
+		{
+			sync(true);
+		}
+		else
+		{
+			fetchPicks();
+		}
+	}
 
 	/** Fetch the suggestions the website last saved for this account. Client thread. */
 	private void fetchPicks()

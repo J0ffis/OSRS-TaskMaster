@@ -197,7 +197,9 @@ async function load(name, opts = {}) {
 // saves its current top picks per tier to the upload service; the plugin's panel shows them.
 // Picks follow the site's filters and goals, and are only sent when they change.
 
-const PANEL_TIERS = { Quick: 10, Medium: 10, Long: 10, Challenge: 3 };
+// 15 per tier (the service's limit): the panel shows 5 at a time and its Refresh button steps
+// through the rest.
+const PANEL_TIERS = { Quick: 15, Medium: 15, Long: 15, Challenge: 5 };
 let picksTimer = null;
 
 function schedulePicks() {

@@ -40,8 +40,11 @@ then uploads on login and as you play, and **Open website** shows your latest su
 browser, with your goals.
 
 - **Your next grinds** appears in the panel: your suggestions per tier (Quick wins, Balanced,
-  Long haul, Challenge), with item and skill icons. Click one to open it on the website. The list
-  comes from the website, so it refreshes whenever you open the website.
+  Long haul, Challenge), with item and skill icons. Click one to open it on the website.
+  **Refresh** shows different suggestions from the same tier (5 at a time, up to 15).
+  **Sync** uploads your progress now and fetches the website's latest list; anything you've
+  finished in game drops off straight away. The list itself is made by the website, so opening
+  the website gives you a fresh one.
 - Your profile is **private** by default: only people with your link can see it.
   **Copy share link** (here or on the website) gives friends a view-only link: they see your
   suggestions and goals but can't change anything.

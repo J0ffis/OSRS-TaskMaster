@@ -41,7 +41,7 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 
 **Why picks come from the website:** the recommendation engine (`web/recommender.js`) needs about
 9–12 ms of CPU per run (≈ 30 ms cold), over the free Workers plan's 10 ms per request. So the
-owner's browser works the suggestions out and saves the top 10 per tier (3 Challenge); the plugin
+owner's browser works the suggestions out and saves the top 15 per tier (5 Challenge); the plugin
 only displays them. Picks follow the site's filters and goals and refresh whenever the owner
 opens the website. Running the engine here instead would need the $5/month Workers Paid plan.
 
