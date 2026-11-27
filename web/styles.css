@@ -379,6 +379,10 @@ body.static .only-server, body:not(.static) .only-static { display: none !import
 .clogitems li.need { background: #120e09; border: 1px dashed #4a3d2d; color: #a3967f; }
 .clogitems li.need .q { color: #7d715f; font-style: italic; }
 .clogitems li .q { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Combat achievement task lists (Combat tab): the requirement under each task name. */
+.catasks li > span:first-child { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.catasks .catdesc { font-size: 12px; color: #a3967f; }
+.catasks li.have .catdesc { color: #a9c79a; }
 
 table.list { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 table.list td, table.list th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
