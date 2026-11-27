@@ -168,6 +168,17 @@ KB.CONTENT_REQS.forEach((r, i) => {
   needSkills(where, r.skills);
 });
 
+// ---- Account types ----------------------------------------------------------------------------
+for (const [q, r] of Object.entries(KB.IRON_PRIORITIES?.quests ?? {})) {
+  needQuest("IRON_PRIORITIES.quests", q);
+  if (!(r.boost > 0) || !r.why) err(`IRON_PRIORITIES.quests "${q}"`, "needs a boost above 0 and a why.");
+}
+for (const [region, r] of Object.entries(KB.IRON_PRIORITIES?.diaries ?? {})) {
+  if (!diaries.has(region)) err("IRON_PRIORITIES.diaries", `"${region}" isn't a diary region.${hint(region, diaries)}`);
+  if (!(r.boost > 0) || !r.why) err(`IRON_PRIORITIES.diaries "${region}"`, "needs a boost above 0 and a why.");
+}
+for (const p of KB.TEAM_PAGES ?? []) needPage("TEAM_PAGES", p);
+
 // ---- Slayer ---------------------------------------------------------------------------------
 for (const [task, bosses] of Object.entries(KB.SLAYER_BOSSES)) {
   for (const b of bosses) { needMonster(`SLAYER_BOSSES "${task}"`, b.name); needSkills(`SLAYER_BOSSES "${task}"`, b.skills); }

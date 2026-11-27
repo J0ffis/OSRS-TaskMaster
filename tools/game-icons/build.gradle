@@ -1,0 +1,42 @@
+// Exports the game icons the website shows (skull, skills, categories, collection log items)
+// from the OSRS game cache on this PC, using RuneLite's cache library. Run it through
+// scripts\Update-GameIcons.ps1, not directly. Not part of the plugin and never shipped with it.
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    maven {
+        url = 'https://repo.runelite.net'
+        content {
+            includeGroupByRegex("net\\.runelite.*")
+        }
+    }
+    mavenCentral()
+}
+
+dependencies {
+    implementation group: 'net.runelite', name: 'cache', version: 'latest.release'
+    // Already used by the cache library; declared so this tool can write index.json with it.
+    implementation 'com.google.code.gson:gson:2.8.5'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+application {
+    mainClass = 'com.osrstaskmaster.icons.ExportGameIcons'
+}
+
+// Prints where the cache library jar is, for looking up its classes.
+tasks.register('printClasspath') {
+    doLast { configurations.runtimeClasspath.each { println it } }
+}

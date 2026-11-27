@@ -19,7 +19,7 @@ Quick     combat    42  Let them fight  | Royal Titans: Kill the Royal Titans wh
 Quick     combat    42  Dry Cleaning  | Shellbane Gryphon: Kill the Shellbane Gryphon after clearing its corrosive spit from your armour.
 
 == Medium: top 15 of 270
-Medium    quests    88  Finish Recipe for Disaster  | You meet the main skill requirements.
+Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
 Medium    levels    61  Train Construction to 70  | 62 → 70: 404K XP to go.
 Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -36,12 +36,12 @@ Medium    quests    53  Finish Death on the Isle  | Pick up where you left off.
 Medium    quests    53  Finish Druidic Ritual  | Pick up where you left off.
 
 == Long: top 15 of 445
-Long      diaries   63  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      diaries   63  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      goals     60  Goal: Zulrah collection log  | Currently 5/10.
 Long      goals     60  Goal: 85 Slayer  | Currently 78/85 Slayer.
 Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      diaries   59  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      clog      53  Complete the General Graardor log  | 6/8 slots. Missing: Bandos boots, Godsword shard 3.
 Long      clog      52  Complete the Grotesque Guardians log  | 4/7 slots. Missing: Black tourmaline core, Granite dust (plus the pet).
@@ -67,7 +67,7 @@ Challenge clog      17  Complete the Tombs of Amascut log  | 11/27 slots. Missin
 == Picks (no shuffle)
 Quick: Train Crafting to 62 / Get Zulrah's scales / Barrows Champion
 Medium: Finish Recipe for Disaster / Train Construction to 70 / Western Provinces Medium diary
-Long: Ardougne Hard diary / Goal: Zulrah collection log / Complete the General Graardor log
+Long: Lumbridge & Draynor Hard diary / Goal: Zulrah collection log / Complete the General Graardor log
 Mixed: Train Crafting to 62 / Get Zulrah's scales / Finish Recipe for Disaster / Western Provinces Medium diary / Finish every Easy task at Wintertodt / Goal: Zulrah collection log / Hunt Baby Mole
 Challenge: Complete the Barrows Chests log
 Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium diary / Train Thieving to 70
@@ -129,7 +129,7 @@ Quick     clog      46  Get any missing piece of Bronze gold-trimmed armour  | 3
 Quick     clog      46  Get any missing piece of Red elegant clothing  | 3 still missing from Easy Treasure Trails: Red elegant shirt, Red elegant legs, Red elegant skirt
 
 == Medium: top 15 of 453
-Medium    quests    88  Finish Recipe for Disaster  | You meet the main skill requirements.
+Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
 Medium    levels    61  Train Construction to 70  | 62 → 70: 404K XP to go.
 Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
@@ -146,12 +146,12 @@ Medium    quests    53  Finish Clock Tower  | Pick up where you left off.
 Medium    quests    53  Finish Death on the Isle  | Pick up where you left off.
 
 == Long: top 15 of 536
-Long      diaries   63  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      diaries   63  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      goals     60  Goal: Zulrah collection log  | Currently 5/10.
 Long      goals     60  Goal: 85 Slayer  | Currently 78/85 Slayer.
 Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      diaries   59  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      clog      55  Complete the Beginner Treasure Trails log  | 10/16 slots. Missing: Mole slippers, Monk's robe top (t), Monk's robe (t), Amulet of defence (t) and 2 more.
 Long      clog      53  Complete the General Graardor log  | 6/8 slots. Missing: Bandos boots, Godsword shard 3.
@@ -181,7 +181,7 @@ Challenge clog     -48  Complete the Master Treasure Trails (Rare) log  | 17/45 
 == Picks (no shuffle)
 Quick: Train Crafting to 62 / Wilderness Easy diary / Get Zulrah's scales
 Medium: Finish Recipe for Disaster / Train Construction to 70 / Western Provinces Medium diary
-Long: Ardougne Hard diary / Goal: Zulrah collection log / Complete the Beginner Treasure Trails log
+Long: Lumbridge & Draynor Hard diary / Goal: Zulrah collection log / Complete the Beginner Treasure Trails log
 Mixed: Train Crafting to 62 / Wilderness Easy diary / Finish Recipe for Disaster / Complete the Fishing Trawler log / Finish every Easy task at Wintertodt / Goal: Zulrah collection log / Hunt Baby Mole
 Challenge: Complete the Barrows Chests log
 Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium diary / Train Thieving to 70
@@ -237,7 +237,7 @@ Quick     combat    45  Sample task I  | Giant Mole: Kill the boss 3 times in on
 Quick     levels    30  Train Farming to 75  | 74 → 75: 114K XP to go.
 
 == Medium: top 15 of 33
-Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
+Medium    quests   112  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    80  Finish A Kingdom Divided  | You meet the main skill requirements.
 Medium    quests    62  Complete Sins of the Father  | You meet the main skill requirements.
 Medium    levels    61  Train Construction to 70  | 62 → 70: 404K XP to go.
@@ -254,12 +254,12 @@ Medium    combat    38  Sample task C  | Barrows: Loot a chest without taking da
 Medium    combat    38  Sample task E  | Zulrah: Kill the boss without taking venom damage.
 
 == Long: top 15 of 17
-Long      diaries   63  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      diaries   63  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      clog      62  Complete the Barrows Chests log  | 10/12 slots. Missing: Ahrim's robeskirt, Verac's helm.
 Long      goals     60  Goal: 85 Slayer  | Currently 78/85 Slayer.
 Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      diaries   59  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      goals     45  Goal: Dragon Slayer II  | Currently not started.
 Long      clog      42  Get Ahrim's robeskirt  | From the Barrows Chests collection log page (Bosses tab).
@@ -268,15 +268,15 @@ Long      clog      34  Complete the Zulrah log  | 3/6 slots. Missing: Magic fan
 Long      combat    32  Finish every Hard task at Zulrah  | Tasks: “Sample task E”, “Sample task F”
 Long      levels    30  Train Ranged to 90  | 85 → 90: 2.1M XP to go.
 Long      clog      30  Get Pet snakeling  | From the Zulrah collection log page (Bosses tab).
-Long      diaries   17  Morytania Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   19  Kandarin Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
 
 == Challenge: top 0 of 0
 
 == Picks (no shuffle)
 Quick: Train Crafting to 62 / Sample task B / Train Smithing to 70
 Medium: Finish Recipe for Disaster / Train Construction to 70 / Western Provinces Medium diary
-Long: Ardougne Hard diary / Complete the Barrows Chests log / Goal: 85 Slayer
-Mixed: Train Crafting to 62 / Sample task B / Finish Recipe for Disaster / Western Provinces Medium diary / Get Magic fang / Goal: 85 Slayer / Ardougne Hard diary
+Long: Lumbridge & Draynor Hard diary / Complete the Barrows Chests log / Goal: 85 Slayer
+Mixed: Train Crafting to 62 / Sample task B / Finish Recipe for Disaster / Western Provinces Medium diary / Get Magic fang / Goal: 85 Slayer / Lumbridge & Draynor Hard diary
 Challenge: none
 Shuffled once (seed 7919): Finish Recipe for Disaster / Train Construction to 70 / Desert Medium diary
 

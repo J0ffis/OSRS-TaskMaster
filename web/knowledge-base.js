@@ -299,6 +299,31 @@ export const SLAYER_BOSSES = {
   "scorpions": [{ name: "Scorpia" }],
 };
 
+// ---- Account types -------------------------------------------------------------------------
+// Ironmen (every type: regular, Hardcore, Ultimate, Group) can't trade, so unlocks that help them
+// supply themselves are worth more. Each entry adds `boost` to a quest or diary region's
+// suggestions and puts `why` on the card. Diaries match every tier of the region.
+export const IRON_PRIORITIES = {
+  quests: {
+    "Recipe for Disaster": { boost: 12, why: "Barrows gloves: as an Ironman you can't buy better gloves" },
+    "Animal Magnetism": { boost: 10, why: "Ava's device saves arrows you'd otherwise have to make yourself" },
+    "Bone Voyage": { boost: 10, why: "Fossil Island: birdhouses and Volcanic Mine supply an Ironman for a long time" },
+    "Fairytale II - Cure a Queen": { boost: 8, why: "Fairy rings make every herb and supply run faster" },
+    "Lunar Diplomacy": { boost: 8, why: "NPC Contact, Plank Make and String Jewellery do a lot of an Ironman's chores" },
+    "Monkey Madness II": { boost: 6, why: "Demonic gorillas: your own route to zenyte" },
+  },
+  diaries: {
+    "Lumbridge & Draynor": { boost: 6, why: "Free alchemy casts from the Explorer's ring help an Ironman's cash" },
+    "Kandarin": { boost: 6, why: "Extra Catherby herbs and flax: supplies an Ironman has to gather" },
+    "Varrock": { boost: 5, why: "Varrock armour's extra ore speeds up gathering your own bars" },
+    "Ardougne": { boost: 5, why: "Ardougne cloak teleports and better pickpocketing for an Ironman's cash" },
+  },
+};
+// Group Ironman: team content is a natural fit for the group. Applied to collection log pages
+// on the Raids tab and to the team bosses below (and their combat achievements).
+export const GROUP_CONTENT_BOOST = 5;
+export const TEAM_PAGES = new Set(["Corporeal Beast", "Nex", "The Nightmare"]);
+
 // ---- Requirements for "Within reach" -----------------------------------------------------
 // Taken from the OSRS Wiki (November 2026). Used to tell how close a quest or diary tier is and
 // what's still missing. Skill levels are the highest needed anywhere in the quest or tier; boosts

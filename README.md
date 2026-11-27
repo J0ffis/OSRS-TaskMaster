@@ -58,17 +58,22 @@ up from chat messages as you play, and from a boss's collection log page when yo
   - `config.js` – where the Automatic upload service runs (local or live).
   - `sample-profile.json` – the made-up account behind **Load sample data**.
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
+  - `icons/game/` and `game-icons.js` – game icons exported from the game cache (see
+    [Game icons](#game-icons)).
 - `sync/` – the Automatic upload service (Cloudflare Worker + D1 database), with end-to-end tests.
   How it works, running it locally and deploying it: [sync/README.md](sync/README.md).
 - `tests/` – checks for the website, run with Node.js (`npm run check`, `npm test`): the
   knowledge-base checker, suggestion snapshots, and `fixtures/game-names.json` (the game's own
   page, item, quest and task names, no player progress).
+- `tools/game-icons/` – the Java tool behind `Update-GameIcons.ps1` (not part of the plugin).
 - `server/` – an optional, dependency-free local server (`Server.java`) for development.
 - `scripts/` – PowerShell scripts:
   - `Start-TaskMaster.ps1` – the tester launcher behind `Start TaskMaster.bat`.
   - `Start-RuneLiteDev.ps1` – starts RuneLite with the plugin, for development.
   - `Start-LocalServer.ps1` – starts the optional local server.
   - `Update-DropRates.ps1` – adds new items' drop rates from the OSRS Wiki to `web/data/drop-rates.json`.
+  - `Update-GameIcons.ps1` – exports the website's game icons from the game cache on this PC.
+  - `Update-GameData.ps1` – after a game update: game names, icons, drop rates and checks in one go.
   - `Format-Json.ps1` – lays JSON files out one entry per line so they're easy to read.
 - `docs/` – reference notes: [how suggestions work](docs/how-suggestions-work.md) (start here
   to tune them), [what the plugin reads](docs/data-sources.md), and
@@ -143,6 +148,22 @@ Use `.\scripts\Start-LocalServer.ps1 -Port 8788` if port 8787 is taken.
 The server binds to 127.0.0.1 only, rejects foreign `Host` headers and refuses any profile that
 contains wealth data. Saved profiles and goals are kept in `server/data/`, which is not committed.
 
+### After a game update
+
+One command brings the website's game data up to date:
+
+```powershell
+.\scripts\Update-GameData.ps1
+```
+
+Log in once with the plugin first, so its saved profile and RuneLite's game cache are current.
+It then refreshes, in order: the game names in `tests/fixtures/game-names.json` (read from the
+newest profile the plugin saved in `%USERPROFILE%\.runelite\osrs-taskmaster`), the game icons
+(below), the drop rates for new items (below), and runs the checks and tests. At the end it says
+**Nothing new** (nothing to commit) or lists what changed; review that, commit and push to `main`
+to republish the website. `-DryRun` contacts nothing for drop rates, `-SkipDropRates` and
+`-SkipIcons` leave those out. Each part can also be run on its own, as below.
+
 ### Drop rates
 
 `web/data/drop-rates.json` is refreshed by hand after content updates:
@@ -171,6 +192,25 @@ so on) take priority over the rates.
 If you edit a JSON file by hand, `.\scripts\Format-Json.ps1 <file>` puts it back in the same
 layout.
 
+### Game icons
+
+The website's icons (the PvP skull, skill, quest, diary and collection log icons, combat
+achievement tier swords, and an icon for every collection log item) are PNGs in `web/icons/game`,
+exported from the game cache RuneLite keeps on your PC:
+
+```powershell
+.\scripts\Update-GameIcons.ps1
+```
+
+It reads `%USERPROFILE%\.runelite\jagexcache\oldschool\LIVE` with RuneLite's cache library
+(`tools/game-icons`, a small Java tool run through the plugin's Gradle wrapper) and writes the
+icons plus `index.json`. Nothing is downloaded apart from that library on the first run. Run it by
+hand after a game update that adds collection log items (refresh `tests/fixtures/game-names.json`
+first with `npm run game-names`), then commit `web/icons/game`; `npm test` fails if an item has no
+icon. The website only loads these local files, and shows text where an icon is missing.
+
+The RuneLite panel doesn't need them: it loads the same sprites live from the game client.
+
 ## Publishing to the Plugin Hub
 
 Not done yet. The steps are written up in [docs/plugin-hub.md](docs/plugin-hub.md).
@@ -179,3 +219,6 @@ Not done yet. The steps are written up in [docs/plugin-hub.md](docs/plugin-hub.m
 
 Drop rates are from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki/), licensed
 CC BY-NC-SA 3.0.
+
+Game images (in `web/icons/game` and the icons the plugin shows) are © Jagex Ltd. OSRS
+TaskMaster is a free, non-commercial fan-made tool and isn't made by or affiliated with Jagex.

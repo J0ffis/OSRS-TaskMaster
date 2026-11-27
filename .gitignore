@@ -11,6 +11,8 @@ credentials.properties
 # Build output
 plugin/build/
 plugin/.gradle/
+tools/game-icons/build/
+tools/game-icons/.gradle/
 
 # Sync service: installed packages and wrangler's local dev database and secrets
 sync/node_modules/

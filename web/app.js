@@ -8,9 +8,10 @@ import {
   CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates,
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
-  applyManual, withinReach,
+  applyManual, withinReach, compactProfile, sinceLast, accountKind,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
+import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML } from "./game-icons.js";
 import { SYNC_API } from "./config.js";
 
 // Small helpers used everywhere below.
@@ -149,7 +150,7 @@ async function load(name, opts = {}) {
     state.goals = (state.goals ?? []).filter((g) => g.type !== "wealth");
     delete state.snap.wealth;
     state.raw = state.snap;
-    state.prev = trackPrevious(name, state.raw);
+    state.prev = trackPrevious(name, state.raw, state.goals);
     state.marks = loadMarks(name, state.raw);
     state.snap = applyManual(state.raw, state.marks);
     state.hidden = loadHidden(name);
@@ -383,20 +384,13 @@ function markButton(c) {
 // finished). The page keeps a compact copy of each profile it has seen; when a newer sync arrives,
 // the old copy becomes the "previous" one.
 
-const compactProfile = (s) => ({
-  syncedAt: s.syncedAt ?? 0,
-  skills: Object.fromEntries(Object.entries(s.skills ?? {}).map(([k, v]) => [k, v.level])),
-  quests: Object.fromEntries((s.quests ?? []).map((q) => [q.name, q.state])),
-  diaries: s.diaries ?? {},
-});
-
-function trackPrevious(name, raw) {
+function trackPrevious(name, raw, goals) {
   const k = keyOf(name);
   const seen = JSON.parse(localStorage.getItem(`tm.seen:${k}`) || "null");
   if (!seen || seen.syncedAt !== (raw.syncedAt ?? 0)) {
     try {
       if (seen) localStorage.setItem(`tm.prev:${k}`, JSON.stringify(seen));
-      localStorage.setItem(`tm.seen:${k}`, JSON.stringify(compactProfile(raw)));
+      localStorage.setItem(`tm.seen:${k}`, JSON.stringify(compactProfile(raw, goals)));
     } catch { /* storage full: "Within reach" just won't call out what's new */ }
   }
   return JSON.parse(localStorage.getItem(`tm.prev:${k}`) || "null");
@@ -444,6 +438,7 @@ function renderSummary() {
         ${markCount() ? `<span class="muted small">${markCount()} marked by hand, waiting for a sync</span>` : ""}
         ${state.source.kind === "sync" ? `<button type="button" id="sharebtn" class="link small" title="Copies a link that shows your suggestions and goals but can't change anything. Your own link (with editing) never leaves this browser.">Copy share link</button>` : ""}
       </div>`}
+      ${sinceLastHTML()}
     </div>
     <div class="stats">
       ${stat(a.total, "Total level")}
@@ -457,6 +452,18 @@ function renderSummary() {
       `<span class="badge" title="${esc(b.detail)}"><span aria-hidden="true">✦</span> ${esc(b.label)}</span>`).join("")}</div>` : ""}`;
 }
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+
+// "Since last time": what changed between the previous sync and this one, from the raw profile
+// (progress marked by hand isn't counted until a sync confirms it). Hover a part for details.
+function sinceLastHTML() {
+  if (!state.prev || state.name === SAMPLE) return "";
+  const parts = sinceLast(state.raw, state.prev, state.goals);
+  if (!parts.length) return "";
+  const days = Math.round(((state.raw.syncedAt ?? 0) - (state.prev.syncedAt ?? 0)) / 864e5);
+  const when = days >= 2 ? `${days} days before` : days === 1 ? "the day before" : "earlier";
+  return `<p class="since small"><span class="muted" title="Compared with your previous sync (${when}). Kept in this browser.">Since last time:</span> ${parts.map((p) =>
+    `<span class="sincepart k-${p.kind}"${p.detail ? ` title="${esc(p.detail)}"` : ""}>${esc(p.text)}</span>`).join('<span class="muted"> · </span>')}</p>`;
+}
 
 /** A progress bar with an optional short counter ("30/50 kills") beside it. */
 function barHTML(c) {
@@ -508,7 +515,7 @@ function reachHTML(e, i) {
     <article class="card reach ${e.ready ? "ready" : ""}" style="--c:var(--c-${e.category})">
       <div class="cat"><span class="catname">${e.kind === "quest" ? (e.inProgress ? "Quest · started" : "Quest") : "Achievement diary"}</span>${status}</div>
       ${e.triggers.length ? `<p class="trigger"><span aria-hidden="true">✦</span> ${esc(e.triggers.slice(0, 2).join(" · "))}</p>` : ""}
-      ${e.meta.region === "Wilderness" ? wildBadge({ wilderness: true }) : ""}<h3>${esc(e.title)}</h3>
+      ${e.meta.region === "Wilderness" ? wildBadge({ wilderness: true }) : ""}${titleHTML(e)}
       ${e.why ? `<p class="detail">${esc(e.why)}</p>` : ""}
       ${barHTML(e)}
       <ul class="reqs">${e.missing.map(need).join("")}${metLine}${unknownLine}</ul>
@@ -559,7 +566,7 @@ const visibleAll = () => listCache.all.filter((c) => !isHidden(c));
 
 function renderOptIns() {
   $("#optins").innerHTML = Object.entries(CONTENT_TOGGLES).map(([k, label]) =>
-    `<button type="button" class="toggle" data-content="${k}" aria-pressed="${!!state.content[k]}"${k === "wilderness" ? ` title="${esc(WILD_TIP)}"` : ""}>${k === "wilderness" ? `<span class="skull" aria-hidden="true">☠</span> ` : ""}${esc(label)}</button>`).join("");
+    `<button type="button" class="toggle" data-content="${k}" aria-pressed="${!!state.content[k]}"${k === "wilderness" ? ` title="${esc(wildTip())}"` : ""}>${k === "wilderness" ? `${skullHTML()} ` : ""}${esc(label)}</button>`).join("");
   // Count across every tier, so the number doesn't jump when switching tiers.
   const locked = lockedContent(state.snap, { categories: state.cats, content: state.content });
   const btn = $("#lockedbtn");
@@ -634,10 +641,14 @@ function finishSpin(el) {
 // The Challenge tier sits above Long haul: huge log completions that take weeks or months. It's
 // never one of the regular picks or a grind style; one is offered on its own below them, as a
 // long-term goal for players who want one.
-// Wilderness warning: other players can attack and take your items there.
+// Wilderness warning: other players can attack and take your items there. Hardcore accounts get a
+// stronger one, since a death there also ends their Hardcore status.
 const WILD_TIP = "Wilderness: other players can attack you here, and you can lose items you carry when you die. Bring only what you can afford to lose.";
+const WILD_TIP_HC = "Hardcore: other players can attack you here, and dying here ends your Hardcore status as well as risking your items. Only go if you're prepared for that.";
+const isHardcore = () => !!state.snap && accountKind(state.snap).hardcore;
+const wildTip = () => (isHardcore() ? WILD_TIP_HC : WILD_TIP);
 const wildBadge = (c) => c.wilderness
-  ? `<span class="wildbadge" title="${esc(WILD_TIP)}" role="note"><span class="skull" aria-hidden="true">☠</span> Wilderness: PvP risk</span>`
+  ? `<span class="wildbadge${isHardcore() ? " hc" : ""}" title="${esc(wildTip())}" role="note">${skullHTML()} ${isHardcore() ? "Wilderness: risks your Hardcore status" : "Wilderness: PvP risk"}</span>`
   : "";
 
 function renderChallenge() {
@@ -651,7 +662,7 @@ function renderChallenge() {
         <span class="tierbadge t-Challenge" title="Third age tier: above Long haul">Challenge</span>
         <span class="muted small">A long-term goal: weeks to months of grinding, beyond Long haul.</span>
       </div>
-      ${wildBadge(c)}<h3>${esc(c.title)}</h3>
+      ${wildBadge(c)}${titleHTML(c)}
       <p class="detail">${esc(c.detail)}</p>
       ${barHTML(c)}
       <div class="actions">
@@ -672,7 +683,7 @@ function bossChips(bosses) {
   return `<p class="bosses small"><span class="muted">Also counts:</span> ${bosses.map((b) => {
     const open = !b.needs.length;
     const tip = open ? `You can fight ${b.name} on this task` : `Needs ${b.needs.join(", ")}`;
-    return `<a class="bosschip ${open ? "open" : "locked"}" href="${wikiPage(b.name)}" target="_blank" rel="noopener" title="${esc(tip)}">${b.wilderness ? `<span class="skull" aria-hidden="true">☠</span> ` : ""}${esc(b.name)}${open ? "" : ` <span class="need">(${esc(b.needs.join(", "))})</span>`}</a>`;
+    return `<a class="bosschip ${open ? "open" : "locked"}" href="${wikiPage(b.name)}" target="_blank" rel="noopener" title="${esc(tip)}">${b.wilderness ? `${skullHTML()} ` : ""}${esc(b.name)}${open ? "" : ` <span class="need">(${esc(b.needs.join(", "))})</span>`}</a>`;
   }).join(" ")}</p>`;
 }
 
@@ -696,7 +707,7 @@ function renderSlayer() {
         <span class="tierbadge t-Slayer">Current Slayer task</span>
         <span class="tierbadge t-${esc(c.effort)}">${esc(TIER_LABEL[c.effort])}</span>
       </div>
-      ${wildBadge(c)}<h3>${esc(c.title)}</h3>
+      ${wildBadge(c)}${titleHTML({ meta: { skill: "slayer" } }, c.title)}
       <p class="detail">${esc(c.detail)}</p>
       ${pct != null ? `<div class="bar" title="${pct}%"><i style="width:${pct}%"></i></div>` : ""}
       ${c.why.length ? `<ul>${c.why.slice(0, 4).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
@@ -740,6 +751,38 @@ function wikiLink(c, cls = "btn tiny ghost wiki") {
   return w ? `<a class="${cls}" href="${esc(w.url)}" target="_blank" rel="noopener noreferrer" title="Open ${esc(w.name)} on the OSRS Wiki">Wiki ↗</a>` : "";
 }
 
+/**
+ * The game icon for a suggestion, goal or Within reach entry: the item itself for collection log
+ * and pet cards (the first missing item for a page or a group of items), the skill for levels,
+ * the quest or diary icon, or the combat achievement tier's sword. Empty when there's none.
+ */
+function cardIcon(c) {
+  const m = { ...(c.goal ?? {}), ...(c.meta ?? {}) };
+  const snap = state.snap;
+  const items = itemIndex(snap);
+  const idOf = (name) => (name ? items.get(String(name).toLowerCase())?.id ?? null : null);
+  const page = m.page ? snap.collectionLog?.pages?.[m.page] : null;
+  const firstMissing = (names) => (names ?? []).map((n) => items.get(String(n).toLowerCase())).find((it) => it && !it.owned)?.id;
+  const itemId = idOf(m.item) ?? idOf(m.pet)
+    ?? firstMissing(m.items)
+    ?? page?.items?.find((i) => !(i.quantity > 0))?.id ?? page?.items?.[0]?.id ?? null;
+  const name = m.item ?? m.pet ?? m.page ?? "";
+  if (itemId && itemUrl(itemId)) return iconImg(itemUrl(itemId), { cls: "gicon item", title: name });
+  if (m.skill && SKILLS.includes(m.skill)) return iconImg(spriteUrl(`skill-${m.skill}`), { cls: "gicon sprite", title: cap(m.skill) });
+  if (m.quest || c.category === "quests" || c.kind === "quest") return iconImg(spriteUrl("cat-quests"), { cls: "gicon sprite" });
+  if (m.region || c.category === "diaries") return iconImg(spriteUrl("cat-diaries"), { cls: "gicon sprite" });
+  if (m.tier && CA_TIERS.includes(m.tier)) return iconImg(spriteUrl(`ca-${m.tier.toLowerCase()}`), { cls: "gicon sprite", title: `${m.tier} combat achievement` });
+  if (c.category === "combat" || c.goal?.type === "ca") return iconImg(spriteUrl(`ca-${String(c.goal?.tier ?? "elite").toLowerCase()}`), { cls: "gicon sprite" });
+  if (c.category === "clog" || c.category === "pets") return iconImg(spriteUrl("cat-clog"), { cls: "gicon sprite" });
+  return "";
+}
+
+/** A card title with its game icon in front. */
+const titleHTML = (c, title = c.title) => {
+  const icon = cardIcon(c);
+  return icon ? `<div class="titlerow">${icon}<h3>${esc(title)}</h3></div>` : `<h3>${esc(title)}</h3>`;
+};
+
 function cardHTML(c, i) {
   const spinning = spin === "all" || spin === i;
   // Mixed view: colour means tier (matching the tier bar); the category becomes a small dot.
@@ -750,7 +793,7 @@ function cardHTML(c, i) {
       <div class="cat"><span class="catname">${esc(CATEGORIES[c.category])}</span>${isMix()
         ? `<span class="tierbadge t-${c.effort}" title="${TIER_METAL[c.effort]} tier">${esc(TIER_LABEL[c.effort])}</span>`
         : `<span class="effort">${esc(c.effort)}</span>`}</div>
-      ${wildBadge(c)}<h3>${esc(c.title)}</h3>
+      ${wildBadge(c)}${titleHTML(c)}
       <p class="detail">${esc(c.detail)}</p>
       ${barHTML(c)}
       <ul>${c.why.slice(0, 3).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
@@ -796,6 +839,9 @@ function toGoal(c) {
   return null;
 }
 
+// Which category's icon a goal gets when it has no item, skill or tier of its own.
+const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask: "combat", cabundle: "combat", clog: "clog", pet: "pets", item: "clog", family: "clog" };
+
 function renderGoals() {
   const el = $("#goals");
   const ro = isReadOnly();
@@ -808,7 +854,7 @@ function renderGoals() {
     const p = goalProgress(g, state.snap);
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
-      <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}${ro ? " disabled" : ""}> ` : ""}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
+      <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}${ro ? " disabled" : ""}> ` : cardIcon({ goal: g, category: GOAL_CATEGORY[g.type] })}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
       <span class="l"${p.counterTip ? ` title="${esc(p.counterTip)}"` : ""}>${esc(p.label)} ${wikiLink({ goal: g }, "wikimini")}${ro ? "" : `<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button>`}</span>
       ${!p.done && goalHint(g) ? `<span class="gd">${esc(goalHint(g))}</span>` : ""}
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
@@ -927,7 +973,7 @@ const TAB_RENDER = {
     return `<div class="skillgrid">${SKILLS.filter((k) => s.skills?.[k]).map((k) => {
       const { level, xp } = s.skills[k];
       // At 99 the level can't move, so show XP instead.
-      return `<div class="sk ${level >= 99 ? "max" : ""}" title="${xp.toLocaleString()} XP${level < 99 ? ` · ${fmt(xpForLevel(level + 1) - xp)} to ${level + 1}` : ""}"><span>${cap(k)}</span><b>${level >= 99 ? fmt(xp) : level}</b></div>`;
+      return `<div class="sk ${level >= 99 ? "max" : ""}" title="${xp.toLocaleString()} XP${level < 99 ? ` · ${fmt(xpForLevel(level + 1) - xp)} to ${level + 1}` : ""}"><span>${iconImg(spriteUrl(`skill-${k}`), { cls: "gicon tiny" })}${cap(k)}</span><b>${level >= 99 ? fmt(xp) : level}</b></div>`;
     }).join("")}</div>`;
   },
   quests(s) {
@@ -970,7 +1016,7 @@ const TAB_RENDER = {
     const ca = s.combatAchievements ?? {};
     const rows = CA_TIERS.map((t) => {
       const b = a.caByTier[t];
-      return `<tr><td>${t}</td><td class="num">${b.total ? `${b.done}/${b.total}` : "—"}</td><td class="num">${ca.thresholds?.[t] ?? "—"}</td></tr>`;
+      return `<tr><td>${iconImg(spriteUrl(`ca-${t.toLowerCase()}`), { cls: "gicon tiny" })}${t}</td><td class="num">${b.total ? `${b.done}/${b.total}` : "—"}</td><td class="num">${ca.thresholds?.[t] ?? "—"}</td></tr>`;
     }).join("");
     return `<table class="list"><thead><tr><th>Tier</th><th class="num">Tasks</th><th class="num">Points needed</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="note">${ca.points ?? 0} points · current reward tier: ${esc(a.caRank)}${a.caNext ? ` · ${a.caNext.gap} to ${a.caNext.tier}` : ""}</p>`;
@@ -989,8 +1035,8 @@ const TAB_RENDER = {
           <summary><span>${esc(pageLabel(p.n))} <span class="muted small">${esc(p.tab)}</span></span>
             <span class="pill ${p.got === p.total ? "ok" : ""}">${p.got}/${p.total}</span></summary>
           <ul class="clogitems">${p.items.map((i) => i.quantity > 0
-            ? `<li class="have"><span>${esc(i.name)}</span><span class="q">${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
-            : `<li class="need"><span>${esc(i.name)}</span><span class="q">not obtained</span></li>`).join("")}</ul>
+            ? `<li class="have"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
+            : `<li class="need"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">not obtained</span></li>`).join("")}</ul>
         </details>`).join("")}</div>`
       : `<p class="note">No pages recorded yet. Open the collection log in-game and click Search, then sync.</p>`}`;
   },
@@ -1000,7 +1046,7 @@ const TAB_RENDER = {
     const sorted = [...pets].sort((a, b) => Number(b.owned) - Number(a.owned) || a.name.localeCompare(b.name));
     return `<p class="note" style="margin:0 0 10px">${owned} of ${pets.length} pets</p>
       <div class="petgrid">${sorted.map((p) =>
-        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${esc(p.name)}</span><i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></div>`).join("")}</div>`;
+        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${iconImg(itemUrl(p.id), { cls: "gicon tiny item" })}${esc(p.name)}</span><i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></div>`).join("")}</div>`;
   },
 };
 
@@ -1422,6 +1468,8 @@ function setupImport() {
 (async function boot() {
   // Drop rates are a static file in this project (a one-off wiki snapshot); no outside calls.
   try { setDropRates(await api("data/drop-rates.json")); } catch { /* fall back to the hand-made rules */ }
+  // Game icons are local files too (exported from the game cache); without them the page uses text.
+  await loadGameIcons();
   // Server mode only when this page is served by Start-LocalServer.ps1; anywhere else (the hosted
   // site) profiles are pasted in and kept in the browser.
   try {
