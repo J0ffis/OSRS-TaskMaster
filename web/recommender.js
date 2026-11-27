@@ -9,8 +9,10 @@
 //   3. Score:    each suggestion that moves one of your goals forward gets +25 per goal.
 //   4. Pick:     pickThree / pickMix / pickChallenge choose varied cards from the sorted list.
 //
-// Sections below, in order: drop rates, XP table, derived facts about the account, candidate
-// generators, Slayer task, completion badges, items, goals, ranking.
+// Sections below, in order: drop rates, quest requirements, XP table, derived facts about the
+// account, candidate generators, Slayer task, completion badges, items, goals, progress marked by
+// hand, Within reach, Since last time, ranking, missing sections and impossible values, account
+// type, picking, route planner.
 // Game facts and tuning numbers live in knowledge-base.js, not here.
 
 import {
@@ -88,6 +90,14 @@ function expectedHours(chance, page, tab) {
   return (1 / chance.p) * minutes / 60;
 }
 const hoursToEffort = (h) => (h <= EFFORT_HOURS.Quick ? "Quick" : h <= EFFORT_HOURS.Medium ? "Medium" : "Long");
+/**
+ * Effort from an XP gap alone, for skills without XP_RATES: a level target below 99, or an XP
+ * milestone past it (where the same XP is a smaller share of the journey).
+ */
+const xpGapEffort = (gap, past99 = false) =>
+  gap < (past99 ? 500e3 : 150e3) ? "Quick" : gap < (past99 ? 3e6 : 1.5e6) ? "Medium" : "Long";
+/** A diary tier's effort: Easy is a quick win, Medium a session or two, Hard and Elite long hauls. */
+const DIARY_TIER_EFFORT = { easy: "Quick", medium: "Medium", hard: "Long", elite: "Long" };
 
 /** "very rare", "rare" or null for a collection log item name. */
 function rarity(name) {
@@ -258,8 +268,7 @@ function levelCandidates(snap, a) {
         why: [allMaxed ? "You're maxed, so XP milestones are the next frontier" : "Already 99; keep the XP climbing",
           target === 200e6 ? "200M is the hard cap" : null, time?.why].filter(Boolean),
         progress: (xp - prev) / (target - prev),
-        effort: time ? hoursToEffort((time.hours.low + time.hours.high) / 2)
-          : target - xp < 500e3 ? "Quick" : target - xp < 3e6 ? "Medium" : "Long",
+        effort: time ? hoursToEffort((time.hours.low + time.hours.high) / 2) : xpGapEffort(target - xp, true),
         base: allMaxed ? 30 - Math.log10(Math.max(1, xp)) : 5,
         meta: { skill, xpTarget: target, hours: time?.hours ?? null },
       });
@@ -286,8 +295,7 @@ function levelCandidates(snap, a) {
     const time = levelTime(skill, xp, xpForLevel(target));
     // The time sets the tier when the skill has rates (1M Prayer XP is quicker than 1M Agility XP);
     // otherwise the XP gap does.
-    const effort = time ? hoursToEffort((time.hours.low + time.hours.high) / 2)
-      : xpGap < 150e3 ? "Quick" : xpGap < 1.5e6 ? "Medium" : "Long";
+    const effort = time ? hoursToEffort((time.hours.low + time.hours.high) / 2) : xpGapEffort(xpGap);
     if (!why.length) why.push("Steady progress toward your next milestone");
     if (time) why.push(time.why);
     out.push({
@@ -370,7 +378,7 @@ function diaryCandidates(snap, a) {
       why,
       progress: idx / 4,
       counter: `${idx}/4 tiers`,
-      effort: next === "easy" ? "Quick" : next === "medium" ? "Medium" : "Long",
+      effort: DIARY_TIER_EFFORT[next],
       base: diaryInfo.weight * 4 + (reach ? 25 : -15) + (3 - idx) * 6,
       meta: { region, tier: next },
     });
@@ -393,7 +401,6 @@ function combatCandidates(snap, a) {
     });
     return out;
   }
-  const kc = snap.killCounts ?? {};
   // Bundles: "finish every Easy task at Royal Titans", one tier harder than a single task.
   const bundles = {};
   for (const t of tasks) (bundles[`${t.monster}|${t.tier}`] ??= []).push(t);
@@ -426,13 +433,13 @@ function combatCandidates(snap, a) {
     const tierIdx = CA_TIERS.indexOf(t.tier);
     const pts = CA_TIER_POINTS[t.tier] ?? 1;
     const tierStats = a.caByTier[t.tier];
-    const kcKey = Object.keys(kc).find((k) => k.toLowerCase() === String(t.monster).toLowerCase());
+    const kills = killCountOf(snap, t.monster);
     const why = [`${/^[AEIOU]/.test(t.tier) ? "An" : "A"} ${t.tier} task, worth ${pts} point${pts > 1 ? "s" : ""}`];
     if (a.caNext) why.push(caNextLine(a));
     // Kill-count tasks ("Kill Vorkath 50 times") track kills; any other task shows how much of
     // its tier is done, so the bar always says what it measures.
     const kp = caKillProgress(t, snap);
-    if (kcKey && !kp) why.push(`You already have ${fmt(kc[kcKey])} kills here`);
+    if (kills != null && !kp) why.push(`You already have ${fmt(kills)} kills here`);
     const bar = kp ? killBar(kp)
       : tierStats?.total ? { progress: tierStats.done / tierStats.total, counter: `${tierStats.done}/${tierStats.total} ${t.tier} tasks` }
       : { progress: null };
@@ -452,7 +459,7 @@ function combatCandidates(snap, a) {
       ...bar,
       effort,
       group: t.monster,
-      base: 40 + pts * 2 - tierIdx * 9 + (kcKey ? 10 : 0) + (t.monster === "Other" ? -10 : 0),
+      base: 40 + pts * 2 - tierIdx * 9 + (kills != null ? 10 : 0) + (t.monster === "Other" ? -10 : 0),
       meta: { monster: t.monster, tier: t.tier, task: t.id, taskName: t.name },
     });
   }
@@ -810,7 +817,6 @@ function clogCandidates(snap) {
 function petCandidates(snap) {
   const { pets } = petInfo(snap);
   const pages = snap.collectionLog?.pages ?? {};
-  const kc = snap.killCounts ?? {};
   const out = [];
   for (const pet of pets) {
     if (pet.owned) continue;
@@ -818,11 +824,11 @@ function petCandidates(snap) {
     // Pets from content you've otherwise finished rank higher: you're likely farming it anyway.
     const others = page ? page.items.filter((i) => i.id !== pet.id) : [];
     const otherRatio = others.length ? others.filter((i) => i.quantity > 0).length / others.length : 0;
-    const kcKey = pet.source && Object.keys(kc).find((k) => k.toLowerCase() === pet.source.toLowerCase());
+    const kills = pet.source ? killCountOf(snap, pet.source) : null;
     const why = ["Pets are rare drops: plan for a long haul"];
     if (page && otherRatio === 1) why.push(`It's the last slot on your ${pet.source} log`);
     else if (page && otherRatio >= 0.5) why.push(`You have ${Math.round(otherRatio * 100)}% of the rest of that log`);
-    if (kcKey) why.push(`${kc[kcKey]} kills so far`);
+    if (kills != null) why.push(`${kills} kills so far`);
     out.push({
       id: `pet:${pet.id}`,
       category: "pets",
@@ -831,7 +837,7 @@ function petCandidates(snap) {
       why,
       progress: null,
       effort: "Long",
-      base: 14 + otherRatio * 18 + (kcKey ? 4 : 0),
+      base: 14 + otherRatio * 18 + (kills != null ? 4 : 0),
       meta: { pet: pet.name, page: pet.source },
     });
   }
@@ -1116,16 +1122,10 @@ function isGoalItself(c, g, a) {
  */
 function goalEffort(g, snap, a, byId, byItem) {
   switch (g.type) {
-    case "skill": {
-      const gap = xpForLevel(g.level) - (snap.skills?.[g.skill]?.xp ?? 0);
-      return gap < 150e3 ? "Quick" : gap < 1.5e6 ? "Medium" : "Long";
-    }
-    case "xp": {
-      const gap = g.xp - (snap.skills?.[g.skill]?.xp ?? 0);
-      return gap < 500e3 ? "Quick" : gap < 3e6 ? "Medium" : "Long";
-    }
+    case "skill": return xpGapEffort(xpForLevel(g.level) - (snap.skills?.[g.skill]?.xp ?? 0));
+    case "xp": return xpGapEffort(g.xp - (snap.skills?.[g.skill]?.xp ?? 0), true);
     case "quest": return a.missingReqs(QUESTS[g.quest]?.reqs).length ? "Long" : "Medium";
-    case "diary": return { easy: "Quick", medium: "Medium" }[g.tier] ?? "Long";
+    case "diary": return DIARY_TIER_EFFORT[g.tier] ?? "Long";
     // Reaching a reward tier takes many tasks: Hard and above are long hauls.
     case "ca": return { Easy: "Quick", Medium: "Medium" }[g.tier] ?? "Long";
     case "pet": return "Long";
@@ -1325,7 +1325,7 @@ export function withinReach(snap, { prev = null, marks = null, now = Date.now(),
       id: `reach:diary:${region}:${next}`, kind: "diary", category: "diaries", title: `${region} ${cap(next)} diary`,
       why: info ? `${info.reward} ${idx + 1}: ${info.highlight}` : null, weight: info?.weight,
       reqs: requirementList(snap, a, req), extraTriggers,
-      effort: next === "easy" ? "Quick" : next === "medium" ? "Medium" : "Long", meta: { region, tier: next },
+      effort: DIARY_TIER_EFFORT[next], meta: { region, tier: next },
     });
   }
   return entries.sort((x, y) => y.score - x.score).slice(0, max);
@@ -1687,7 +1687,7 @@ function mulberry32(a) {
 const PLAN_ORDER_COST = { quest: 1.5, qp: 4, combat: 4, goal: 2, levelUnknown: 0.5 };
 
 /**
- * planRoute(snap, goals) -> { steps, done, skipped, unknown, total }
+ * planRoute(snap, goals) -> { steps, done, skipped, unknown, unchecked, total }
  *   steps:   [{ key, kind: "skill"|"quest"|"qp"|"combat"|"goal", title, forGoals: [title],
  *              shared, completes: [title], hours: {low, high}|null, note }] in order
  *   done:    titles of goals already complete

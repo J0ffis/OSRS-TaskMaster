@@ -143,8 +143,9 @@ A step counts as done only when the profile shows it (a level reached, a quest f
 removing a goal from the route doesn't count its steps as done.
 
 The quest snapshot is refreshed by `scripts/update-quest-reqs.mjs` (`npm run quest-reqs`, also
-run by `Update-GameData.ps1`): one request to the wiki, and the file only changes when the
-requirements did. `npm run check` warns when the hand tables (`QUESTS`, `QUEST_PREREQS`)
+run by `Update-GameData.ps1`). It asks the wiki only when the game has a quest the file doesn't
+cover yet (`--full` asks anyway), in one request, and the file only changes when the requirements
+did. `npm run check` warns when the hand tables (`QUESTS`, `QUEST_PREREQS`)
 disagree with it; the snapshot wins wherever it has the quest, and the hand tables are the
 fallback if it fails to load. The same snapshot drives the quest cards under **Within reach**.
 
@@ -161,7 +162,8 @@ until the next sync, since the profile doesn't say how many each quest is worth.
 Cards show a short counter beside the bar. Combat achievements that ask for a number of kills
 ("Kill Vorkath 50 times") compare against the synced kill count (`?/50 kills` when it hasn't
 synced). The plugin records kill counts from kill-count chat messages and from the header of a
-boss's collection log page when it's opened, so opening the page is enough for old kills. Tasks that need kills in one trip, in a row or under conditions don't. Other combat
+boss's collection log page when it's opened, so opening the page is enough for old kills. Tasks
+that need kills in one trip, in a row or under conditions don't. Other combat
 achievements show how much of their tier is done; collection log cards show slots, diaries tiers.
 
 ## Tuning it
@@ -189,7 +191,7 @@ tier that doesn't exist (`"Long-Haul"` instead of `"Long"`). Two checks catch th
 
 ```powershell
 npm run check   # knowledge-base.js against the game's own names, with "did you mean" hints
-npm test        # the checker's tests plus the suggestion snapshots
+npm test        # the checker's tests, the suggestion snapshots and the other website tests
 ```
 
 - **The checker** (`tests/check-knowledge-base.mjs`) compares every name in the knowledge base
@@ -211,4 +213,5 @@ players.
 The profile is written by the RuneLite plugin; [data-sources.md](data-sources.md) lists exactly
 what it reads. Drop rates are a saved snapshot from the OSRS Wiki in `web/data/drop-rates.json`,
 refreshed by hand with `scripts/Update-DropRates.ps1`. Quest requirements are another wiki
-snapshot, `web/data/quest-reqs.json`, refreshed with `scripts/update-quest-reqs.mjs`.
+snapshot, `web/data/quest-reqs.json`, refreshed with `scripts/update-quest-reqs.mjs`. Both
+scripts only ask the wiki about what the files don't cover yet, so re-running them is cheap.

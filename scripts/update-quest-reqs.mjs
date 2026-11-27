@@ -2,11 +2,14 @@
 // web/data/quest-reqs.json. The route planner and "Within reach" use it so a plan has no gaps.
 //
 // Run by hand after a game update (Update-GameData.ps1 does it for you); the site never contacts
-// the wiki itself. One request to the wiki's "quest" bucket. The file only changes (and only gets
-// a new date) when the requirements themselves changed.
+// the wiki itself. By default the wiki is only asked when tests/fixtures/game-names.json has a
+// quest the file doesn't cover yet, so a re-run usually sends nothing. When it does ask, it's one
+// request to the wiki's "quest" bucket. The file only changes (and only gets a new date) when the
+// requirements themselves changed.
 //
-//   node scripts/update-quest-reqs.mjs            # fetch and write
-//   node scripts/update-quest-reqs.mjs --dry-run  # say what would be fetched; contact nothing
+//   node scripts/update-quest-reqs.mjs            # ask the wiki only if there are new quests
+//   node scripts/update-quest-reqs.mjs --dry-run  # say whether it would ask; contact nothing
+//   node scripts/update-quest-reqs.mjs --full     # ask anyway (e.g. after a quest's requirements changed)
 //
 // Data from the OSRS Wiki, licensed CC BY-NC-SA 3.0.
 
@@ -16,6 +19,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(root, "web", "data", "quest-reqs.json");
+const GAME_NAMES = join(root, "tests", "fixtures", "game-names.json");
 const API = "https://oldschool.runescape.wiki/api.php";
 const UA = "OSRS-TaskMaster/0.1 (personal quest planner; one-off quest requirement snapshot)";
 
@@ -131,11 +135,34 @@ export function buildQuests(rows) {
   return quests;
 }
 
+/**
+ * The game's quest names (from tests/fixtures/game-names.json) that the file doesn't cover yet.
+ * Names the wiki was asked about before and had no entry for (`notOnWiki`) count as covered, so
+ * one odd name doesn't send a request on every run.
+ */
+export function missingQuests(gameQuests, file) {
+  const have = new Set([...Object.keys(file?.quests ?? {}), ...(file?.notOnWiki ?? [])]);
+  return gameQuests.filter((q) => !have.has(q));
+}
+
 async function main() {
   const dry = process.argv.includes("--dry-run");
+  const full = process.argv.includes("--full");
+  const old = existsSync(OUT) ? JSON.parse(readFileSync(OUT, "utf8")) : null;
+  const game = JSON.parse(readFileSync(GAME_NAMES, "utf8")).quests ?? [];
+
+  // Requirements of quests already in the file almost never change, so by default the wiki is
+  // only asked when the game has a quest the file doesn't know yet. --full asks anyway.
+  const todo = missingQuests(game, old);
+  if (!full && old && !todo.length) {
+    console.log(`All ${game.length} quests in the game names are already in web/data/quest-reqs.json; the wiki was not contacted (--full to re-check).`);
+    return;
+  }
+  const why = full ? "--full" : !old ? "no file yet" : `${todo.length} new quest(s): ${todo.slice(0, 5).join(", ")}${todo.length > 5 ? ", ..." : ""}`;
   const query = "bucket('quest').select('page_name','requirements','official_length').limit(1000).run()";
   const url = `${API}?action=bucket&format=json&query=${encodeURIComponent(query)}`;
-  if (dry) { console.log(`Dry run: would send 1 request to ${API} (the "quest" bucket).`); return; }
+  if (dry) { console.log(`Dry run: would send 1 request to ${API} (the "quest" bucket) because of ${why}.`); return; }
+  console.log(`Asking the wiki for quest requirements (1 request) because of ${why}.`);
   const res = await fetch(url, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`Wiki request failed: HTTP ${res.status}`);
   const json = await res.json();
@@ -143,9 +170,10 @@ async function main() {
   const rows = json.bucket ?? [];
   if (rows.length < 150) throw new Error(`Only ${rows.length} quests came back; expected over 150. Not writing.`);
   const quests = buildQuests(rows);
+  const notOnWiki = game.filter((q) => !quests[q]).sort();
 
-  const old = existsSync(OUT) ? JSON.parse(readFileSync(OUT, "utf8")) : null;
-  if (old && JSON.stringify(old.quests) === JSON.stringify(quests)) {
+  if (old && JSON.stringify(old.quests) === JSON.stringify(quests)
+    && JSON.stringify(old.notOnWiki ?? []) === JSON.stringify(notOnWiki)) {
     console.log(`Quest requirements unchanged (${rows.length} quests and miniquests). Nothing written.`);
     return;
   }
@@ -154,9 +182,11 @@ async function main() {
     source: "OSRS Wiki (oldschool.runescape.wiki), CC BY-NC-SA 3.0",
     quests,
   };
+  if (notOnWiki.length) file.notOnWiki = notOnWiki;
   writeFileSync(OUT, JSON.stringify(file, null, 1) + "\n");
   const withChain = Object.values(quests).filter((q) => q.quests?.length).length;
   console.log(`web/data/quest-reqs.json: ${Object.keys(quests).length} quests and miniquests (${withChain} with prerequisite quests).`);
+  if (notOnWiki.length) console.log(`  Not on the wiki under the game's name (remembered, not asked again): ${notOnWiki.join(", ")}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

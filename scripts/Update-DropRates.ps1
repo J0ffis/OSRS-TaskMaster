@@ -6,7 +6,7 @@
   items), so a re-run usually sends no requests at all. Requests go in batches, with a pause
   between them.
 
-    .\scripts\Update-DropRates.ps1                     # new items only, names from the newest synced profile
+    .\scripts\Update-DropRates.ps1                     # new items only, names from the newest saved profile
     .\scripts\Update-DropRates.ps1 -Profile path.json  # or names from a specific profile
     .\scripts\Update-DropRates.ps1 -DryRun             # say what would be looked up; contact nothing
     .\scripts\Update-DropRates.ps1 -RecheckNoDrops     # also re-ask about items the wiki had no drops for
@@ -33,10 +33,14 @@ $ua = "OSRS-TaskMaster/0.1 (personal collection log planner; one-off drop-rate s
 $api = "https://oldschool.runescape.wiki/api.php"
 $path = Join-Path $root 'web\data\drop-rates.json'
 
+# The newest profile the plugin saved (Copy my profile) or synced to the local server.
 if (-not $Profile) {
-  $Profile = Get-ChildItem (Join-Path $root "server\data\profiles") -Filter *.json -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+  $Profile = @(
+    Get-ChildItem (Join-Path $env:USERPROFILE '.runelite\osrs-taskmaster') -Filter *.json -ErrorAction SilentlyContinue
+    Get-ChildItem (Join-Path $root 'server\data\profiles') -Filter *.json -ErrorAction SilentlyContinue
+  ) | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
 }
-if (-not $Profile -or -not (Test-Path $Profile)) { throw "No synced profile found. Sync once from RuneLite first, or pass -Profile." }
+if (-not $Profile -or -not (Test-Path $Profile)) { throw "No profile found. In RuneLite, open the OSRS TaskMaster panel and click Copy my profile once, or pass -Profile." }
 
 # Every collection log item name the game knows about.
 $snap = Get-Content $Profile -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -68,7 +72,8 @@ if (-not $todo.Count) { Write-Host "Nothing to look up; web\data\drop-rates.json
 $batches = [Math]::Ceiling($todo.Count / $BatchSize)
 if ($DryRun) {
   Write-Host "Dry run: would send $batches request(s) to the wiki for:"
-  $todo | ForEach-Object { Write-Host "  $_" }
+  $todo | Select-Object -First 25 | ForEach-Object { Write-Host "  $_" }
+  if ($todo.Count -gt 25) { Write-Host "  ... and $($todo.Count - 25) more" }
   return
 }
 

@@ -12,7 +12,7 @@
   What's exported: the PvP skull, skill icons, category icons (quests, diaries, collection
   log), combat achievement tier swords, and an icon for every collection log item listed in
   tests/fixtures/game-names.json (refresh that first with `npm run game-names` when the game
-  adds items). Game images © Jagex Ltd., used for this free, non-commercial fan tool.
+  adds items). Game images (c) Jagex Ltd., used for this free, non-commercial fan tool.
 #>
 param(
   [string]$Cache = (Join-Path $env:USERPROFILE '.runelite\jagexcache\oldschool\LIVE')
