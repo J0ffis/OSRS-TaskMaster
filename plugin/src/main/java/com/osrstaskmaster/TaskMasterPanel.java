@@ -115,6 +115,8 @@ class TaskMasterPanel extends PluginPanel
 	private long picksAt;
 	private Function<String, BufferedImage> skillIcons = skill -> null;
 	private BiConsumer<Integer, JLabel> itemIcons = (id, label) -> { };
+	/** Interface sprites from the game: "skull" and one per category ("quests", "diaries", ...). */
+	private Function<String, BufferedImage> sprites = name -> null;
 
 	TaskMasterPanel(Actions actions)
 	{
@@ -207,11 +209,40 @@ class TaskMasterPanel extends PluginPanel
 		setUploadEnabled(false);
 	}
 
-	/** Where icons come from: skill icons by name, and item icons that load into a label. */
-	void setIconSources(Function<String, BufferedImage> skillIcons, BiConsumer<Integer, JLabel> itemIcons)
+	/**
+	 * Where icons come from: skill icons by name, item icons that load into a label, and game
+	 * interface sprites by name (null until the game has loaded them).
+	 */
+	void setIconSources(Function<String, BufferedImage> skillIcons, BiConsumer<Integer, JLabel> itemIcons,
+		Function<String, BufferedImage> sprites)
 	{
 		this.skillIcons = skillIcons;
 		this.itemIcons = itemIcons;
+		this.sprites = sprites;
+	}
+
+	/** A sprite arrived from the game: redraw the list so it shows. */
+	void iconsChanged()
+	{
+		SwingUtilities.invokeLater(this::renderPicks);
+	}
+
+	/** A game sprite scaled to fit a box, keeping its pixels sharp. Null if not loaded. */
+	private ImageIcon spriteIcon(String name, int max)
+	{
+		BufferedImage img = sprites.apply(name);
+		if (img == null)
+		{
+			return null;
+		}
+		double scale = Math.min(1.0, (double) max / Math.max(img.getWidth(), img.getHeight()));
+		if (scale >= 1.0)
+		{
+			return new ImageIcon(img);
+		}
+		int w = Math.max(1, (int) Math.round(img.getWidth() * scale));
+		int h = Math.max(1, (int) Math.round(img.getHeight() * scale));
+		return new ImageIcon(img.getScaledInstance(w, h, java.awt.Image.SCALE_SMOOTH));
 	}
 
 	// ---- Your next grinds ------------------------------------------------------------------
@@ -319,9 +350,14 @@ class TaskMasterPanel extends PluginPanel
 		{
 			icon.setIcon(new ImageIcon(skillIcons.apply(p.icon.skill)));
 		}
+		else if (spriteIcon(p.category, 28) != null)
+		{
+			// The game's own icon for the category: quest list, diary, CA sword, collection log.
+			icon.setIcon(spriteIcon(p.category, 28));
+		}
 		else
 		{
-			// No game icon (quests, diaries): a diamond in the category's colour.
+			// No game icon yet: a diamond in the category's colour.
 			icon.setText("◆");
 			icon.setFont(icon.getFont().deriveFont(18f));
 			icon.setForeground(CATEGORY_COLORS.getOrDefault(p.category, Color.GRAY));
@@ -330,7 +366,14 @@ class TaskMasterPanel extends PluginPanel
 		JPanel text = new JPanel();
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 		text.setOpaque(false);
-		JLabel cat = new JLabel((p.wilderness ? "☠ Wilderness · " : "") + CATEGORY_LABELS.getOrDefault(p.category, ""));
+		// Wilderness rows: the game's PvP skull (the ☠ character until the sprite has loaded).
+		ImageIcon skull = p.wilderness ? spriteIcon("skull", 12) : null;
+		JLabel cat = new JLabel((p.wilderness ? (skull != null ? "" : "☠ ") + "Wilderness · " : "") + CATEGORY_LABELS.getOrDefault(p.category, ""));
+		if (skull != null)
+		{
+			cat.setIcon(skull);
+			cat.setIconTextGap(4);
+		}
 		cat.setFont(FontManager.getRunescapeSmallFont());
 		cat.setForeground(p.wilderness ? new Color(0xFF8A7A) : CATEGORY_COLORS.getOrDefault(p.category, Color.GRAY));
 		JLabel title = new JLabel("<html><body style='width:104px'>" + esc(p.title) + "</body></html>");

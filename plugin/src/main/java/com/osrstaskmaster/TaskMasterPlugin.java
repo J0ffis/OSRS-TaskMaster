@@ -46,6 +46,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.api.Skill;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -99,6 +100,7 @@ public class TaskMasterPlugin extends Plugin
 	@Inject private ClientToolbar clientToolbar;
 	@Inject private ItemManager itemManager;
 	@Inject private SkillIconManager skillIconManager;
+	@Inject private SpriteManager spriteManager;
 	@Inject private OkHttpClient httpClient;
 	@Inject private Gson gson;
 	@Inject private TaskMasterConfig config;
@@ -139,7 +141,8 @@ public class TaskMasterPlugin extends Plugin
 			@Override public void openPick(String pickId) { clientThread.invokeLater(() -> openWebsiteOn(pickId)); }
 		});
 		// Item icons load in the background and appear in the label when ready (safe from any thread).
-		panel.setIconSources(this::skillIcon, (itemId, label) -> itemManager.getImage(itemId).addTo(label));
+		panel.setIconSources(this::skillIcon, (itemId, label) -> itemManager.getImage(itemId).addTo(label), gameSprites::get);
+		loadGameSprites();
 		panel.setUploadEnabled(config.autoUpload());
 		navButton = NavigationButton.builder()
 			.tooltip("OSRS TaskMaster")
@@ -775,6 +778,34 @@ public class TaskMasterPlugin extends Plugin
 				}
 			}
 		});
+	}
+
+	// Game interface sprites for the panel, read live from the game's own files, so they always
+	// match the game: the PvP skull for Wilderness rows and an icon per suggestion category.
+	private static final Object[][] PANEL_SPRITES = {
+		{"skull", net.runelite.api.gameval.SpriteID.HEADICONS_PK},
+		{"quests", net.runelite.api.gameval.SpriteID.AchievementDiaryIcons.BLUE_QUESTS},
+		{"diaries", net.runelite.api.gameval.SpriteID.AchievementDiaryIcons.GREEN_ACHIEVEMENT_DIARIES},
+		{"combat", net.runelite.api.gameval.SpriteID.CaTierSwordsSmall._3},
+		{"clog", 6390}, // hiscores "collections logged"
+		{"pets", 6390},
+	};
+	private final Map<String, BufferedImage> gameSprites = new java.util.concurrent.ConcurrentHashMap<>();
+
+	private void loadGameSprites()
+	{
+		for (Object[] s : PANEL_SPRITES)
+		{
+			String name = (String) s[0];
+			spriteManager.getSpriteAsync((Integer) s[1], 0, img ->
+			{
+				if (img != null)
+				{
+					gameSprites.put(name, img);
+					panel.iconsChanged();
+				}
+			});
+		}
 	}
 
 	private BufferedImage skillIcon(String skill)
