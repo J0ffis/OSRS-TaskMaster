@@ -36,7 +36,8 @@ function Stop-Launcher($text) {
   Write-Host "   $text" -ForegroundColor Red
   Write-Host ""
   Read-Host "Press Enter to close"
-  exit 1
+  # 2, not 1: the .bat files pause on 1, which means PowerShell itself failed (this already paused).
+  exit 2
 }
 
 Write-Host ""
