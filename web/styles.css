@@ -427,6 +427,12 @@ body.static .only-server, body:not(.static) .only-static { display: none !import
 table.list { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 table.list td, table.list th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 table.list th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+#lockeddlg { width: min(660px, 92vw); }
+td.lockact { text-align: right; white-space: nowrap; }
+.lockgoal { color: var(--good); font-size: 13px; }
+.lockedask { position: sticky; bottom: -18px; margin: 12px -20px -18px; padding: 12px 20px 16px; background: var(--panel); border-top: 1px solid var(--gold); }
+.lockedask p { margin: 0; font-size: 14px; }
+.lockedask .planfoot { margin-top: 10px; }
 .num { text-align: right !important; font-variant-numeric: tabular-nums; }
 .pill { font-size: 11.5px; padding: 1px 8px; border-radius: 99px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
 .pill.ok { color: var(--good); }

@@ -495,9 +495,83 @@ function renderOptIns() {
   const btn = $("#lockedbtn");
   btn.hidden = !locked.length;
   btn.textContent = `${locked.length} hidden until unlocked`;
-  $("#lockedbody").innerHTML = `<table class="list"><thead><tr><th>Content</th><th>Needs</th></tr></thead><tbody>${locked.map((l) =>
-    `<tr><td>${esc(l.content)}</td><td>${l.needs.map(esc).join(", ")}</td></tr>`).join("")}</tbody></table>`;
+  state.locked = locked;
+  renderLockedList();
   renderHiddenList();
+}
+
+// ---- "Hidden until unlocked": make what unlocks a row a goal, then offer to plan a route --------
+// Goal ids added since the dialog opened, by row (content name), for Undo and so closing it can
+// offer a route for them.
+const lockedAdded = new Map();
+const lockedIds = () => new Set([...lockedAdded.values()].flat());
+const hasGoal = (g) => state.goals.some((x) => goalTitle(x) === goalTitle(g));
+
+function renderLockedList() {
+  const rows = state.locked ?? [];
+  const action = (l, i) => {
+    if (!l.goals?.length) return "";
+    const adds = l.goals.map(goalTitle).join(", ");
+    const ids = lockedAdded.get(l.content) ?? [];
+    if (state.goals.some((g) => ids.includes(g.id))) return `<span class="lockgoal">Added ✓ <button type="button" class="link small" data-lock-undo="${i}">Undo</button></span>`;
+    if (l.goals.every(hasGoal)) return `<span class="muted small">On your goals</span>`;
+    return `<button type="button" class="btn tiny ghost" data-lock-goal="${i}" title="Adds: ${esc(adds)}">Make it a goal</button>`;
+  };
+  $("#lockedbody").innerHTML = `<table class="list"><thead><tr><th>Content</th><th>Needs</th><th></th></tr></thead><tbody>${rows.map((l, i) =>
+    `<tr><td>${esc(l.content)}</td><td>${l.needs.map(esc).join(", ")}</td><td class="lockact">${action(l, i)}</td></tr>`).join("")}</tbody></table>`;
+  renderLockedAsk();
+}
+
+/** The "plan a route?" question at the foot of the dialog, shown once goals were added and it's closing. */
+function renderLockedAsk(asking = false) {
+  const el = $("#lockedask");
+  const ids = lockedIds();
+  const added = state.goals.filter((g) => ids.has(g.id));
+  el.hidden = !asking || !added.length;
+  if (el.hidden) return;
+  const n = added.length;
+  el.innerHTML = `
+    <p><b>You added ${n} goal${n === 1 ? "" : "s"}</b>: ${esc(added.map(goalTitle).join(", "))}. Plan a route to ${n === 1 ? "it" : "them"}?</p>
+    <div class="planfoot">
+      <button type="button" class="btn primary" data-lock-plan>Plan a route</button>
+      <button type="button" class="btn ghost" data-lock-skip>Not now</button>
+    </div>`;
+  el.querySelector("[data-lock-plan]").focus();
+}
+
+function openLocked() {
+  lockedAdded.clear();
+  renderLockedList();
+  $("#lockeddlg").showModal();
+}
+
+/** Close the dialog, first asking about a route when goals were added (and not asked yet). */
+function closeLocked() {
+  const asked = !$("#lockedask").hidden;
+  const ids = lockedIds();
+  if (!asked && state.goals.some((g) => ids.has(g.id))) {
+    renderLockedAsk(true);
+    $("#lockedask").scrollIntoView({ block: "nearest" });
+    return;
+  }
+  $("#lockeddlg").close();
+}
+
+function addLockedGoals(l) {
+  const ids = [];
+  for (const t of l.goals) {
+    const have = state.goals.find((x) => goalTitle(x) === goalTitle(t));
+    if (have) {
+      // Already a goal: note what it unlocks too, so the hint says so.
+      if (!(have.unlocks ?? []).includes(l.content)) have.unlocks = [...(have.unlocks ?? []), l.content];
+      continue;
+    }
+    // A quest that's itself the locked content needs no "unlocks" note.
+    const g = { id: newGoalId(), ...t, ...(t.quest === l.content ? {} : { unlocks: [l.content] }) };
+    state.goals.push(g);
+    ids.push(g.id);
+  }
+  lockedAdded.set(l.content, ids);
 }
 
 // "N hidden by you": the suggestions marked "Not for me", each with a way to bring it back.
@@ -746,9 +820,13 @@ function hideChoicesHTML(i) {
         <button class="btn tiny ghost" data-hide-cancel="${i}" type="button">Cancel</button>`;
 }
 
+/** A goal id that's unique even when several goals are added in the same millisecond. */
+let goalSeq = 0;
+const newGoalId = () => "g" + Date.now().toString(36) + (goalSeq++ % 1296).toString(36).padStart(2, "0");
+
 function toGoal(c) {
   const m = c.meta ?? {};
-  const id = "g" + Date.now().toString(36);
+  const id = newGoalId();
   if (m.skill && m.target) return { id, type: "skill", skill: m.skill, level: m.target };
   if (m.skill && m.xpTarget) return { id, type: "xp", skill: m.skill, xp: m.xpTarget };
   if (m.pet) return { id, type: "pet", pet: m.pet };
@@ -816,7 +894,8 @@ function goalHint(g) {
       return missing.length ? `Any one of: ${list(missing)}` : null;
     }
     default:
-      return null;
+      // Added from "Hidden until unlocked".
+      return g.unlocks?.length ? `Unlocks ${list(g.unlocks)}` : null;
   }
 }
 
@@ -1152,7 +1231,7 @@ $("#optins").addEventListener("click", (e) => {
   renderControls();
   renderCards(true);
 });
-$("#lockedbtn").addEventListener("click", () => $("#lockeddlg").showModal());
+$("#lockedbtn").addEventListener("click", openLocked);
 $("#hiddenbtn").addEventListener("click", () => $("#hiddendlg").showModal());
 $("#hiddendlg").addEventListener("click", (e) => {
   if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
@@ -1161,8 +1240,35 @@ $("#hiddendlg").addEventListener("click", (e) => {
   if (e.target.closest("[data-unhide-all]")) return unhide(Object.keys(state.hidden));
 });
 $("#lockeddlg").addEventListener("click", (e) => {
-  // Close on the × button or a click on the backdrop.
-  if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
+  const add = e.target.closest("[data-lock-goal]");
+  const undo = e.target.closest("[data-lock-undo]");
+  if (add || undo) {
+    const row = state.locked[+(add ? add.dataset.lockGoal : undo.dataset.lockUndo)];
+    if (add) addLockedGoals(row);
+    else {
+      const ids = lockedAdded.get(row.content) ?? [];
+      state.goals = state.goals.filter((g) => !ids.includes(g.id));
+      lockedAdded.delete(row.content);
+    }
+    saveGoals(); renderGoals(); renderCards(true);
+    const asking = !$("#lockedask").hidden;
+    renderLockedList();
+    if (asking) renderLockedAsk(true);
+    return;
+  }
+  if (e.target.closest("[data-lock-plan]")) {
+    const ids = lockedIds();
+    $("#lockeddlg").close();
+    openPlanner([...ids]);
+    return;
+  }
+  if (e.target.closest("[data-lock-skip]")) { $("#lockeddlg").close(); return; }
+  // Close on the × button or a click on the backdrop (asking about a route first).
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) closeLocked();
+});
+// Escape asks about a route too.
+$("#lockeddlg").addEventListener("cancel", (e) => {
+  if ($("#lockedask").hidden && state.goals.some((g) => lockedIds().has(g.id))) { e.preventDefault(); closeLocked(); }
 });
 
 // ---- Route planner ---------------------------------------------------------------------------
@@ -1296,15 +1402,19 @@ function renderRoute() {
     ${steps.length > ROUTE_SHOWN ? `<p class="more"><button type="button" class="link" data-route="all">See all ${steps.length} steps</button></p>` : ""}`;
 }
 
-/** Open the planner with the pinned route's goals ticked (or every goal when nothing's pinned). */
-function openPlanner() {
+/**
+ * Open the planner with the pinned route's goals ticked (or every goal when nothing's pinned).
+ * With `withIds` (goals just added): those, plus the pinned route's goals if there is one.
+ */
+function openPlanner(withIds = null) {
   planOff.clear();
-  if (state.route) for (const g of openGoals()) if (!state.route.goals.includes(g.id)) planOff.add(g.id);
+  const on = (g) => withIds?.includes(g.id) || (state.route ? state.route.goals.includes(g.id) : !withIds);
+  for (const g of openGoals()) if (!on(g)) planOff.add(g.id);
   renderPlan();
   $("#plandlg").showModal();
 }
 
-$("#planbtn").addEventListener("click", openPlanner);
+$("#planbtn").addEventListener("click", () => openPlanner());
 $("#plandlg").addEventListener("click", (e) => {
   if (e.target.closest("#planpin")) {
     const picked = openGoals().filter((g) => !planOff.has(g.id));
@@ -1335,7 +1445,7 @@ $("#goalform").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const type = f.get("type") ?? $("#gtype").value;
-  const g = { id: "g" + Date.now().toString(36), type };
+  const g = { id: newGoalId(), type };
   if (type === "skill") Object.assign(g, { skill: f.get("skill"), level: Math.max(2, Math.min(99, +f.get("level") || 99)) });
   else if (type === "xp") {
     const n = parseAmount(f.get("xp"));
