@@ -4,7 +4,7 @@
 // In browser mode (GitHub Pages) everything is kept in localStorage; nothing is uploaded.
 
 import {
-  CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates,
+  CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, setQuestReqs,
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
@@ -37,6 +37,7 @@ const state = {
   manualMode: localStorage.getItem("tm.manualMode") === "1", // show the "mark done" controls
   prev: null, // compact copy of the profile from before the latest sync (for "Within reach")
   goals: [],
+  route: null, // the pinned route: { goals: [goal ids], keys: [step keys when pinned], at }
   style: localStorage.getItem("tm.style") || "balanced", // grind style: quick | balanced | long | mix
   // Remember the categories switched *off*, so new categories show up by default.
   cats: new Set(Object.keys(CATEGORIES).filter((k) => !JSON.parse(localStorage.getItem("tm.off") || "[]").includes(k))),
@@ -73,7 +74,7 @@ const local = {
     localStorage.setItem("tm.profileNames", JSON.stringify([name, ...names]));
   },
   forget(name) {
-    for (const k of ["profile", "goals", "marks", "hidden", "history", "seen", "prev"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
+    for (const k of ["profile", "goals", "marks", "hidden", "history", "seen", "prev", "route"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
     localStorage.setItem("tm.profileNames", JSON.stringify(local.names().filter((n) => keyOf(n) !== keyOf(name))));
   },
   goals: (name) => JSON.parse(localStorage.getItem(`tm.goals:${keyOf(name)}`) || "[]"),
@@ -106,6 +107,7 @@ async function load(name) {
     state.marks = loadMarks(name, state.raw);
     state.snap = applyManual(state.raw, state.marks);
     state.hidden = loadHidden(name);
+    state.route = loadRoute(name);
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
     if (e.status === 404 && !serverMode) return showError(`No profile for "${name}" in this browser yet. In RuneLite, open the OSRS TaskMaster panel, click Copy my profile, then paste it here.`);
@@ -729,8 +731,9 @@ const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask:
 function renderGoals() {
   const el = $("#goals");
   // The planner only reads goals (so view-only pages can use it too).
-  $("#planbtn").hidden = !state.goals.some((g) => g.type !== "custom" && !goalProgress(g, state.snap).done);
+  $("#planbtn").hidden = !openGoals().length;
   if ($("#plandlg").open) renderPlan();
+  renderRoute();
   if (!state.goals.length) {
     el.innerHTML = `<li class="muted small">No goals yet. Add one below, or press "Make it a goal" on a suggestion.</li>`;
     return;
@@ -1121,38 +1124,161 @@ $("#lockeddlg").addEventListener("click", (e) => {
 });
 
 // ---- Route planner ---------------------------------------------------------------------------
-// Goals left out of the plan (unticked), for this page visit only.
+// Goals left out of the plan (unticked) while the planner is open.
 const planOff = new Set();
+const openGoals = () => state.goals.filter((g) => g.type !== "custom" && !goalProgress(g, state.snap).done);
+
+/** One step of a route: title (quests link to the wiki), time, which goals it's for, notes. */
+function stepHTML(s, { showFor = true } = {}) {
+  const quest = s.key.startsWith("quest:") ? s.key.slice(6) : null;
+  const title = quest ? `<a href="${esc(wikiPage(quest))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(quest)} on the OSRS Wiki">${esc(s.title)}</a>` : esc(s.title);
+  const forText = showFor && !(s.completes.length && s.forGoals.length === 1) ? `For: ${s.forGoals.join(", ")}` : "";
+  const sub = [forText, s.note].filter(Boolean).join(". ");
+  return `<span class="pt">${title}</span>${s.completes.length ? " ✓ goal" : ""}${s.shared ? `<span class="shared" title="${esc(s.forGoals.join(", "))}">shared by ${s.forGoals.length}</span>` : ""}
+    ${s.hours ? `<span class="ph">· ${esc(hoursRangeText(s.hours))}</span>` : ""}
+    ${sub ? `<span class="pf">${esc(sub)}</span>` : ""}`;
+}
+
+/** "About 3–5 hours for the 2 training steps with a time; 7 steps without a time estimate". */
+function planTimeText(plan) {
+  const t = plan.total;
+  const time = t.timed ? `${cap(hoursRangeText(t))} for the ${t.timed} training step${t.timed === 1 ? "" : "s"} with a time` : "";
+  const untimed = t.untimed ? `${t.untimed} step${t.untimed === 1 ? "" : "s"} without a time estimate (quests, unlisted skills)` : "";
+  return [time, untimed].filter(Boolean).join("; ");
+}
+
+/** The notes under a plan: what it couldn't plan, and where the times come from. */
+function planNotes(plan) {
+  return `
+    ${plan.unchecked?.length ? `<p class="plannote">Not in this profile, so not planned (if you haven't done them, copy a fresh profile from the plugin): ${esc(plan.unchecked.join(", "))}.</p>` : ""}
+    ${plan.unknown.length ? `<p class="plannote">Not in our requirement tables, so their own requirements aren't included (check the wiki): ${esc(plan.unknown.join(", "))}.</p>` : ""}
+    ${plan.skipped.length ? `<p class="plannote">Custom goals aren't planned: ${esc(plan.skipped.join(", "))}.</p>` : ""}
+    <p class="plannote">Quest requirements are from the OSRS Wiki, down every prerequisite chain. Times use the wiki training guides' XP rates and assume you start each skill where you are now. Boosts, quest XP rewards and items you already own aren't counted.</p>`;
+}
 
 function renderPlan() {
-  const open = state.goals.filter((g) => g.type !== "custom" && !goalProgress(g, state.snap).done);
+  const open = openGoals();
   $("#planpick").innerHTML = open.map((g) => `<label><input type="checkbox" data-plan="${esc(g.id)}" ${planOff.has(g.id) ? "" : "checked"}> ${esc(goalTitle(g))}</label>`).join("");
-  const plan = planRoute(state.snap, open.filter((g) => !planOff.has(g.id)));
+  const picked = open.filter((g) => !planOff.has(g.id));
+  const plan = planRoute(state.snap, picked);
   if (!plan.steps.length) {
     $("#planbody").innerHTML = `<p class="muted small">${open.length ? "Tick at least one goal." : "No unfinished goals to plan."}</p>`;
     return;
   }
-  const t = plan.total;
-  const time = t.timed ? `${cap(hoursRangeText(t))} for the ${t.timed} training step${t.timed === 1 ? "" : "s"} with a time` : "";
-  const untimed = t.untimed ? `${t.untimed} step${t.untimed === 1 ? "" : "s"} without a time estimate (quests, unlisted skills)` : "";
   const goalsIn = plan.steps.reduce((n, s) => n + s.completes.length, 0);
+  const ids = picked.map((g) => g.id);
+  const pinned = state.route && sameIds(state.route.goals, ids);
   $("#planbody").innerHTML = `
-    <p class="plansum"><b>${plan.steps.length} steps</b> for ${goalsIn} goal${goalsIn === 1 ? "" : "s"}. ${esc([time, untimed].filter(Boolean).join("; "))}.</p>
-    <ol class="planlist">${plan.steps.map((s) => `
-      <li class="${s.completes.length ? "goalstep" : ""}">
-        <span class="pt">${esc(s.title)}</span>${s.completes.length ? " ✓ goal" : ""}${s.shared ? `<span class="shared" title="${esc(s.forGoals.join(", "))}">shared by ${s.forGoals.length}</span>` : ""}
-        ${s.hours ? `<span class="ph">· ${esc(hoursRangeText(s.hours))}</span>` : ""}
-        ${s.completes.length && s.forGoals.length === 1 ? "" : `<span class="pf">For: ${esc(s.forGoals.join(", "))}${s.note ? `. ${esc(s.note)}` : ""}</span>`}
-      </li>`).join("")}
-    </ol>
-    ${plan.unknown.length ? `<p class="plannote">Not in our requirement tables, so their own requirements aren't included (check the wiki): ${esc(plan.unknown.join(", "))}.</p>` : ""}
-    ${plan.skipped.length ? `<p class="plannote">Custom goals aren't planned: ${esc(plan.skipped.join(", "))}.</p>` : ""}
-    <p class="plannote">Times use the OSRS Wiki training guides' XP rates and assume you start each skill where you are now. Boosts, quest XP rewards and items you already own aren't counted.</p>`;
+    <p class="plansum"><b>${plan.steps.length} steps</b> for ${goalsIn} goal${goalsIn === 1 ? "" : "s"}. ${esc(planTimeText(plan))}.</p>
+    <ol class="planlist">${plan.steps.map((s) => `<li class="${s.completes.length ? "goalstep" : ""}">${stepHTML(s)}</li>`).join("")}</ol>
+    <div class="planfoot">
+      <button id="planpin" type="button" class="btn primary" ${pinned ? "disabled" : ""}>${pinned ? "Pinned to the page ✓" : state.route ? "Pin this route instead" : "Pin this route to the page"}</button>
+      <span class="muted small">${pinned ? "It's shown above your goals and updates as you progress." : "Keeps it above your goals, updating as you progress."}</span>
+    </div>
+    ${planNotes(plan)}`;
 }
 
-$("#planbtn").addEventListener("click", () => { renderPlan(); $("#plandlg").showModal(); });
+// ---- The pinned route --------------------------------------------------------------------------
+// The goals a pinned route plans for, kept per profile in this browser, plus the step keys it had
+// when pinned (for "4 of 19 steps done"). Steps are worked out again on every render, so finished
+// ones drop off by themselves and new requirements show up.
+const routeKey = (name) => `tm.route:${keyOf(name)}`;
+const loadRoute = (name) => JSON.parse(localStorage.getItem(routeKey(name)) || "null");
+const sameIds = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+const ROUTE_SHOWN = 4;
+
+function saveRoute(route) {
+  state.route = route;
+  if (route) localStorage.setItem(routeKey(state.name), JSON.stringify(route));
+  else localStorage.removeItem(routeKey(state.name));
+}
+
+/**
+ * Whether a step from when the route was pinned is done now, judged from the profile (so steps
+ * that only dropped off because their goal was removed don't count). Quest point and combat level
+ * steps have no target in their key: they count as done once they're no longer needed.
+ */
+function stepDone(key, stillPlanned) {
+  const s = state.snap;
+  const [kind, ...rest] = key.split(":");
+  const id = rest.join(":");
+  if (kind === "skill") return (s.skills?.[rest[0]]?.xp ?? 0) >= Number(rest[1]);
+  if (kind === "quest") return (s.quests ?? []).some((q) => q.name === id && q.state === "FINISHED");
+  if (kind === "goal") { const g = state.goals.find((x) => x.id === id); return !!g && goalProgress(g, s).done; }
+  return !stillPlanned.has(key);
+}
+
+/** The pinned route's current plan: { goals, plan, done, total }, or null when nothing's pinned. */
+function pinnedRoute() {
+  const r = state.route;
+  if (!r) return null;
+  const goals = state.goals.filter((g) => r.goals.includes(g.id));
+  const plan = goals.length ? planRoute(state.snap, goals) : null;
+  const planned = new Set((plan?.steps ?? []).map((s) => s.key));
+  const done = (r.keys ?? []).filter((k) => !planned.has(k) && stepDone(k, planned)).length;
+  return { goals, plan, done, total: done + planned.size };
+}
+
+function renderRoute() {
+  const el = $("#route");
+  const p = pinnedRoute();
+  el.hidden = !p;
+  if (!p) return;
+  const head = (extra = "") => `
+    <div class="panelhead">
+      <h3 id="route-h">Your route</h3>
+      <span class="muted small">${p.goals.length ? `For: ${esc(p.goals.map(goalTitle).join(", "))}` : ""}</span>
+      <span class="routeacts">${extra}<button type="button" class="btn tiny ghost" data-route="unpin">Unpin</button></span>
+    </div>`;
+  if (!p.goals.length) {
+    el.innerHTML = `${head()}<p class="muted small">The goals this route was for have been removed. Plan a new one from your goals.</p>`;
+    return;
+  }
+  const steps = p.plan.steps;
+  const pct = p.total ? Math.round((p.done / p.total) * 100) : 100;
+  if (!steps.length) {
+    el.innerHTML = `${head()}<p class="routedone">Route complete: every goal on it is done. ✓</p>`;
+    return;
+  }
+  const multi = p.goals.length > 1;
+  el.innerHTML = `${head(`<button type="button" class="btn tiny" data-route="edit">Change goals</button>`)}
+    <div class="routemeta">
+      <span>${p.done} of ${p.total} steps done</span>
+      <div class="bar" style="--c:var(--good)"><i style="width:${pct}%"></i></div>
+      <span class="rt">${esc(planTimeText(p.plan))}.</span>
+    </div>
+    <ol class="planlist" start="1">${steps.slice(0, ROUTE_SHOWN).map((s, i) => `
+      <li class="${i === 0 ? "next" : ""} ${s.completes.length ? "goalstep" : ""}">${i === 0 ? `<span class="nexttag">Next</span>` : ""}${stepHTML(s, { showFor: multi })}</li>`).join("")}
+    </ol>
+    ${steps.length > ROUTE_SHOWN ? `<p class="more"><button type="button" class="link" data-route="all">See all ${steps.length} steps</button></p>` : ""}`;
+}
+
+/** Open the planner with the pinned route's goals ticked (or every goal when nothing's pinned). */
+function openPlanner() {
+  planOff.clear();
+  if (state.route) for (const g of openGoals()) if (!state.route.goals.includes(g.id)) planOff.add(g.id);
+  renderPlan();
+  $("#plandlg").showModal();
+}
+
+$("#planbtn").addEventListener("click", openPlanner);
 $("#plandlg").addEventListener("click", (e) => {
+  if (e.target.closest("#planpin")) {
+    const picked = openGoals().filter((g) => !planOff.has(g.id));
+    const plan = planRoute(state.snap, picked);
+    saveRoute({ goals: picked.map((g) => g.id), keys: plan.steps.map((s) => s.key), at: Date.now() });
+    renderRoute();
+    e.currentTarget.close();
+    $("#route").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
   if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
+});
+$("#route").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-route]");
+  if (!b) return;
+  if (b.dataset.route === "unpin") { saveRoute(null); renderRoute(); return; }
+  openPlanner();
 });
 $("#plandlg").addEventListener("change", (e) => {
   const box = e.target.closest("[data-plan]");
@@ -1380,6 +1506,7 @@ function setupImport() {
 (async function boot() {
   // Drop rates are a static file in this project (a one-off wiki snapshot); no outside calls.
   try { setDropRates(await api("data/drop-rates.json")); } catch { /* fall back to the hand-made rules */ }
+  try { setQuestReqs(await api("data/quest-reqs.json")); } catch { /* fall back to the hand-made quest tables */ }
   // Game icons are local files too (exported from the game cache); without them the page uses text.
   await loadGameIcons();
   // Server mode only when this page is served by Start-LocalServer.ps1; anywhere else (the hosted

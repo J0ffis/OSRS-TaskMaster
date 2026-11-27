@@ -35,6 +35,29 @@ export function setDropRates(data) {
   for (const [name, rows] of Object.entries(data?.items ?? {})) DROP_RATES[name.toLowerCase()] = rows;
 }
 
+// ---- Quest requirements -----------------------------------------------------------------
+let QUEST_REQS = {};
+/** Load the wiki snapshot (web/data/quest-reqs.json) once at startup. */
+export function setQuestReqs(data) {
+  QUEST_REQS = data?.quests ?? {};
+}
+
+/**
+ * Everything a quest needs: { skills (incl. combat), quests, questPoints, other, known }.
+ * The wiki snapshot covers every quest and miniquest; the hand tables (QUESTS, QUEST_PREREQS) are
+ * the fallback when it isn't loaded. `known` is false when neither has the quest.
+ */
+export function questRequirements(name) {
+  const w = QUEST_REQS[name];
+  if (w) {
+    const skills = { ...(w.skills ?? {}) };
+    if (w.combat) skills.combat = w.combat;
+    return { skills, quests: w.quests ?? [], questPoints: w.questPoints ?? 0, other: w.other ?? [], known: true };
+  }
+  const known = !!(QUESTS[name] || QUEST_PREREQS[name]);
+  return { skills: { ...(QUESTS[name]?.reqs ?? {}) }, quests: QUEST_PREREQS[name]?.quests ?? [], questPoints: QUEST_PREREQS[name]?.questPoints ?? 0, other: [], known };
+}
+
 const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 /**
  * The best chance per attempt of getting `item` for the activity behind collection log `page`.
@@ -1276,11 +1299,12 @@ export function withinReach(snap, { prev = null, marks = null, now = Date.now(),
   for (const [name, info] of Object.entries(QUESTS)) {
     const st = a.questState[name];
     if (st == null || st === "FINISHED") continue;
-    const pre = QUEST_PREREQS[name] ?? {};
+    const req = questRequirements(name);
     consider({
       id: `reach:quest:${name}`, kind: "quest", category: "quests", title: name,
       why: info.why, weight: info.weight, inProgress: st === "IN_PROGRESS",
-      reqs: requirementList(snap, a, { skills: info.reqs, quests: pre.quests, questPoints: pre.questPoints }),
+      // A quest's own parts (Recipe for Disaster's subquests) are doing the quest, not a requirement.
+      reqs: requirementList(snap, a, { ...req, quests: req.quests.filter((q) => !q.startsWith(`${name} - `)) }),
       effort: "Medium", meta: { quest: name },
     });
   }
@@ -1610,9 +1634,10 @@ function mulberry32(a) {
 // ---- Route planner ----------------------------------------------------------------------------
 // Pick several goals and get one ordered list of steps: the skill levels, quests (with their
 // prerequisite chains), quest points and combat level they need, with requirements shared between
-// goals done once. Uses the same tables as the rest of the site (QUESTS, QUEST_PREREQS,
-// DIARY_REQS, CONTENT_REQS); anything those don't cover is listed as "not in our tables" rather
-// than guessed. Times come from XP_RATES (levels only).
+// goals done once. Quests come from the wiki snapshot (web/data/quest-reqs.json, every quest and
+// miniquest, followed down the whole prerequisite chain); diaries from DIARY_REQS and other goals
+// from CONTENT_REQS. Anything none of these cover is listed as "not in our tables" rather than
+// guessed. Times come from XP_RATES (levels only).
 
 /** Rough internal cost (hours) for ordering steps that have no time estimate. Never shown. */
 const PLAN_ORDER_COST = { quest: 1.5, qp: 4, combat: 4, goal: 2, levelUnknown: 0.5 };
@@ -1624,12 +1649,13 @@ const PLAN_ORDER_COST = { quest: 1.5, qp: 4, combat: 4, goal: 2, levelUnknown: 0
  *   done:    titles of goals already complete
  *   skipped: titles of goals the planner can't plan (custom goals)
  *   unknown: quests whose requirements aren't in our tables (check the wiki)
+ *   unchecked: quests needed on the way that the profile doesn't list, so their state is unknown
  *   total:   { low, high, timed, untimed } summed over the steps
  */
 export function planRoute(snap, goals = []) {
   const a = analyse(snap);
   const nodes = new Map();
-  const unknown = new Set();
+  const unknown = new Set(), unchecked = new Set();
   const node = (key, init) => {
     if (!nodes.has(key)) nodes.set(key, { key, deps: new Set(), completes: [], ...init });
     return nodes.get(key);
@@ -1663,15 +1689,19 @@ export function planRoute(snap, goals = []) {
     qpNeed = Math.max(qpNeed, need);
     n.deps.add("qp");
   };
-  const questNode = (q, seen = new Set()) => {
+  const questNode = (q, seen = new Set(), isGoal = false) => {
     const st = a.questState[q];
     if (st === "FINISHED" || seen.has(q)) return null;
+    // Not in the profile (a trimmed profile, or a quest newer than the plugin): can't tell if it's
+    // done, so it's named rather than planned. A goal is still planned.
+    if (st == null && !isGoal && snap.quests?.length) { unchecked.add(q); return null; }
     const n = node(`quest:${q}`, { kind: "quest", quest: q, title: `${st === "IN_PROGRESS" ? "Finish" : "Do"} ${q}` });
     if (n.expanded) return n;
     n.expanded = true;
-    const known = QUESTS[q] || QUEST_PREREQS[q];
-    if (!known) unknown.add(q);
-    addReqs(n, { skills: QUESTS[q]?.reqs, quests: QUEST_PREREQS[q]?.quests, questPoints: QUEST_PREREQS[q]?.questPoints }, new Set([...seen, q]));
+    const req = questRequirements(q);
+    if (!req.known) unknown.add(q);
+    if (req.other.length) n.note = `Also needs: ${req.other.join("; ")}.`;
+    addReqs(n, req, new Set([...seen, q]));
     return n;
   };
   const contentReqs = (name) => CONTENT_REQS.filter((r) => name && r.match.test(name));
@@ -1684,7 +1714,7 @@ export function planRoute(snap, goals = []) {
     switch (g.type) {
       case "skill": root = levelNode(g.skill, g.level); break;
       case "xp": root = skillNode(g.skill, g.xp, `Push ${cap(g.skill)} to ${fmt(g.xp)} XP`); break;
-      case "quest": root = questNode(g.quest); break;
+      case "quest": root = questNode(g.quest, new Set(), true); break;
       case "diary": {
         root = node(`goal:${g.id}`, { kind: "goal", title });
         const req = DIARY_REQS[g.region]?.[g.tier];
@@ -1757,7 +1787,7 @@ export function planRoute(snap, goals = []) {
   }
   const timed = steps.filter((s) => s.hours);
   return {
-    steps, done, skipped, unknown: [...unknown],
+    steps, done, skipped, unknown: [...unknown], unchecked: [...unchecked].sort(),
     total: { low: timed.reduce((t, s) => t + s.hours.low, 0), high: timed.reduce((t, s) => t + s.hours.high, 0), timed: timed.length, untimed: steps.length - timed.length },
   };
 }

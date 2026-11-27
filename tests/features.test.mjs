@@ -2,6 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { candidates, compactProfile, sinceLast, accountKind } from "../web/recommender.js";
 import { loadDropRates, sampleAccount, fullAccount } from "./test-account.mjs";
 
@@ -188,6 +189,23 @@ test("planner: shared requirements come once, before everything that needs them"
   assert.ok(agility.hours, "Agility has wiki rates");
   assert.deepEqual(plan.skipped, ["Fire cape"]);
   assert.ok(plan.total.timed >= 1 && plan.total.low <= plan.total.high);
+});
+
+test("planner: follows the whole quest chain from the wiki snapshot, with no gaps", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const plan = planRoute(fullAccount(), [{ id: "a", type: "quest", quest: "Dragon Slayer II" }]);
+  assert.deepEqual(plan.unknown, [], "every quest on the way has known requirements");
+  const at = (key) => plan.steps.findIndex((s) => s.key === key);
+  // Every quest step comes after the quests it needs that aren't finished yet.
+  const reqs = JSON.parse(readFileSync(new URL("../web/data/quest-reqs.json", import.meta.url), "utf8")).quests;
+  for (const s of plan.steps.filter((s) => s.key.startsWith("quest:"))) {
+    for (const p of reqs[s.key.slice(6)]?.quests ?? []) {
+      if (at(`quest:${p}`) >= 0) assert.ok(at(`quest:${p}`) < at(s.key), `${p} before ${s.title}`);
+    }
+  }
+  // Requirements that aren't a level or a quest are shown on the step.
+  const bone = plan.steps.find((s) => s.key === "quest:Bone Voyage");
+  if (bone) assert.match(bone.note, /100 Kudos/);
 });
 
 test("planner: finished goals and met requirements are left out", async () => {

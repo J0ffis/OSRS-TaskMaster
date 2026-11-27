@@ -1,0 +1,2246 @@
+{
+ "generated": "2026-11-27",
+ "source": "OSRS Wiki (oldschool.runescape.wiki), CC BY-NC-SA 3.0",
+ "quests": {
+  "A Kingdom Divided": {
+   "skills": {
+    "agility": 54,
+    "thieving": 52,
+    "woodcutting": 52,
+    "herblore": 50,
+    "mining": 42,
+    "crafting": 38,
+    "magic": 35
+   },
+   "quests": [
+    "The Depths of Despair",
+    "The Queen of Thieves",
+    "The Ascent of Arceuus",
+    "The Forsaken Tower",
+    "Tale of the Righteous",
+    "Client of Kourend"
+   ],
+   "length": "Long"
+  },
+  "A New Leaf": {
+   "skills": {
+    "farming": 45,
+    "cooking": 35,
+    "herblore": 32
+   },
+   "quests": [
+    "Priest in Peril"
+   ],
+   "other": [
+    "Have completed at least one farming contract"
+   ],
+   "length": "Short"
+  },
+  "A Night at the Theatre": {
+   "quests": [
+    "A Taste of Hope"
+   ],
+   "length": "Medium"
+  },
+  "A Porcine of Interest": {
+   "length": "Very Short"
+  },
+  "A Ruff Situation": {
+   "skills": {
+    "crafting": 15
+   },
+   "length": "Short"
+  },
+  "A Shell of a Friend": {
+   "skills": {
+    "herblore": 16,
+    "construction": 15
+   },
+   "quests": [
+    "Priest in Peril"
+   ],
+   "length": "Very Short"
+  },
+  "A Soul's Bane": {
+   "fights": [
+    "The ability to defeat level 45+ enemies."
+   ],
+   "length": "Short"
+  },
+  "A Tail of Two Cats": {
+   "quests": [
+    "Icthlarin's Little Helper"
+   ],
+   "length": "Medium"
+  },
+  "A Taste of Hope": {
+   "skills": {
+    "crafting": 48,
+    "agility": 45,
+    "attack": 40,
+    "herblore": 40,
+    "slayer": 38
+   },
+   "quests": [
+    "Darkness of Hallowvale"
+   ],
+   "length": "Medium"
+  },
+  "Alfred Grimhand's Barcrawl": {
+   "length": "Medium"
+  },
+  "Animal Magnetism": {
+   "skills": {
+    "woodcutting": 35,
+    "ranged": 30,
+    "crafting": 19,
+    "slayer": 18
+   },
+   "quests": [
+    "The Restless Ghost",
+    "Ernest the Chicken",
+    "Priest in Peril"
+   ],
+   "length": "Medium"
+  },
+  "Another Slice of H.A.M.": {
+   "skills": {
+    "prayer": 25,
+    "attack": 15
+   },
+   "quests": [
+    "Death to the Dorgeshuun",
+    "The Giant Dwarf",
+    "The Dig Site"
+   ],
+   "fights": [
+    "The ability to defeat a level 64 (using any combat style) and two level 30 enemies using either Ranged or Magic."
+   ],
+   "length": "Short"
+  },
+  "Architectural Alliance": {
+   "skills": {
+    "mining": 42
+   },
+   "other": [
+    "Various skills depending on the favour activities done"
+   ],
+   "length": "Long"
+  },
+  "At First Light": {
+   "skills": {
+    "hunter": 46,
+    "herblore": 30,
+    "construction": 27
+   },
+   "quests": [
+    "Children of the Sun",
+    "Eagles' Peak"
+   ],
+   "length": "Short"
+  },
+  "Barbarian Training": {
+   "skills": {
+    "fishing": 55,
+    "firemaking": 35,
+    "strength": 35,
+    "agility": 15,
+    "farming": 15,
+    "crafting": 11,
+    "smithing": 5,
+    "herblore": 4
+   },
+   "quests": [
+    "Tai Bwo Wannai Trio"
+   ],
+   "length": "Medium"
+  },
+  "Bear Your Soul": {
+   "length": "Short"
+  },
+  "Below Ice Mountain": {
+   "questPoints": 16,
+   "length": "Short"
+  },
+  "Beneath Cursed Sands": {
+   "skills": {
+    "agility": 62,
+    "crafting": 55,
+    "firemaking": 55
+   },
+   "quests": [
+    "Contact!"
+   ],
+   "length": "Medium"
+  },
+  "Between a Rock...": {
+   "skills": {
+    "smithing": 50,
+    "mining": 40,
+    "defence": 30
+   },
+   "quests": [
+    "Dwarf Cannon",
+    "Fishing Contest"
+   ],
+   "fights": [
+    "The ability to defeat a level 75-125 enemy (depends on how much gold you mine)"
+   ],
+   "length": "Medium"
+  },
+  "Big Chompy Bird Hunting": {
+   "skills": {
+    "cooking": 30,
+    "ranged": 30,
+    "fletching": 5
+   },
+   "fights": [
+    "The ability to defend against level 64 wolves and level 53 ogres"
+   ],
+   "length": "Short"
+  },
+  "Biohazard": {
+   "quests": [
+    "Plague City"
+   ],
+   "length": "Short"
+  },
+  "Black Knights' Fortress": {
+   "questPoints": 12,
+   "fights": [
+    "The ability to evade level 33 Black Knights"
+   ],
+   "length": "Very Short"
+  },
+  "Bone Voyage": {
+   "quests": [
+    "The Dig Site"
+   ],
+   "other": [
+    "100 Kudos"
+   ],
+   "length": "Short"
+  },
+  "Burial at Sea": {
+   "skills": {
+    "sailing": 42,
+    "smithing": 38,
+    "construction": 32
+   },
+   "quests": [
+    "Pandemonium",
+    "Recipe for Disaster - Pirate Pete"
+   ]
+  },
+  "Cabin Fever": {
+   "skills": {
+    "smithing": 50,
+    "crafting": 45,
+    "agility": 42,
+    "ranged": 40
+   },
+   "quests": [
+    "Pirate's Treasure",
+    "Rum Deal"
+   ],
+   "length": "Short"
+  },
+  "Children of the Sun": {
+   "length": "Very Short"
+  },
+  "Client of Kourend": {
+   "quests": [
+    "X Marks the Spot"
+   ],
+   "length": "Short"
+  },
+  "Clock Tower": {
+   "fights": [
+    "The ability to run past level 53 Ogres"
+   ],
+   "length": "Very Short"
+  },
+  "Cold War": {
+   "skills": {
+    "construction": 34,
+    "agility": 30,
+    "crafting": 30,
+    "thieving": 15,
+    "hunter": 10
+   },
+   "other": [
+    "Access to a crafting table 3"
+   ],
+   "length": "Medium"
+  },
+  "Contact!": {
+   "quests": [
+    "Prince Ali Rescue",
+    "Icthlarin's Little Helper"
+   ],
+   "length": "Short"
+  },
+  "Cook's Assistant": {
+   "length": "Very Short"
+  },
+  "Crab Quest": {
+   "skills": {
+    "sailing": 40,
+    "fishing": 30
+   },
+   "length": "Short"
+  },
+  "Creature of Fenkenstrain": {
+   "skills": {
+    "thieving": 25,
+    "crafting": 20
+   },
+   "quests": [
+    "Priest in Peril",
+    "The Restless Ghost"
+   ],
+   "fights": [
+    "Able to defeat a level 51 monster and run past level 72 monsters"
+   ],
+   "length": "Medium"
+  },
+  "Current Affairs": {
+   "skills": {
+    "sailing": 22,
+    "fishing": 10
+   },
+   "quests": [
+    "Pandemonium"
+   ],
+   "length": "Short"
+  },
+  "Curse of the Empty Lord": {
+   "skills": {
+    "prayer": 31
+   },
+   "quests": [
+    "Desert Treasure I",
+    "The Restless Ghost"
+   ],
+   "length": "Medium"
+  },
+  "Daddy's Home": {
+   "length": "Short"
+  },
+  "Darkness of Hallowvale": {
+   "skills": {
+    "strength": 40,
+    "magic": 33,
+    "crafting": 32,
+    "agility": 26,
+    "thieving": 22,
+    "mining": 20,
+    "construction": 5
+   },
+   "quests": [
+    "In Aid of the Myreque"
+   ],
+   "fights": [
+    "The ability to withstand several melee attacks from a level 169 enemy."
+   ],
+   "length": "Long"
+  },
+  "Death on the Isle": {
+   "skills": {
+    "thieving": 34,
+    "agility": 32
+   },
+   "quests": [
+    "Children of the Sun"
+   ],
+   "length": "Medium"
+  },
+  "Death Plateau": {
+   "length": "Short"
+  },
+  "Death to the Dorgeshuun": {
+   "skills": {
+    "agility": 23,
+    "thieving": 23
+   },
+   "quests": [
+    "The Lost Tribe"
+   ],
+   "fights": [
+    "The ability to defeat a level 50 enemy with Melee or Magic"
+   ],
+   "length": "Medium"
+  },
+  "Defender of Varrock": {
+   "skills": {
+    "smithing": 55,
+    "hunter": 52
+   },
+   "quests": [
+    "Shield of Arrav",
+    "Temple of Ikov",
+    "Below Ice Mountain",
+    "Family Crest",
+    "Garden of Tranquillity",
+    "What Lies Below",
+    "Romeo & Juliet",
+    "Demon Slayer"
+   ],
+   "length": "Medium"
+  },
+  "Demon Slayer": {
+   "fights": [
+    "The ability to defeat a level 27 demon aided by three level 20 Dark wizards and two level 7 Dark wizards using the Silverlight in melee."
+   ],
+   "length": "Short"
+  },
+  "Desert Treasure I": {
+   "skills": {
+    "thieving": 53,
+    "firemaking": 50,
+    "magic": 50,
+    "slayer": 10
+   },
+   "quests": [
+    "The Dig Site",
+    "Temple of Ikov",
+    "The Tourist Trap",
+    "Troll Stronghold",
+    "Priest in Peril",
+    "Waterfall Quest"
+   ],
+   "other": [
+    "Access to Morytania Graveyard"
+   ],
+   "length": "Long"
+  },
+  "Desert Treasure II - The Fallen Empire": {
+   "skills": {
+    "firemaking": 75,
+    "magic": 75,
+    "thieving": 70,
+    "herblore": 62,
+    "construction": 60,
+    "runecraft": 60
+   },
+   "quests": [
+    "Desert Treasure I",
+    "Secrets of the North",
+    "Enakhra's Lament",
+    "Temple of the Eye",
+    "The Garden of Death",
+    "Below Ice Mountain",
+    "His Faithful Servants"
+   ],
+   "length": "Very Long"
+  },
+  "Devious Minds": {
+   "skills": {
+    "smithing": 65,
+    "fletching": 50,
+    "runecraft": 50
+   },
+   "quests": [
+    "Wanted!",
+    "Troll Stronghold",
+    "Doric's Quest"
+   ],
+   "length": "Short"
+  },
+  "Doric's Quest": {
+   "length": "Very Short"
+  },
+  "Dragon Slayer I": {
+   "questPoints": 32,
+   "fights": [
+    "The ability to defeat a level 83 dragon"
+   ],
+   "length": "Medium"
+  },
+  "Dragon Slayer II": {
+   "skills": {
+    "magic": 75,
+    "smithing": 70,
+    "mining": 68,
+    "crafting": 62,
+    "agility": 60,
+    "thieving": 60,
+    "construction": 50,
+    "hitpoints": 50
+   },
+   "questPoints": 200,
+   "quests": [
+    "Legends' Quest",
+    "Dream Mentor",
+    "A Tail of Two Cats",
+    "Animal Magnetism",
+    "Ghosts Ahoy",
+    "Bone Voyage",
+    "Client of Kourend",
+    "Barbarian Training"
+   ],
+   "length": "Very Long"
+  },
+  "Dream Mentor": {
+   "combat": 85,
+   "quests": [
+    "Lunar Diplomacy",
+    "Eadgar's Ruse"
+   ],
+   "fights": [
+    "The ability to defeat 4 powerful monsters without the use of prayer"
+   ],
+   "length": "Medium"
+  },
+  "Druidic Ritual": {
+   "length": "Very Short"
+  },
+  "Dwarf Cannon": {
+   "length": "Short"
+  },
+  "Eadgar's Ruse": {
+   "skills": {
+    "herblore": 31
+   },
+   "quests": [
+    "Druidic Ritual",
+    "Troll Stronghold"
+   ],
+   "length": "Medium"
+  },
+  "Eagles' Peak": {
+   "skills": {
+    "hunter": 27
+   },
+   "length": "Short"
+  },
+  "Elemental Workshop I": {
+   "skills": {
+    "crafting": 20,
+    "mining": 20,
+    "smithing": 20
+   },
+   "length": "Very Short"
+  },
+  "Elemental Workshop II": {
+   "skills": {
+    "smithing": 30,
+    "magic": 20
+   },
+   "quests": [
+    "Elemental Workshop I"
+   ],
+   "length": "Short"
+  },
+  "Enakhra's Lament": {
+   "skills": {
+    "crafting": 50,
+    "firemaking": 45,
+    "prayer": 43,
+    "magic": 39
+   },
+   "other": [
+    "Must be on the standard spellbook"
+   ],
+   "length": "Medium"
+  },
+  "Enlightened Journey": {
+   "skills": {
+    "crafting": 36,
+    "farming": 30,
+    "firemaking": 20
+   },
+   "questPoints": 20,
+   "length": "Short"
+  },
+  "Enter the Abyss": {
+   "quests": [
+    "Rune Mysteries"
+   ],
+   "length": "Very Short"
+  },
+  "Ernest the Chicken": {
+   "fights": [
+    "The ability to defend from a level 22 Skeleton."
+   ],
+   "length": "Very Short"
+  },
+  "Ethically Acquired Antiquities": {
+   "skills": {
+    "thieving": 25
+   },
+   "quests": [
+    "Children of the Sun",
+    "Shield of Arrav"
+   ],
+   "length": "Short"
+  },
+  "Fairytale I - Growing Pains": {
+   "quests": [
+    "Lost City",
+    "Nature Spirit"
+   ],
+   "fights": [
+    "The ability to defeat a level 111 Tanglefoot with limited weaponry"
+   ],
+   "length": "Medium"
+  },
+  "Fairytale II - Cure a Queen": {
+   "skills": {
+    "herblore": 57,
+    "farming": 49,
+    "thieving": 40
+   },
+   "quests": [
+    "Fairytale I - Growing Pains"
+   ],
+   "length": "Medium"
+  },
+  "Fairytale III - Nexus of Power": {},
+  "Fallen From Grace": {
+   "skills": {
+    "sailing": 62,
+    "crafting": 60,
+    "mining": 53,
+    "runecraft": 47
+   },
+   "quests": [
+    "Pandemonium"
+   ],
+   "length": "Short"
+  },
+  "Family Crest": {
+   "skills": {
+    "magic": 59,
+    "crafting": 40,
+    "mining": 40,
+    "smithing": 40
+   },
+   "fights": [
+    "The ability to defeat a level 170 demon (can be safespotted)"
+   ],
+   "length": "Medium"
+  },
+  "Family Pest": {
+   "quests": [
+    "Family Crest"
+   ],
+   "length": "Short"
+  },
+  "Fight Arena": {
+   "fights": [
+    "The ability to defeat level 44, 63 and 137 enemies (all can be safespotted)"
+   ],
+   "length": "Short"
+  },
+  "Fishing Contest": {
+   "skills": {
+    "fishing": 10
+   },
+   "length": "Very Short"
+  },
+  "Fool's Gold": {
+   "quests": [
+    "Beneath Cursed Sands"
+   ]
+  },
+  "Forgettable Tale...": {
+   "skills": {
+    "cooking": 22,
+    "farming": 17
+   },
+   "quests": [
+    "The Giant Dwarf",
+    "Fishing Contest"
+   ],
+   "length": "Long"
+  },
+  "Garden of Tranquillity": {
+   "skills": {
+    "farming": 25
+   },
+   "quests": [
+    "Creature of Fenkenstrain"
+   ],
+   "length": "Long"
+  },
+  "Gertrude's Cat": {
+   "length": "Very Short"
+  },
+  "Getting Ahead": {
+   "skills": {
+    "crafting": 30,
+    "construction": 26
+   },
+   "length": "Short"
+  },
+  "Ghosts Ahoy": {
+   "skills": {
+    "agility": 25,
+    "cooking": 20
+   },
+   "quests": [
+    "Priest in Peril",
+    "The Restless Ghost"
+   ],
+   "length": "Medium"
+  },
+  "Goblin Diplomacy": {
+   "length": "Very Short"
+  },
+  "Grim Tales": {
+   "skills": {
+    "woodcutting": 71,
+    "agility": 59,
+    "thieving": 58,
+    "herblore": 52,
+    "farming": 45
+   },
+   "quests": [
+    "Witch's House"
+   ],
+   "fights": [
+    "Ability to defeat a level 138 cloud giant—Glod"
+   ],
+   "length": "Medium"
+  },
+  "Haunted Mine": {
+   "skills": {
+    "crafting": 35
+   },
+   "quests": [
+    "Priest in Peril"
+   ],
+   "other": [
+    "Access to Abandoned Mine"
+   ],
+   "fights": [
+    "The ability to defeat a level 95 enemy"
+   ],
+   "length": "Short"
+  },
+  "Hazeel Cult": {
+   "fights": [
+    "Able to defeat a level 13 cultist (this applies only if you're taking Ceril's side)"
+   ],
+   "length": "Very Short"
+  },
+  "Heroes' Quest": {
+   "skills": {
+    "cooking": 53,
+    "fishing": 53,
+    "mining": 50,
+    "herblore": 25
+   },
+   "questPoints": 55,
+   "quests": [
+    "Shield of Arrav",
+    "Lost City",
+    "Merlin's Crystal",
+    "Dragon Slayer I"
+   ],
+   "other": [
+    "A partner"
+   ],
+   "length": "Medium"
+  },
+  "His Faithful Servants": {
+   "quests": [
+    "Priest in Peril"
+   ],
+   "length": "Very Short"
+  },
+  "Holy Grail": {
+   "skills": {
+    "attack": 20
+   },
+   "quests": [
+    "Merlin's Crystal"
+   ],
+   "fights": [
+    "Must be able to defeat a level 120 Black Knight Titan (can be safespotted or flinched)"
+   ],
+   "length": "Short"
+  },
+  "Hopespear's Will": {
+   "skills": {
+    "prayer": 50
+   },
+   "quests": [
+    "The Restless Ghost",
+    "Desert Treasure I",
+    "Fairytale II - Cure a Queen",
+    "Land of the Goblins"
+   ],
+   "length": "Short"
+  },
+  "Horror from the Deep": {
+   "skills": {
+    "agility": 35
+   },
+   "quests": [
+    "Alfred Grimhand's Barcrawl"
+   ],
+   "length": "Short"
+  },
+  "Icthlarin's Little Helper": {
+   "quests": [
+    "Gertrude's Cat"
+   ],
+   "fights": [
+    "The ability to defeat a level 91 monster."
+   ],
+   "length": "Medium"
+  },
+  "Imp Catcher": {
+   "length": "Short"
+  },
+  "In Aid of the Myreque": {
+   "skills": {
+    "agility": 25,
+    "crafting": 25,
+    "mining": 15,
+    "magic": 7
+   },
+   "quests": [
+    "In Search of the Myreque"
+   ],
+   "length": "Medium"
+  },
+  "In Search of Knowledge": {
+   "length": "Medium"
+  },
+  "In Search of the Myreque": {
+   "skills": {
+    "agility": 25
+   },
+   "quests": [
+    "Nature Spirit"
+   ],
+   "fights": [
+    "The ability to defeat a level 97 foe (safespottable)"
+   ],
+   "length": "Short"
+  },
+  "Into the Tombs": {
+   "quests": [
+    "Beneath Cursed Sands"
+   ],
+   "length": "Medium"
+  },
+  "Jungle Potion": {
+   "skills": {
+    "herblore": 3
+   },
+   "quests": [
+    "Druidic Ritual"
+   ],
+   "fights": [
+    "The ability to defend against level 53 Jogres and level 46 Harpie Bug Swarms."
+   ],
+   "length": "Short"
+  },
+  "King's Ransom": {
+   "skills": {
+    "defence": 65,
+    "magic": 45
+   },
+   "quests": [
+    "Black Knights' Fortress",
+    "Holy Grail",
+    "Murder Mystery",
+    "One Small Favour"
+   ],
+   "length": "Medium"
+  },
+  "Lair of Tarn Razorlor": {
+   "skills": {
+    "slayer": 40
+   },
+   "quests": [
+    "Haunted Mine"
+   ],
+   "length": "Medium"
+  },
+  "Land of the Goblins": {
+   "skills": {
+    "herblore": 48,
+    "thieving": 45,
+    "fishing": 40,
+    "agility": 38
+   },
+   "quests": [
+    "Another Slice of H.A.M.",
+    "Fishing Contest"
+   ],
+   "length": "Medium"
+  },
+  "Learning the Ropes": {
+   "length": "Very Short"
+  },
+  "Legends' Quest": {
+   "skills": {
+    "magic": 56,
+    "mining": 52,
+    "agility": 50,
+    "crafting": 50,
+    "smithing": 50,
+    "strength": 50,
+    "thieving": 50,
+    "woodcutting": 50,
+    "herblore": 45,
+    "prayer": 42
+   },
+   "questPoints": 107,
+   "quests": [
+    "Family Crest",
+    "Heroes' Quest",
+    "Shilo Village",
+    "Underground Pass",
+    "Waterfall Quest"
+   ],
+   "fights": [
+    "The ability to defeat a level 187 demon"
+   ],
+   "length": "Long"
+  },
+  "Lost City": {
+   "skills": {
+    "woodcutting": 36,
+    "crafting": 31
+   },
+   "fights": [
+    "Ability to kill a level 101 Tree spirit with limited armour and weapons."
+   ],
+   "length": "Short"
+  },
+  "Lost Lover": {
+   "length": "Very Short"
+  },
+  "Lunar Diplomacy": {
+   "skills": {
+    "magic": 65,
+    "crafting": 61,
+    "mining": 60,
+    "woodcutting": 55,
+    "firemaking": 49,
+    "defence": 40,
+    "herblore": 5
+   },
+   "quests": [
+    "The Fremennik Trials",
+    "Lost City",
+    "Rune Mysteries",
+    "Shilo Village"
+   ],
+   "other": [
+    "Access to each of the elemental runic altars (Air, Fire, Water, Earth)"
+   ],
+   "fights": [
+    "The ability to kill multiple level 111 monsters."
+   ],
+   "length": "Long"
+  },
+  "Mage Arena I": {
+   "skills": {
+    "magic": 60
+   },
+   "length": "Short"
+  },
+  "Mage Arena II": {
+   "skills": {
+    "magic": 75
+   },
+   "quests": [
+    "Mage Arena I"
+   ],
+   "other": [
+    "Cast Claws of Guthix, Flames of Zamorak, and Saradomin Strike each 100 times inside the Mage Arena."
+   ],
+   "length": "Medium"
+  },
+  "Making Friends with My Arm": {
+   "skills": {
+    "mining": 72,
+    "agility": 68,
+    "firemaking": 66,
+    "construction": 35
+   },
+   "quests": [
+    "My Arm's Big Adventure",
+    "Swan Song",
+    "Cold War",
+    "Romeo & Juliet"
+   ],
+   "length": "Medium"
+  },
+  "Making History": {
+   "quests": [
+    "Priest in Peril",
+    "The Restless Ghost"
+   ],
+   "length": "Short"
+  },
+  "Meat and Greet": {
+   "quests": [
+    "Children of the Sun"
+   ],
+   "length": "Short"
+  },
+  "Merlin's Crystal": {
+   "fights": [
+    "Must be able to defeat a level 39 enemy."
+   ],
+   "length": "Short"
+  },
+  "Misthalin Mystery": {
+   "length": "Short"
+  },
+  "Monk's Friend": {
+   "fights": [
+    "The ability to run past two level 14 thieves, and one level 26."
+   ],
+   "length": "Very Short"
+  },
+  "Monkey Madness I": {
+   "quests": [
+    "The Grand Tree",
+    "Tree Gnome Village"
+   ],
+   "fights": [
+    "The ability to defeat a level 195 Jungle Demon"
+   ],
+   "length": "Long"
+  },
+  "Monkey Madness II": {
+   "skills": {
+    "crafting": 70,
+    "slayer": 69,
+    "firemaking": 60,
+    "hunter": 60,
+    "agility": 55,
+    "thieving": 55
+   },
+   "quests": [
+    "Enlightened Journey",
+    "The Eyes of Glouphrie",
+    "Recipe for Disaster - King Awowogei",
+    "Troll Stronghold",
+    "Watchtower"
+   ],
+   "length": "Very Long"
+  },
+  "Mountain Daughter": {
+   "skills": {
+    "agility": 20
+   },
+   "fights": [
+    "The ability to defeat a level 70 monster (can be safespotted)"
+   ],
+   "length": "Medium"
+  },
+  "Mourning's End Part I": {
+   "skills": {
+    "ranged": 60,
+    "thieving": 50
+   },
+   "quests": [
+    "Roving Elves",
+    "Big Chompy Bird Hunting",
+    "Sheep Herder"
+   ],
+   "fights": [
+    "The ability to defeat a level 11 enemy with your combat stats set to 20 each."
+   ],
+   "length": "Medium"
+  },
+  "Mourning's End Part II": {
+   "quests": [
+    "Mourning's End Part I"
+   ],
+   "length": "Long"
+  },
+  "Mudfoot's Big Adventure": {
+   "length": "Very Short"
+  },
+  "Murder Mystery": {
+   "length": "Short"
+  },
+  "My Arm's Big Adventure": {
+   "skills": {
+    "farming": 29,
+    "woodcutting": 10
+   },
+   "quests": [
+    "Eadgar's Ruse",
+    "The Feud",
+    "Jungle Potion"
+   ],
+   "other": [
+    "At least 60% favour in the Tai Bwo Wannai Cleanup minigame before starting this quest - this will be subtracted from the total favour"
+   ],
+   "length": "Medium"
+  },
+  "Nature Spirit": {
+   "quests": [
+    "Priest in Peril",
+    "The Restless Ghost"
+   ],
+   "length": "Short"
+  },
+  "Observatory Quest": {
+   "length": "Short"
+  },
+  "Olaf's Quest": {
+   "skills": {
+    "woodcutting": 50,
+    "firemaking": 40
+   },
+   "quests": [
+    "The Fremennik Trials"
+   ],
+   "fights": [
+    "The ability to defeat a level 100 monster"
+   ],
+   "length": "Short"
+  },
+  "One Small Favour": {
+   "skills": {
+    "agility": 36,
+    "smithing": 30,
+    "crafting": 25,
+    "herblore": 18
+   },
+   "quests": [
+    "Rune Mysteries",
+    "Shilo Village"
+   ],
+   "length": "Long"
+  },
+  "Pandemonium": {
+   "length": "Short"
+  },
+  "Perilous Moons": {
+   "skills": {
+    "slayer": 48,
+    "fishing": 20,
+    "hunter": 20,
+    "runecraft": 20,
+    "construction": 10
+   },
+   "quests": [
+    "Twilight's Promise"
+   ],
+   "length": "Medium"
+  },
+  "Pirate's Treasure": {
+   "fights": [
+    "Able to defeat or run away from a Combat level 4 gardener."
+   ],
+   "length": "Very Short"
+  },
+  "Plague City": {
+   "length": "Very Short"
+  },
+  "Priest in Peril": {
+   "length": "Short"
+  },
+  "Prince Ali Rescue": {
+   "fights": [
+    "The ability to get past aggressive combat level 26 jail guards."
+   ],
+   "length": "Short"
+  },
+  "Prying Times": {
+   "skills": {
+    "smithing": 30,
+    "sailing": 12
+   },
+   "quests": [
+    "Pandemonium",
+    "The Knight's Sword"
+   ],
+   "other": [
+    "One open port task slot"
+   ],
+   "length": "Short"
+  },
+  "Rag and Bone Man I": {
+   "length": "Short"
+  },
+  "Rag and Bone Man II": {
+   "skills": {
+    "slayer": 40,
+    "defence": 20
+   },
+   "quests": [
+    "Rag and Bone Man I",
+    "Skippy and the Mogres",
+    "Creature of Fenkenstrain"
+   ],
+   "fights": [
+    "The ability to kill several high-level monsters"
+   ],
+   "length": "Medium"
+  },
+  "Rag and Bone Man III": {
+   "skills": {
+    "slayer": 58
+   },
+   "quests": [
+    "Rag and Bone Man II",
+    "Dragon Slayer I",
+    "The Great Brain Robbery",
+    "Defender of Varrock",
+    "Tower of Life",
+    "A Soul's Bane"
+   ],
+   "length": "Medium"
+  },
+  "Ratcatchers": {
+   "quests": [
+    "Icthlarin's Little Helper",
+    "The Giant Dwarf"
+   ],
+   "other": [
+    "Access to Keldagrim"
+   ],
+   "length": "Medium"
+  },
+  "Recipe for Disaster": {
+   "skills": {
+    "cooking": 70,
+    "magic": 59,
+    "fishing": 53,
+    "thieving": 53,
+    "firemaking": 50,
+    "mining": 50,
+    "agility": 48,
+    "crafting": 40,
+    "ranged": 40,
+    "smithing": 40,
+    "woodcutting": 36,
+    "herblore": 25,
+    "fletching": 10
+   },
+   "questPoints": 175,
+   "quests": [
+    "Recipe for Disaster - Another Cook's Quest",
+    "Fishing Contest",
+    "Goblin Diplomacy",
+    "Big Chompy Bird Hunting",
+    "Murder Mystery",
+    "Nature Spirit",
+    "Witch's House",
+    "Gertrude's Cat",
+    "Shadow of the Storm",
+    "Legends' Quest",
+    "Monkey Madness I",
+    "Desert Treasure I",
+    "Horror from the Deep"
+   ],
+   "fights": [
+    "The ability to defeat high levelled monsters, several of which have to be defeated without using Prayer"
+   ],
+   "length": "Very Long"
+  },
+  "Recipe for Disaster - Another Cook's Quest": {
+   "skills": {
+    "cooking": 10
+   },
+   "quests": [
+    "Cook's Assistant"
+   ],
+   "length": "Short"
+  },
+  "Recipe for Disaster - Culinaromancer": {
+   "questPoints": 175,
+   "quests": [
+    "Desert Treasure I",
+    "Horror from the Deep",
+    "Recipe for Disaster - Evil Dave",
+    "Recipe for Disaster - Wartface & Bentnoze",
+    "Recipe for Disaster - Lumbridge Guide",
+    "Recipe for Disaster - Mountain Dwarf",
+    "Recipe for Disaster - Pirate Pete",
+    "Recipe for Disaster - Sir Amik Varze",
+    "Recipe for Disaster - Skrach Uglogwee",
+    "Recipe for Disaster - King Awowogei"
+   ],
+   "fights": [
+    "The ability to defeat all enemies without Prayer"
+   ],
+   "length": "Short"
+  },
+  "Recipe for Disaster - Evil Dave": {
+   "quests": [
+    "Gertrude's Cat",
+    "Recipe for Disaster - Another Cook's Quest",
+    "Shadow of the Storm"
+   ],
+   "length": "Medium"
+  },
+  "Recipe for Disaster - King Awowogei": {
+   "skills": {
+    "cooking": 70,
+    "agility": 48
+   },
+   "quests": [
+    "Monkey Madness I",
+    "Recipe for Disaster - Another Cook's Quest"
+   ],
+   "fights": [
+    "The ability to defeat a level 84 Big Snake"
+   ],
+   "length": "Long"
+  },
+  "Recipe for Disaster - Lumbridge Guide": {
+   "skills": {
+    "cooking": 40
+   },
+   "quests": [
+    "Big Chompy Bird Hunting",
+    "Biohazard",
+    "Demon Slayer",
+    "Murder Mystery",
+    "Nature Spirit",
+    "Recipe for Disaster - Another Cook's Quest",
+    "Witch's House"
+   ],
+   "length": "Short"
+  },
+  "Recipe for Disaster - Mountain Dwarf": {
+   "quests": [
+    "Recipe for Disaster - Another Cook's Quest",
+    "Fishing Contest"
+   ],
+   "fights": [
+    "The ability to defeat a level 13 icefiend if you don't have the ice gloves."
+   ],
+   "length": "Short"
+  },
+  "Recipe for Disaster - Pirate Pete": {
+   "skills": {
+    "cooking": 31
+   },
+   "quests": [
+    "Recipe for Disaster - Another Cook's Quest"
+   ],
+   "fights": [
+    "The ability to defeat 5 level 30 monsters."
+   ],
+   "length": "Medium"
+  },
+  "Recipe for Disaster - Sir Amik Varze": {
+   "questPoints": 107,
+   "quests": [
+    "Legends' Quest",
+    "Family Crest",
+    "Heroes' Quest",
+    "Recipe for Disaster - Another Cook's Quest",
+    "Shilo Village",
+    "Underground Pass",
+    "Waterfall Quest"
+   ],
+   "other": [
+    "Access to the Kharazi Jungle"
+   ],
+   "fights": [
+    "The ability to defeat a level 227 Black dragon"
+   ],
+   "length": "Medium"
+  },
+  "Recipe for Disaster - Skrach Uglogwee": {
+   "skills": {
+    "cooking": 41,
+    "firemaking": 20
+   },
+   "quests": [
+    "Big Chompy Bird Hunting",
+    "Recipe for Disaster - Another Cook's Quest"
+   ],
+   "length": "Medium"
+  },
+  "Recipe for Disaster - Wartface & Bentnoze": {
+   "quests": [
+    "Recipe for Disaster - Another Cook's Quest",
+    "Goblin Diplomacy"
+   ],
+   "length": "Short"
+  },
+  "Recruitment Drive": {
+   "quests": [
+    "Black Knights' Fortress",
+    "Druidic Ritual"
+   ],
+   "length": "Short"
+  },
+  "Regicide": {
+   "skills": {
+    "agility": 56,
+    "crafting": 10
+   },
+   "quests": [
+    "Underground Pass"
+   ],
+   "fights": [
+    "The ability to defeat a level 110 Tyras guard (can be safespotted)"
+   ],
+   "length": "Long"
+  },
+  "Rogue Trader": {
+   "quests": [
+    "The Feud",
+    "Rune Mysteries",
+    "Icthlarin's Little Helper"
+   ],
+   "length": "Short - Medium"
+  },
+  "Romeo & Juliet": {
+   "length": "Short"
+  },
+  "Roving Elves": {
+   "skills": {
+    "agility": 56
+   },
+   "quests": [
+    "Regicide",
+    "Waterfall Quest"
+   ],
+   "fights": [
+    "The ability to defeat a level 84 enemy unarmed, with heavy restrictions"
+   ],
+   "length": "Short"
+  },
+  "Royal Trouble": {
+   "skills": {
+    "agility": 40,
+    "slayer": 40
+   },
+   "quests": [
+    "Throne of Miscellania"
+   ],
+   "length": "Medium"
+  },
+  "Rum Deal": {
+   "skills": {
+    "fishing": 50,
+    "prayer": 47,
+    "crafting": 42,
+    "slayer": 42,
+    "farming": 40
+   },
+   "quests": [
+    "Zogre Flesh Eaters",
+    "Priest in Peril"
+   ],
+   "fights": [
+    "The ability to kill a combat level 150 monster (can be safespotted)"
+   ],
+   "length": "Medium"
+  },
+  "Rune Mysteries": {
+   "length": "Short"
+  },
+  "Scorpion Catcher": {
+   "skills": {
+    "prayer": 31
+   },
+   "quests": [
+    "Alfred Grimhand's Barcrawl"
+   ],
+   "fights": [
+    "The ability to run past level 172 black demons and level 64 poison spiders"
+   ],
+   "length": "Short"
+  },
+  "Scrambled!": {
+   "skills": {
+    "construction": 38,
+    "cooking": 36,
+    "smithing": 35
+   },
+   "quests": [
+    "Children of the Sun"
+   ],
+   "length": "Short"
+  },
+  "Sea Slug": {
+   "skills": {
+    "firemaking": 30
+   },
+   "length": "Short"
+  },
+  "Secrets of the North": {
+   "skills": {
+    "agility": 69,
+    "thieving": 64,
+    "hunter": 56
+   },
+   "quests": [
+    "Making Friends with My Arm",
+    "The General's Shadow",
+    "Devious Minds",
+    "Hazeel Cult"
+   ],
+   "length": "Medium"
+  },
+  "Shades of Mort'ton": {
+   "skills": {
+    "crafting": 20,
+    "herblore": 15,
+    "firemaking": 5
+   },
+   "quests": [
+    "Priest in Peril"
+   ],
+   "other": [
+    "Access to Mort'ton"
+   ],
+   "fights": [
+    "Must be able to defeat 5 level-40 Loar Shades.",
+    "Must be able to survive an onslaught when rebuilding the Temple (Being surrounded by many players makes this much easier)."
+   ],
+   "length": "Short"
+  },
+  "Shadow of the Storm": {
+   "skills": {
+    "crafting": 30
+   },
+   "quests": [
+    "The Golem",
+    "Demon Slayer"
+   ],
+   "fights": [
+    "The ability to defeat a level 100 demon"
+   ],
+   "length": "Medium"
+  },
+  "Shadows of Custodia": {
+   "skills": {
+    "slayer": 54,
+    "fishing": 45,
+    "construction": 41,
+    "hunter": 36
+   },
+   "quests": [
+    "Children of the Sun"
+   ],
+   "length": "Short"
+  },
+  "Sheep Herder": {
+   "length": "Short"
+  },
+  "Sheep Shearer": {
+   "length": "Very Short"
+  },
+  "Shield of Arrav": {
+   "other": [
+    "A trustworthy friend or partner. Players can join the official chat-channel \"OSRS SOA\" to look for a partner."
+   ],
+   "length": "Short"
+  },
+  "Shilo Village": {
+   "skills": {
+    "agility": 32,
+    "crafting": 20
+   },
+   "quests": [
+    "Jungle Potion"
+   ],
+   "fights": [
+    "Must be able to defend from many Undead ones (level 61-73) and able to defeat three monsters that are about level 90."
+   ],
+   "length": "Medium"
+  },
+  "Sins of the Father": {
+   "skills": {
+    "woodcutting": 62,
+    "fletching": 60,
+    "crafting": 56,
+    "agility": 52,
+    "attack": 50,
+    "slayer": 50,
+    "magic": 49
+   },
+   "quests": [
+    "Vampyre Slayer",
+    "A Taste of Hope"
+   ],
+   "length": "Long"
+  },
+  "Skippy and the Mogres": {
+   "skills": {
+    "cooking": 20
+   },
+   "length": "Very Short"
+  },
+  "Sleeping Giants": {
+   "skills": {
+    "smithing": 15
+   },
+   "length": "Very Short"
+  },
+  "Song of the Elves": {
+   "skills": {
+    "agility": 70,
+    "construction": 70,
+    "farming": 70,
+    "herblore": 70,
+    "hunter": 70,
+    "mining": 70,
+    "smithing": 70,
+    "woodcutting": 70
+   },
+   "quests": [
+    "Mourning's End Part II",
+    "Making History",
+    "Druidic Ritual"
+   ],
+   "length": "Very Long"
+  },
+  "Spirit of Adventure": {
+   "length": "Very Short"
+  },
+  "Spirits of the Elid": {
+   "skills": {
+    "mining": 37,
+    "ranged": 37,
+    "thieving": 37,
+    "magic": 33
+   },
+   "fights": [
+    "Ability to defeat three level 75 golems"
+   ],
+   "length": "Short"
+  },
+  "Swan Song": {
+   "skills": {
+    "magic": 66,
+    "cooking": 62,
+    "fishing": 62,
+    "smithing": 45,
+    "firemaking": 42,
+    "crafting": 40
+   },
+   "questPoints": 100,
+   "quests": [
+    "One Small Favour",
+    "Garden of Tranquillity"
+   ],
+   "fights": [
+    "The ability to defeat a combat level 170 monster, which is able to use Magic, Melee and can drain Prayer."
+   ],
+   "length": "Medium"
+  },
+  "Tai Bwo Wannai Trio": {
+   "skills": {
+    "cooking": 30,
+    "agility": 15,
+    "fishing": 5
+   },
+   "quests": [
+    "Jungle Potion"
+   ],
+   "length": "Medium"
+  },
+  "Tale of the Righteous": {
+   "skills": {
+    "strength": 16,
+    "mining": 10
+   },
+   "quests": [
+    "Client of Kourend"
+   ],
+   "length": "Short"
+  },
+  "Tears of Guthix": {
+   "skills": {
+    "firemaking": 49,
+    "crafting": 20,
+    "mining": 20
+   },
+   "questPoints": 43,
+   "length": "Very Short"
+  },
+  "Temple of Ikov": {
+   "skills": {
+    "thieving": 42,
+    "ranged": 40
+   },
+   "fights": [
+    "The ability to defeat a level 84 enemy with Ranged"
+   ],
+   "length": "Medium"
+  },
+  "Temple of the Eye": {
+   "skills": {
+    "runecraft": 10
+   },
+   "quests": [
+    "Enter the Abyss"
+   ],
+   "length": "Short"
+  },
+  "The Ascent of Arceuus": {
+   "skills": {
+    "hunter": 12
+   },
+   "quests": [
+    "Client of Kourend"
+   ],
+   "length": "Short"
+  },
+  "The Birds and the Wasps": {
+   "length": "Short"
+  },
+  "The Blood Moon Rises": {
+   "skills": {
+    "slayer": 74,
+    "woodcutting": 74,
+    "cooking": 72,
+    "smithing": 72,
+    "fletching": 70,
+    "mining": 66,
+    "hunter": 65,
+    "crafting": 64,
+    "herblore": 64,
+    "magic": 57
+   },
+   "quests": [
+    "A Night at the Theatre",
+    "Sins of the Father"
+   ],
+   "length": "Very Long"
+  },
+  "The Chosen Commander": {
+   "skills": {
+    "agility": 58,
+    "thieving": 54,
+    "strength": 46
+   },
+   "quests": [
+    "Land of the Goblins"
+   ]
+  },
+  "The Corsair Curse": {
+   "length": "Short"
+  },
+  "The Curse of Arrav": {
+   "skills": {
+    "mining": 64,
+    "ranged": 62,
+    "thieving": 62,
+    "agility": 61,
+    "strength": 58,
+    "slayer": 37
+   },
+   "quests": [
+    "Defender of Varrock",
+    "Troll Romance"
+   ],
+   "length": "Medium"
+  },
+  "The Depths of Despair": {
+   "skills": {
+    "agility": 18
+   },
+   "quests": [
+    "Client of Kourend"
+   ],
+   "fights": [
+    "Ability to kill a level 36 Sand Snake"
+   ],
+   "length": "Short"
+  },
+  "The Dig Site": {
+   "skills": {
+    "thieving": 25,
+    "agility": 10,
+    "herblore": 10
+   },
+   "length": "Medium"
+  },
+  "The Enchanted Key": {
+   "quests": [
+    "Making History"
+   ],
+   "length": "Medium"
+  },
+  "The Eyes of Glouphrie": {
+   "skills": {
+    "magic": 46,
+    "construction": 5
+   },
+   "quests": [
+    "The Grand Tree"
+   ],
+   "length": "Medium"
+  },
+  "The Feud": {
+   "skills": {
+    "thieving": 30
+   },
+   "fights": [
+    "The ability to kill a level 70 bandit and a level 75 Menaphite (both can be safespotted)."
+   ],
+   "length": "Medium"
+  },
+  "The Final Dawn": {
+   "skills": {
+    "thieving": 66,
+    "fletching": 52,
+    "runecraft": 52
+   },
+   "quests": [
+    "The Heart of Darkness",
+    "Perilous Moons"
+   ],
+   "length": "Long"
+  },
+  "The Forsaken Tower": {
+   "quests": [
+    "Client of Kourend"
+   ],
+   "length": "Short"
+  },
+  "The Fractured Archive": {
+   "quests": [
+    "While Guthix Sleeps"
+   ],
+   "length": "Medium"
+  },
+  "The Fremennik Exiles": {
+   "skills": {
+    "crafting": 65,
+    "fishing": 60,
+    "mining": 60,
+    "slayer": 60,
+    "smithing": 60,
+    "runecraft": 55
+   },
+   "quests": [
+    "The Fremennik Isles",
+    "Lunar Diplomacy",
+    "Mountain Daughter",
+    "Heroes' Quest"
+   ],
+   "length": "Medium"
+  },
+  "The Fremennik Isles": {
+   "skills": {
+    "construction": 20
+   },
+   "quests": [
+    "The Fremennik Trials"
+   ],
+   "fights": [
+    "The ability to kill a level 122 Troll King (Damage can be reduced) and, separately, 10 rock throwing ice trolls in a multicombat area."
+   ],
+   "length": "Medium"
+  },
+  "The Fremennik Trials": {
+   "fights": [
+    "Ability to defeat a level-69 Draugen",
+    "Ability to defeat a fairly strong warrior without armour, weapons, or spells"
+   ],
+   "length": "Medium"
+  },
+  "The Frozen Door": {
+   "skills": {
+    "agility": 70,
+    "hitpoints": 70,
+    "ranged": 70,
+    "strength": 70
+   },
+   "quests": [
+    "Desert Treasure I"
+   ],
+   "length": "Short"
+  },
+  "The Garden of Death": {
+   "skills": {
+    "farming": 20
+   },
+   "length": "Short"
+  },
+  "The General's Shadow": {
+   "quests": [
+    "Curse of the Empty Lord",
+    "Fight Arena"
+   ],
+   "length": "Medium"
+  },
+  "The Giant Dwarf": {
+   "skills": {
+    "magic": 33,
+    "firemaking": 16,
+    "thieving": 14,
+    "crafting": 12
+   },
+   "length": "Medium"
+  },
+  "The Golem": {
+   "skills": {
+    "thieving": 25,
+    "crafting": 20
+   },
+   "length": "Short"
+  },
+  "The Grand Tree": {
+   "skills": {
+    "agility": 25
+   },
+   "fights": [
+    "The ability to defeat a level 172 Black demon (safespottable for Ranged and Magic or melee using a halberd)."
+   ],
+   "length": "Medium"
+  },
+  "The Graveyard": {
+   "skills": {
+    "agility": 65,
+    "sailing": 65,
+    "woodcutting": 56,
+    "fletching": 54
+   },
+   "quests": [
+    "The Fremennik Exiles",
+    "Olaf's Quest",
+    "Pandemonium"
+   ],
+   "length": "Medium"
+  },
+  "The Great Brain Robbery": {
+   "skills": {
+    "prayer": 50,
+    "construction": 30,
+    "crafting": 16
+   },
+   "quests": [
+    "Creature of Fenkenstrain",
+    "Cabin Fever",
+    "Recipe for Disaster - Pirate Pete"
+   ],
+   "other": [
+    "Access to a player-owned house workshop and crafting table or the Grand Exchange"
+   ],
+   "fights": [
+    "Be able to kill a level 190 monster that can disable Prayers (can be safespotted without taking damage)."
+   ],
+   "length": "Medium"
+  },
+  "The Hand in the Sand": {
+   "skills": {
+    "crafting": 49,
+    "thieving": 17
+   },
+   "length": "Short"
+  },
+  "The Heart of Darkness": {
+   "skills": {
+    "mining": 55,
+    "slayer": 48,
+    "thieving": 48,
+    "agility": 46
+   },
+   "quests": [
+    "Twilight's Promise"
+   ],
+   "length": "Medium"
+  },
+  "The Ides of Milk": {
+   "length": "Short"
+  },
+  "The Knight's Sword": {
+   "skills": {
+    "mining": 10
+   },
+   "length": "Short"
+  },
+  "The Lost Tribe": {
+   "skills": {
+    "mining": 17,
+    "agility": 13,
+    "thieving": 13
+   },
+   "quests": [
+    "Goblin Diplomacy",
+    "Rune Mysteries"
+   ],
+   "length": "Short"
+  },
+  "The Path of Glouphrie": {
+   "skills": {
+    "strength": 60,
+    "slayer": 56,
+    "thieving": 56,
+    "ranged": 47,
+    "agility": 45
+   },
+   "quests": [
+    "The Eyes of Glouphrie",
+    "Waterfall Quest",
+    "Tree Gnome Village"
+   ],
+   "length": "Medium"
+  },
+  "The Queen of Thieves": {
+   "skills": {
+    "thieving": 20
+   },
+   "quests": [
+    "Client of Kourend"
+   ],
+   "length": "Very Short"
+  },
+  "The Red Reef": {
+   "skills": {
+    "sailing": 52,
+    "smithing": 48
+   },
+   "quests": [
+    "Troubled Tortugans"
+   ],
+   "length": "Medium"
+  },
+  "The Restless Ghost": {
+   "fights": [
+    "Capable of killing or running away from a combat level 13 skeleton."
+   ],
+   "length": "Short"
+  },
+  "The Ribbiting Tale of a Lily Pad Labour Dispute": {
+   "skills": {
+    "woodcutting": 15
+   },
+   "quests": [
+    "Children of the Sun"
+   ],
+   "length": "Very Short"
+  },
+  "The Slug Menace": {
+   "skills": {
+    "crafting": 30,
+    "runecraft": 30,
+    "slayer": 30,
+    "thieving": 30
+   },
+   "quests": [
+    "Wanted!",
+    "Sea Slug"
+   ],
+   "other": [
+    "You must have the Commorb in your inventory to start the quest."
+   ],
+   "fights": [
+    "The ability to defeat a level 62 enemy with Melee."
+   ],
+   "length": "Medium"
+  },
+  "The Tourist Trap": {
+   "skills": {
+    "smithing": 20,
+    "fletching": 10
+   },
+   "fights": [
+    "The ability to defeat a level 47 enemy"
+   ],
+   "length": "Medium"
+  },
+  "The Writing's on the Wall": {
+   "skills": {
+    "agility": 22,
+    "thieving": 20
+   },
+   "length": "Short"
+  },
+  "Throne of Miscellania": {
+   "quests": [
+    "Heroes' Quest",
+    "The Fremennik Trials"
+   ],
+   "length": "Medium"
+  },
+  "Tower of Life": {
+   "skills": {
+    "construction": 10
+   },
+   "length": "Medium"
+  },
+  "Tree Gnome Village": {
+   "fights": [
+    "The ability to defeat a level 112 Khazard warlord"
+   ],
+   "length": "Short"
+  },
+  "Tribal Totem": {
+   "skills": {
+    "thieving": 21
+   },
+   "length": "Very Short"
+  },
+  "Troll Romance": {
+   "skills": {
+    "agility": 28
+   },
+   "quests": [
+    "Troll Stronghold"
+   ],
+   "fights": [
+    "The ability to defeat a level 113 troll"
+   ],
+   "length": "Short"
+  },
+  "Troll Stronghold": {
+   "skills": {
+    "agility": 15
+   },
+   "quests": [
+    "Death Plateau"
+   ],
+   "fights": [
+    "The ability to defeat a level 113 Troll General (can be safespotted)"
+   ],
+   "length": "Short"
+  },
+  "Troubled Tortugans": {
+   "skills": {
+    "slayer": 51,
+    "construction": 48,
+    "hunter": 45,
+    "sailing": 45,
+    "woodcutting": 40,
+    "crafting": 34
+   },
+   "quests": [
+    "Pandemonium"
+   ],
+   "length": "Medium"
+  },
+  "Twilight's Promise": {
+   "quests": [
+    "Children of the Sun"
+   ],
+   "length": "Short"
+  },
+  "Underground Pass": {
+   "skills": {
+    "ranged": 25
+   },
+   "quests": [
+    "Biohazard"
+   ],
+   "length": "Long"
+  },
+  "Vale Totems": {
+   "skills": {
+    "fletching": 20
+   },
+   "quests": [
+    "Children of the Sun"
+   ],
+   "length": "Very Short"
+  },
+  "Vampyre Slayer": {
+   "fights": [
+    "Able to defeat a combat level 34 vampyre with a very high health recovery rate."
+   ],
+   "length": "Very Short"
+  },
+  "Wanted!": {
+   "questPoints": 32,
+   "quests": [
+    "Recruitment Drive",
+    "The Lost Tribe",
+    "Priest in Peril",
+    "Enter the Abyss"
+   ],
+   "fights": [
+    "The ability to defeat a level 32 Black Knight."
+   ],
+   "length": "Medium"
+  },
+  "Watchtower": {
+   "skills": {
+    "mining": 40,
+    "agility": 25,
+    "thieving": 15,
+    "herblore": 14,
+    "magic": 14
+   },
+   "fights": [
+    "The ability to defeat a level 68 Ogre and run past level 111 Blue dragons"
+   ],
+   "length": "Medium"
+  },
+  "Waterfall Quest": {
+   "fights": [
+    "The ability to withstand and evade attacks from level 86 Fire Giants and level 84 Moss Guardian without any equipment."
+   ],
+   "length": "Short"
+  },
+  "What Lies Below": {
+   "skills": {
+    "runecraft": 35
+   },
+   "quests": [
+    "Rune Mysteries"
+   ],
+   "length": "Short"
+  },
+  "While Guthix Sleeps": {
+   "skills": {
+    "attack": 99,
+    "strength": 99,
+    "thieving": 72,
+    "magic": 67,
+    "agility": 66,
+    "farming": 65,
+    "herblore": 65,
+    "hunter": 62,
+    "firemaking": 49
+   },
+   "questPoints": 180,
+   "quests": [
+    "Defender of Varrock",
+    "The Path of Glouphrie",
+    "Fight Arena",
+    "Dream Mentor",
+    "The Hand in the Sand",
+    "Wanted!",
+    "Temple of the Eye",
+    "Tears of Guthix",
+    "Nature Spirit",
+    "A Tail of Two Cats"
+   ],
+   "length": "Very Long"
+  },
+  "Witch's House": {
+   "fights": [
+    "The ability to defeat 4 monsters from level 19 to 53 without a break."
+   ],
+   "length": "Very Short"
+  },
+  "Witch's Potion": {
+   "length": "Very Short"
+  },
+  "X Marks the Spot": {
+   "length": "Very Short"
+  },
+  "Zogre Flesh Eaters": {
+   "skills": {
+    "ranged": 30,
+    "herblore": 8,
+    "smithing": 4
+   },
+   "quests": [
+    "Big Chompy Bird Hunting",
+    "Jungle Potion"
+   ],
+   "fights": [
+    "You must be able to defeat a level 111 enemy."
+   ],
+   "length": "Short"
+  }
+ }
+}

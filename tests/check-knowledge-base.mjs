@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const loadGameNames = () => JSON.parse(readFileSync(join(root, "tests", "fixtures", "game-names.json"), "utf8"));
 export const loadDropRates = () => JSON.parse(readFileSync(join(root, "web", "data", "drop-rates.json"), "utf8"));
+export const loadQuestReqs = () => JSON.parse(readFileSync(join(root, "web", "data", "quest-reqs.json"), "utf8"));
 
 // Bosses that are real but have no combat achievements or collection log page of their own
 // (the Wilderness singles-plus versions share their page with the original boss).
@@ -59,7 +60,7 @@ function alternatives(re) {
 }
 
 /** Every problem in a knowledge base: { errors: [...], warnings: [...] } as readable lines. */
-export function checkKnowledgeBase(KB, game = loadGameNames(), drops = loadDropRates()) {
+export function checkKnowledgeBase(KB, game = loadGameNames(), drops = loadDropRates(), questReqs = loadQuestReqs()) {
 const errors = [];
 const warnings = [];
 const err = (where, msg) => errors.push(`${where}: ${msg}`);
@@ -205,6 +206,34 @@ for (const [k, v] of Object.entries(KB.SLAYER_KILLS_PER_HOUR)) {
   if (!(v > 0)) err("SLAYER_KILLS_PER_HOUR", `"${k}" needs a number of kills per hour above 0.`);
 }
 for (const k of Object.keys(KB.SLAYER_BOSSES)) if (k !== k.toLowerCase()) err("SLAYER_BOSSES", `"${k}" must be lower case.`);
+
+// ---- Hand quest tables vs the wiki snapshot (web/data/quest-reqs.json) -----------------------
+// The snapshot wins wherever it has a quest, so a hand entry that disagrees with it is either out
+// of date or a typo. Hand lists may name a prerequisite further down the chain; that's fine.
+const wiki = questReqs?.quests ?? {};
+const chain = (q, out = new Set()) => {
+  for (const p of wiki[q]?.quests ?? []) if (!out.has(p)) { out.add(p); chain(p, out); }
+  return out;
+};
+for (const [k, q] of Object.entries(KB.QUESTS)) {
+  const w = wiki[k];
+  if (!w) { warn("quest-reqs.json", `has no entry for "${k}" (QUESTS); re-run scripts/update-quest-reqs.mjs.`); continue; }
+  for (const [s, lvl] of Object.entries(q.reqs ?? {})) {
+    const wl = s === "combat" ? w.combat : w.skills?.[s];
+    if (wl !== lvl) warn(`QUESTS "${k}"`, `${lvl} ${s} here, ${wl ? `${wl} on the wiki` : "not needed on the wiki"}. The wiki's figure is used.`);
+  }
+}
+for (const [k, q] of Object.entries(KB.QUEST_PREREQS)) {
+  if (!wiki[k]) continue;
+  const all = chain(k);
+  for (const p of q.quests ?? []) if (!all.has(p)) warn(`QUEST_PREREQS "${k}"`, `needs "${p}" here, but the wiki doesn't list it anywhere in the chain.`);
+  if ((q.questPoints ?? 0) !== (wiki[k].questPoints ?? 0)) warn(`QUEST_PREREQS "${k}"`, `${q.questPoints ?? 0} quest points here, ${wiki[k].questPoints ?? 0} on the wiki.`);
+}
+for (const [region, tiers] of Object.entries(KB.DIARY_REQS)) {
+  for (const [tier, req] of Object.entries(tiers)) {
+    for (const q of req.quests ?? []) if (Object.keys(wiki).length && !wiki[q]) warn(`DIARY_REQS ${region} ${tier}`, `"${q}" has no entry in quest-reqs.json, so the planner can't follow its chain.`);
+  }
+}
 
 // ---- Drop rates coverage (information only) -------------------------------------------------
 const covered = new Set([...Object.keys(drops.items), ...(drops.noDrops ?? [])].map((n) => n.toLowerCase()));

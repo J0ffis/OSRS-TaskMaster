@@ -44,7 +44,7 @@ export const QUESTS = {
   "Secrets of the North": { why: "Unlocks the Phantom Muspah boss.", reqs: { agility: 69, thieving: 64, hunter: 56 }, weight: 5 },
   "Desert Treasure II - The Fallen Empire": { why: "Four new bosses and the ancient ring/virtus path.", reqs: { firemaking: 75, magic: 75, thieving: 70, herblore: 62, runecraft: 60, construction: 60 }, weight: 9 },
   "Lunar Diplomacy": { why: "Lunar spellbook: vengeance, NPC contact, plank make.", reqs: { herblore: 5, crafting: 61, defence: 40, firemaking: 49, magic: 65, mining: 60, woodcutting: 55 }, weight: 6 },
-  "Recipe for Disaster": { why: "Barrows gloves: best-in-slot gloves for most of the game.", reqs: { cooking: 70, agility: 48, mining: 50, fishing: 53, thieving: 53, herblore: 25, magic: 59, smithing: 40, firemaking: 50, ranged: 40, crafting: 40, fletching: 10, slayer: 10, woodcutting: 36 }, weight: 10, note: "Needs 175 quest points for the final subquest." },
+  "Recipe for Disaster": { why: "Barrows gloves: best-in-slot gloves for most of the game.", reqs: { cooking: 70, agility: 48, mining: 50, fishing: 53, thieving: 53, herblore: 25, magic: 59, smithing: 40, firemaking: 50, ranged: 40, crafting: 40, fletching: 10, woodcutting: 36 }, weight: 10, note: "Needs 175 quest points for the final subquest." },
 };
 
 // Achievement diary rewards per region. Each tier upgrades the item (e.g. "Ardougne cloak 2").
@@ -325,6 +325,9 @@ export const GROUP_CONTENT_BOOST = 5;
 export const TEAM_PAGES = new Set(["Corporeal Beast", "Nex", "The Nightmare"]);
 
 // ---- Requirements for "Within reach" -----------------------------------------------------
+// Quests: web/data/quest-reqs.json (every quest, made by scripts/update-quest-reqs.mjs) is used
+// first; QUEST_PREREQS and QUESTS[].reqs are the fallback if it fails to load, and
+// `npm run check` warns when they disagree with it.
 // Taken from the OSRS Wiki (November 2026). Used to tell how close a quest or diary tier is and
 // what's still missing. Skill levels are the highest needed anywhere in the quest or tier; boosts
 // can cover some of them. `combat` is combat level and `questPoints` quest points.
