@@ -7,7 +7,7 @@ import {
   CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates,
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
-  applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
+  applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections, profileIssues,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML } from "./game-icons.js";
@@ -337,10 +337,13 @@ const missingWhy = (n = 1) => `Profiles from older versions of the TaskMaster pl
 const isMissing = (key) => missingSections(state.raw).some((m) => m.key === key);
 
 function missingHTML() {
+  if (state.name === SAMPLE) return "";
   const m = missingSections(state.raw);
-  if (!m.length || state.name === SAMPLE) return "";
-  return `<p class="missing small"><span aria-hidden="true">ⓘ</span> Not in this profile: ${m.map((x) =>
-    `<b title="${esc(cap(x.detail))}">${esc(x.label)}</b>`).join(", ")}. <span class="muted">${esc(missingWhy(m.length))}</span></p>`;
+  // Values that can't be right: say so, rather than quietly suggesting things from them.
+  const issues = profileIssues(state.raw);
+  return (m.length ? `<p class="missing small"><span aria-hidden="true">ⓘ</span> Not in this profile: ${m.map((x) =>
+    `<b title="${esc(cap(x.detail))}">${esc(x.label)}</b>`).join(", ")}. <span class="muted">${esc(missingWhy(m.length))}</span></p>` : "")
+    + (issues.length ? `<p class="missing small"><span aria-hidden="true">⚠</span> Some of this profile doesn't add up, so a few suggestions may be off: ${esc(issues.map((i) => i.text).join("; "))}. <span class="muted">Sync or copy a fresh profile from the plugin to fix it.</span></p>` : "");
 }
 
 /** A progress bar with an optional short counter ("30/50 kills") beside it. */

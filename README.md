@@ -101,12 +101,16 @@ The hosted site is published to GitHub Pages from `web/` by
 With [Node.js](https://nodejs.org/) installed (no packages needed):
 
 ```powershell
-npm run check         # web/knowledge-base.js: misspelt names, tiers that don't exist
-npm test              # the checker's tests and the suggestion snapshots
+npm run check         # web/knowledge-base.js: misspelt names, tiers that don't exist, game data over 90 days old
+npm test              # the checker's tests, the suggestion snapshots and the data guards
 npm run test:update   # accept intended changes to the suggestions, then review the snapshot diff
 ```
 
-The publish workflow runs the same checks first and doesn't publish if they fail.
+The publish workflow runs the same checks first and doesn't publish if they fail. The data guards
+(`tests/guards.test.mjs`) fail if any suggestion shows "undefined", "NaN" or a progress outside
+0–100%, and check that `profileIssues` flags impossible profiles (a level that doesn't match its XP,
+combat achievement points that don't add up); the website then tells the player their
+suggestions may be off.
 [How suggestions work](docs/how-suggestions-work.md#checking-an-edit) explains them.
 
 ### Running the local server (optional)

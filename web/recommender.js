@@ -1445,6 +1445,43 @@ export function missingSections(snap) {
 }
 
 /**
+ * Values in a profile that can't be right (a damaged paste, a hand-edited file, a plugin bug), so
+ * the page can say its suggestions may be off instead of quietly building on them:
+ * [{ key, text }]. Empty for a normal profile. Checks only what the game guarantees.
+ */
+export function profileIssues(snap, now = Date.now()) {
+  if (!snap) return [];
+  const out = [];
+  const bad = [];
+  for (const [skill, v] of Object.entries(snap.skills ?? {})) {
+    if (skill === "overall" || !v) continue;
+    const { level, xp } = v;
+    if (!Number.isInteger(level) || level < 1 || level > 99) bad.push(`${cap(skill)} level ${level}`);
+    else if (xp != null && (!(xp >= 0 && xp <= 200e6) || xp < xpForLevel(level) || (level < 99 && xp >= xpForLevel(level + 1)))) {
+      bad.push(`${cap(skill)} (level ${level} with ${fmt(xp)} XP)`);
+    }
+  }
+  if (bad.length) out.push({ key: "skills", text: `Skill levels or XP that can't be right:${bad.slice(0, 4).join(", ")}${bad.length > 4 ? ` and ${bad.length - 4} more` : ""}` });
+
+  const ca = snap.combatAchievements;
+  if (ca?.tasks?.length && ca.points != null) {
+    const sum = ca.tasks.filter((t) => t.done).reduce((n, t) => n + (CA_TIER_POINTS[t.tier] ?? 0), 0);
+    // The plugin sends every task, so the ticked ones add up to the points exactly. A short list
+    // (an old or trimmed profile) can only be checked one way: ticked tasks can't exceed the points.
+    if (sum > ca.points || (ca.tasks.length >= 400 && sum !== ca.points)) {
+      out.push({ key: "combatAchievements", text: `Combat achievement points (${ca.points}) don't match the tasks marked done (${sum})` });
+    }
+  }
+  const kcBad = Object.entries(snap.killCounts ?? {}).filter(([, n]) => !Number.isInteger(n) || n < 0).map(([k]) => k);
+  if (kcBad.length) out.push({ key: "killCounts", text: `Kill counts that aren't whole numbers: ${kcBad.slice(0, 3).join(", ")}` });
+  if (snap.questPoints != null && !(Number.isInteger(snap.questPoints) && snap.questPoints >= 0)) {
+    out.push({ key: "questPoints", text: `Quest points of ${snap.questPoints}` });
+  }
+  if (snap.syncedAt > now + 864e5) out.push({ key: "syncedAt", text: "A sync time in the future (check this PC's clock)" });
+  return out;
+}
+
+/**
  * The account type from the profile ("Hardcore Group Ironman" etc.) as flags. Unknown or missing
  * types count as a normal account.
  */
