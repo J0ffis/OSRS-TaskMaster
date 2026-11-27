@@ -7,10 +7,12 @@ import {
   CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates,
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
-  applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections, profileIssues,
+  applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML } from "./game-icons.js";
+// Data guards (tests/guards.test.mjs): values a profile can't really have.
+import { profileIssues } from "./recommender.js";
 
 // Small helpers used everywhere below.
 /** The first element matching a CSS selector, e.g. $("#cards"). */
