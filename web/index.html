@@ -90,9 +90,10 @@
       <div id="cards" class="cards"></div>
       <div id="challenge" class="challengerow" hidden></div>
 
-      <section id="route" class="panel routepanel" aria-labelledby="route-h" hidden></section>
-
       <div class="lower">
+        <!-- Goals and the route pinned from them share one column (the sticky left column on wide screens). -->
+        <div class="goalcol">
+        <section id="route" class="panel routepanel" aria-labelledby="route-h" hidden></section>
         <section class="panel" aria-labelledby="goals-h">
           <div class="panelhead">
             <h3 id="goals-h">Goals</h3>
@@ -113,6 +114,7 @@
             <button class="btn" type="submit">Add goal</button>
           </form>
         </section>
+        </div>
 
         <section class="panel" aria-labelledby="acct-h">
           <div class="panelhead">
