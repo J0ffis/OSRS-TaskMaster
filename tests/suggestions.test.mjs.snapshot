@@ -1,46 +1,46 @@
 exports[`full test account, default filters 1`] = `
-821 suggestions (Quick 100, Medium 267, Long 444, Challenge 10)
+791 suggestions (Quick 99, Medium 242, Long 440, Challenge 10)
 
-== Quick: top 15 of 100
-Quick     levels    87  Train Crafting to 62  | 61 → 62: 32K XP to go. Under an hour.
-Quick     levels    82  Train Smithing to 70  | 68 → 70: 133K XP to go. Under an hour.
-Quick     levels    67  Train Runecraft to 60  | 55 → 60: 107K XP to go. About 2 hours.
-Quick     levels    60  Train Thieving to 70  | 64 → 70: 331K XP to go. About 1–3 hours.
-Quick     levels    59  Train Sailing to 40  | 34 → 40: 17K XP to go. Under an hour.
-Quick     levels    58  Train Herblore to 70  | 66 → 70: 241K XP to go. Under an hour.
+== Quick: top 15 of 99
+Quick     levels    87  Train Crafting to 62  | 61 → 62: 12K XP to go. Under an hour.
+Quick     levels    82  Train Smithing to 70  | 68 → 70: 120K XP to go. Under an hour.
+Quick     levels    67  Train Runecraft to 60  | 55 → 60: 101K XP to go. About 2 hours.
+Quick     levels    60  Train Thieving to 70  | 64 → 70: 329K XP to go. About 1–3 hours.
+Quick     levels    59  Train Sailing to 40  | 34 → 40: 16K XP to go. Under an hour.
+Quick     levels    58  Train Herblore to 70  | 66 → 70: 225K XP to go. Under an hour.
 Quick     clog      54  Get Zulrah's scales  | From the Zulrah collection log page (Bosses tab).
+Quick     combat    52  Handyman  | Wintertodt: Repair a brazier which has been destroyed by the Wintertodt.
+Quick     combat    52  Cosy  | Wintertodt: Subdue the Wintertodt with four pieces of warm equipment equipped.
 Quick     combat    45  Barrows Champion  | Barrows: Open the Barrows chest 25 times.
 Quick     combat    45  Giant Mole Champion  | Giant Mole: Kill the Giant mole 25 times.
+Quick     combat    45  Wintertodt Champion  | Wintertodt: Subdue the Wintertodt 10 times.
 Quick     combat    42  The Demonic Punching Bag  | Bloodveld: Kill a Bloodveld.
 Quick     combat    42  Obor Novice  | Obor: Open Obor's chest once.
-Quick     combat    42  Handyman  | Wintertodt: Repair a brazier which has been destroyed by the Wintertodt.
-Quick     combat    42  Cosy  | Wintertodt: Subdue the Wintertodt with four pieces of warm equipment equipped.
 Quick     combat    42  Master of Buckets  | Tempoross: Extinguish at least 5 fires during a single Tempoross fight.
-Quick     combat    42  Sit Rat  | Scurrius: Finish off Scurrius with a ratbane weapon in a private instance.
 
-== Medium: top 15 of 267
+== Medium: top 15 of 242
 Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
-Medium    levels    61  Train Construction to 70  | 62 → 70: 404K XP to go.
+Medium    levels    61  Train Construction to 70  | 62 → 70: 386K XP to go.
 Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
-Medium    levels    61  Train Hunter to 70  | 63 → 70: 369K XP to go.
+Medium    levels    61  Train Hunter to 70  | 63 → 70: 345K XP to go.
 Medium    diaries   57  Desert Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
 Medium    diaries   57  Fremennik Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
-Medium    levels    55  Train Slayer to 80  | 78 → 80: 357K XP to go.
+Medium    levels    55  Train Slayer to 80  | 78 → 80: 320K XP to go.
 Medium    clog      55  Complete the Cyclopes log  | 6/8 slots. Missing: Steel defender, Adamant defender.
 Medium    clog      54  Get Tanzanite fang  | From the Zulrah collection log page (Bosses tab).
-Medium    quests    53  Finish Clock Tower  | Pick up where you left off.
-Medium    quests    53  Finish Death on the Isle  | Pick up where you left off.
-Medium    quests    53  Finish Druidic Ritual  | Pick up where you left off.
-Medium    quests    53  Finish Hopespear's Will  | Pick up where you left off.
-Medium    quests    53  Finish Land of the Goblins  | Pick up where you left off.
+Medium    quests    53  Finish Enakhra's Lament  | Pick up where you left off.
+Medium    quests    53  Finish Getting Ahead  | Pick up where you left off.
+Medium    quests    53  Finish Mage Arena II  | Pick up where you left off.
+Medium    quests    53  Finish Tears of Guthix  | Pick up where you left off.
+Medium    clog      52  Complete the Amoxliatl log  | 3/4 slots. Missing: Frozen tear.
 
-== Long: top 15 of 444
+== Long: top 15 of 440
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      goals     60  Goal: Zulrah collection log  | Currently 5/10.
 Long      goals     60  Goal: 85 Slayer  | Currently 78/85 Slayer.
+Long      goals     60  Goal: Zulrah collection log  | Currently 5/10.
 Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      clog      53  Complete the General Graardor log  | 6/8 slots. Missing: Bandos boots, Godsword shard 3.
@@ -65,22 +65,25 @@ Challenge clog      23  Complete the Chambers of Xeric log  | 12/23 slots. Missi
 Challenge clog      17  Complete the Tombs of Amascut log  | 11/27 slots. Missing: Masori mask, Masori body, Masori chaps, Lightbearer and 11 more (plus the pet).
 
 == Picks (no shuffle)
-Quick: Train Crafting to 62 / Get Zulrah's scales / Barrows Champion
+Quick: Train Crafting to 62 / Get Zulrah's scales / Handyman
 Medium: Finish Recipe for Disaster / Train Construction to 70 / Western Provinces Medium diary
-Long: Lumbridge & Draynor Hard diary / Goal: Zulrah collection log / Complete the General Graardor log
-Mixed: Train Crafting to 62 / Get Zulrah's scales / Finish Recipe for Disaster / Western Provinces Medium diary / Finish every Easy task at Wintertodt / Goal: Zulrah collection log / Hunt Baby Mole
+Long: Lumbridge & Draynor Hard diary / Goal: 85 Slayer / Complete the General Graardor log
+Mixed: Train Crafting to 62 / Get Zulrah's scales / Finish Recipe for Disaster / Western Provinces Medium diary / Finish every Easy task at Wintertodt / Goal: 85 Slayer / Hunt Baby Mole
 Challenge: Complete the Barrows Chests log
 Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium diary / Get Tanzanite fang
 
 == Slayer: Slayer task: 118 Hellhounds left (Medium)
 
 == Within reach
-Desert Medium diary
-Fremennik Medium diary
-Secrets of the North  | missing: Making Friends with My Arm
-Wilderness Easy diary  | missing: Enter the Abyss
-Sins of the Father  | missing: Vampyre Slayer, A Taste of Hope
-Western Provinces Medium diary  | missing: The Eyes of Glouphrie, Tree Gnome Village
+Recipe for Disaster
+A Kingdom Divided
+Wilderness Easy diary
+Western Provinces Medium diary  | missing: Eagles' Peak
+Kourend & Kebos Hard diary  | missing: 70 smithing, Dream Mentor
+Varrock Hard diary  | missing: 66 hunter, Enlightened Journey
+Secrets of the North  | missing: Making Friends with My Arm, Hazeel Cult
+Desert Medium diary  | missing: Eagles' Peak, Enakhra's Lament
+Fremennik Medium diary  | missing: Between a Rock..., Eagles' Peak
 
 == Hidden until unlocked
 Abyssal Sire: 85 Slayer (15)
@@ -95,12 +98,14 @@ Dragon Slayer II: 70 Smithing, 62 Crafting (1)
 Duke Sucellus: Desert Treasure II - The Fallen Empire (17)
 Kraken: 87 Slayer (5)
 Monkey Madness II: 70 Crafting (1)
+Moons of Peril: Perilous Moons (15)
 Phantom Muspah: Secrets of the North (16)
 Song of the Elves: 70 Construction, 70 Herblore, 70 Hunter, 70 Smithing (1)
 The Gauntlet: Song of the Elves (1)
 The Leviathan: Desert Treasure II - The Fallen Empire (13)
 The Whisperer: Desert Treasure II - The Fallen Empire (11)
 Thermonuclear Smoke Devil: 93 Slayer (8)
+Tormented Demon: While Guthix Sleeps (6)
 Vardorvis: Desert Treasure II - The Fallen Empire (15)
 Vorkath: Dragon Slayer II (16)
 Zalcano: Song of the Elves (7)
@@ -108,48 +113,48 @@ Zalcano: Song of the Elves (7)
 `;
 
 exports[`full test account, minigames, Wilderness and clues on 1`] = `
-1161 suggestions (Quick 162, Medium 450, Long 535, Challenge 14)
+1131 suggestions (Quick 161, Medium 425, Long 531, Challenge 14)
 
-== Quick: top 15 of 162
-Quick     levels    87  Train Crafting to 62  | 61 → 62: 32K XP to go. Under an hour.
-Quick     levels    82  Train Smithing to 70  | 68 → 70: 133K XP to go. Under an hour.
-Quick     levels    67  Train Runecraft to 60  | 55 → 60: 107K XP to go. About 2 hours.
+== Quick: top 15 of 161
+Quick     levels    87  Train Crafting to 62  | 61 → 62: 12K XP to go. Under an hour.
+Quick     levels    82  Train Smithing to 70  | 68 → 70: 120K XP to go. Under an hour.
+Quick     levels    67  Train Runecraft to 60  | 55 → 60: 101K XP to go. About 2 hours.
 Quick     diaries   63  Wilderness Easy diary  | 0 of 4 tiers done. Open the diary in-game for the exact task list.  [Wilderness]
-Quick     levels    60  Train Thieving to 70  | 64 → 70: 331K XP to go. About 1–3 hours.
-Quick     levels    59  Train Sailing to 40  | 34 → 40: 17K XP to go. Under an hour.
-Quick     levels    58  Train Herblore to 70  | 66 → 70: 241K XP to go. Under an hour.
+Quick     levels    60  Train Thieving to 70  | 64 → 70: 329K XP to go. About 1–3 hours.
+Quick     levels    59  Train Sailing to 40  | 34 → 40: 16K XP to go. Under an hour.
+Quick     levels    58  Train Herblore to 70  | 66 → 70: 225K XP to go. Under an hour.
 Quick     clog      54  Get Zulrah's scales  | From the Zulrah collection log page (Bosses tab).
 Quick     clog      53  Get any missing piece of Black heraldic armour  | 10 still missing from Easy Treasure Trails: Black shield (h1), Black shield (h2), Black helm (h2), Black helm (h3)…
 Quick     clog      53  Get any missing robe  | 11 still missing from Easy Treasure Trails: Blue wizard robe (g), Blue wizard robe (t), Black wizard robe (g), Black wizard robe (t)…
+Quick     combat    52  Handyman  | Wintertodt: Repair a brazier which has been destroyed by the Wintertodt.
+Quick     combat    52  Cosy  | Wintertodt: Subdue the Wintertodt with four pieces of warm equipment equipped.
 Quick     clog      48  Get any missing black piece  | 5 still missing from Easy Treasure Trails: Black platebody (g), Black platelegs (g), Bob's black shirt, Black beret…
 Quick     clog      47  Get any missing piece of Black trimmed armour  | 4 still missing from Easy Treasure Trails: Black full helm (t), Black platebody (t), Black platelegs (t), Black plateskirt (t)
 Quick     clog      47  Get any missing piece of Iron trimmed armour  | 4 still missing from Easy Treasure Trails: Iron platebody (t), Iron platelegs (t), Iron plateskirt (t), Iron kiteshield (t)
-Quick     clog      46  Get any missing piece of Steel gold-trimmed armour  | 3 still missing from Easy Treasure Trails: Steel platebody (g), Steel platelegs (g), Steel plateskirt (g)
-Quick     clog      46  Get any missing piece of Iron gold-trimmed armour  | 3 still missing from Easy Treasure Trails: Iron platebody (g), Iron kiteshield (g), Iron full helm (g)
 
-== Medium: top 15 of 450
+== Medium: top 15 of 425
 Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
 Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
-Medium    levels    61  Train Construction to 70  | 62 → 70: 404K XP to go.
+Medium    levels    61  Train Construction to 70  | 62 → 70: 386K XP to go.
 Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
-Medium    levels    61  Train Hunter to 70  | 63 → 70: 369K XP to go.
+Medium    levels    61  Train Hunter to 70  | 63 → 70: 345K XP to go.
 Medium    diaries   57  Desert Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
 Medium    diaries   57  Fremennik Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
-Medium    levels    55  Train Slayer to 80  | 78 → 80: 357K XP to go.
+Medium    levels    55  Train Slayer to 80  | 78 → 80: 320K XP to go.
 Medium    clog      55  Complete the Fishing Trawler log  | 3/4 slots. Missing: Angler top.
 Medium    clog      55  Complete the Cyclopes log  | 6/8 slots. Missing: Steel defender, Adamant defender.
 Medium    clog      54  Get Tanzanite fang  | From the Zulrah collection log page (Bosses tab).
-Medium    quests    53  Finish Clock Tower  | Pick up where you left off.
-Medium    quests    53  Finish Death on the Isle  | Pick up where you left off.
-Medium    quests    53  Finish Druidic Ritual  | Pick up where you left off.
-Medium    quests    53  Finish Hopespear's Will  | Pick up where you left off.
+Medium    quests    53  Finish Enakhra's Lament  | Pick up where you left off.
+Medium    quests    53  Finish Getting Ahead  | Pick up where you left off.
+Medium    quests    53  Finish Mage Arena II  | Pick up where you left off.
+Medium    quests    53  Finish Tears of Guthix  | Pick up where you left off.
 
-== Long: top 15 of 535
+== Long: top 15 of 531
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      goals     60  Goal: Zulrah collection log  | Currently 5/10.
 Long      goals     60  Goal: 85 Slayer  | Currently 78/85 Slayer.
+Long      goals     60  Goal: Zulrah collection log  | Currently 5/10.
 Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      clog      55  Complete the Beginner Treasure Trails log  | 10/16 slots. Missing: Mole slippers, Monk's robe top (t), Monk's robe (t), Amulet of defence (t) and 2 more.
@@ -180,20 +185,23 @@ Challenge clog     -48  Complete the Master Treasure Trails (Rare) log  | 17/45 
 == Picks (no shuffle)
 Quick: Train Crafting to 62 / Wilderness Easy diary / Get Zulrah's scales
 Medium: Finish Recipe for Disaster / Train Construction to 70 / Western Provinces Medium diary
-Long: Lumbridge & Draynor Hard diary / Goal: Zulrah collection log / Complete the Beginner Treasure Trails log
-Mixed: Train Crafting to 62 / Wilderness Easy diary / Finish Recipe for Disaster / Complete the Fishing Trawler log / Finish every Easy task at Wintertodt / Goal: Zulrah collection log / Hunt Baby Mole
+Long: Lumbridge & Draynor Hard diary / Goal: 85 Slayer / Complete the Beginner Treasure Trails log
+Mixed: Train Crafting to 62 / Wilderness Easy diary / Finish Recipe for Disaster / Complete the Fishing Trawler log / Finish every Easy task at Wintertodt / Goal: 85 Slayer / Hunt Baby Mole
 Challenge: Complete the Barrows Chests log
 Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium diary / Complete the Cyclopes log
 
 == Slayer: Slayer task: 118 Hellhounds left (Medium)
 
 == Within reach
-Desert Medium diary
-Fremennik Medium diary
-Secrets of the North  | missing: Making Friends with My Arm
-Wilderness Easy diary  | missing: Enter the Abyss
-Sins of the Father  | missing: Vampyre Slayer, A Taste of Hope
-Western Provinces Medium diary  | missing: The Eyes of Glouphrie, Tree Gnome Village
+Recipe for Disaster
+A Kingdom Divided
+Wilderness Easy diary
+Western Provinces Medium diary  | missing: Eagles' Peak
+Kourend & Kebos Hard diary  | missing: 70 smithing, Dream Mentor
+Varrock Hard diary  | missing: 66 hunter, Enlightened Journey
+Secrets of the North  | missing: Making Friends with My Arm, Hazeel Cult
+Desert Medium diary  | missing: Eagles' Peak, Enakhra's Lament
+Fremennik Medium diary  | missing: Between a Rock..., Eagles' Peak
 
 == Hidden until unlocked
 Abyssal Sire: 85 Slayer (15)
@@ -208,79 +216,430 @@ Dragon Slayer II: 70 Smithing, 62 Crafting (1)
 Duke Sucellus: Desert Treasure II - The Fallen Empire (17)
 Kraken: 87 Slayer (5)
 Monkey Madness II: 70 Crafting (1)
+Moons of Peril: Perilous Moons (15)
 Phantom Muspah: Secrets of the North (16)
 Song of the Elves: 70 Construction, 70 Herblore, 70 Hunter, 70 Smithing (1)
 The Gauntlet: Song of the Elves (1)
 The Leviathan: Desert Treasure II - The Fallen Empire (13)
 The Whisperer: Desert Treasure II - The Fallen Empire (11)
 Thermonuclear Smoke Devil: 93 Slayer (8)
+Tormented Demon: While Guthix Sleeps (6)
 Vardorvis: Desert Treasure II - The Fallen Empire (15)
 Vorkath: Dragon Slayer II (16)
 Zalcano: Song of the Elves (7)
 
 `;
 
-exports[`sample account, default filters 1`] = `
-58 suggestions (Quick 13, Medium 29, Long 16, Challenge 0)
+exports[`sample account \"gim\", default filters 1`] = `
+929 suggestions (Quick 85, Medium 279, Long 553, Challenge 12)
 
-== Quick: top 13 of 13
-Quick     levels    87  Train Crafting to 62  | 61 → 62: 32K XP to go. Under an hour.
-Quick     levels    82  Train Smithing to 70  | 68 → 70: 133K XP to go. Under an hour.
-Quick     levels    67  Train Runecraft to 60  | 55 → 60: 107K XP to go. About 2 hours.
-Quick     levels    60  Train Thieving to 70  | 64 → 70: 331K XP to go. About 1–3 hours.
-Quick     levels    59  Train Sailing to 40  | 34 → 40: 17K XP to go. Under an hour.
-Quick     levels    58  Train Herblore to 70  | 66 → 70: 241K XP to go. Under an hour.
-Quick     combat    45  Sample task B  | Barrows: Finish a chest using only melee.
-Quick     combat    45  Sample task D  | Zulrah: Kill the boss 50 times.
-Quick     combat    45  Sample task H  | Giant Mole: Kill the boss without it burrowing.
-Quick     combat    45  Sample task I  | Giant Mole: Kill the boss 3 times in one trip.
-Quick     levels    30  Train Prayer to 75  | 70 → 75: 473K XP to go. Under an hour.
-Quick     levels    30  Train Firemaking to 80  | 75 → 80: 776K XP to go. About 2–3 hours.
-Quick     levels    30  Train Farming to 75  | 74 → 75: 114K XP to go.
+== Quick: top 15 of 85
+Quick     levels    56  Train Sailing to 50  | 45 → 50: 37K XP to go. About 2 hours.
+Quick     clog      39  Get any missing Spirit piece  | 4 still missing from Tempoross: Spirit angler top, Spirit angler waders, Spirit angler boots, Spirit flakes
+Quick     clog      36  Get any missing Ancient page  | 23 still missing from My Notes: Ancient page, Ancient page, Ancient page, Ancient page…
+Quick     combat    35  Perfect Scurrius  | Scurrius: Kill Scurrius in a private instance without taking damage from the following attacks: Tail Swipe and Falling Bricks. Pray correctly against the following attacks: Flying Fur and Bolts of Electricity.
+Quick     combat    35  Amoxliatl Champion  | Amoxliatl: Kill Amoxliatl once.
+Quick     combat    35  Temotli Triumph  | Amoxliatl: Kill Amoxliatl using only glacial temotli as a weapon.
+Quick     clog      33  Get any missing satchel  | 3 still missing from Creature Creation: Green satchel, Red satchel, Black satchel
+Quick     levels    33  Train Prayer to 75  | 74 → 75: 45K XP to go. Under an hour.
+Quick     clog      33  Get any missing mole piece  | 3 still missing from Giant Mole: Mole skin, Mole claw, Immaculate mole skin
+Quick     clog      32  Get any missing dragon piece  | 5 still missing from Sailing Miscellaneous: Dragon metal sheet, Dragon nails, Dragon cannonball, Broken dragon hook…
+Quick     levels    32  Train Thieving to 80  | 75 → 80: 685K XP to go. About 3 hours.
+Quick     levels    32  Train Crafting to 80  | 75 → 80: 679K XP to go. About 2 hours.
+Quick     clog      32  Get any missing defender  | 8 still missing from Cyclopes: Bronze defender, Iron defender, Steel defender, Black defender…
+Quick     clog      32  Get Guild hunter headwear  | From the Hunter Guild collection log page (Other tab).
+Quick     clog      32  Get Guild hunter top  | From the Hunter Guild collection log page (Other tab).
 
-== Medium: top 15 of 29
-Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
-Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
-Medium    levels    61  Train Construction to 70  | 62 → 70: 404K XP to go.
-Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
-Medium    levels    61  Train Hunter to 70  | 63 → 70: 369K XP to go.
-Medium    diaries   57  Desert Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
-Medium    diaries   57  Fremennik Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
-Medium    levels    55  Train Slayer to 80  | 78 → 80: 357K XP to go.
+== Medium: top 15 of 279
+Medium    quests    65  Complete Desert Treasure II - The Fallen Empire  | You meet the main skill requirements.
+Medium    goals     60  Goal: Dragon Slayer II  | Currently in progress.
+Medium    quests    53  Finish A Porcine of Interest  | Pick up where you left off.
+Medium    quests    53  Finish Fallen From Grace  | Pick up where you left off.
+Medium    quests    53  Finish Recipe for Disaster - Wartface & Bentnoze  | Pick up where you left off.
+Medium    quests    53  Finish The Ides of Milk  | Pick up where you left off.
+Medium    quests    53  Finish Vale Totems  | Pick up where you left off.
+Medium    clog      50  Complete the Hunter Guild log  | 3/6 slots. Missing: Guild hunter headwear, Guild hunter top (plus the pet).
+Medium    clog      47  Complete the Hespori log  | 2/4 slots. Missing: Bottomless compost bucket, Attas seed.
+Medium    quests    45  Complete Secrets of the North  | You meet the main skill requirements.
+Medium    clog      40  Complete the Bryophyta log  | 0/1 slots. Missing: Bryophyta's essence.
+Medium    clog      40  Complete the Scurrius log  | 0/2 slots. Missing: Scurrius' spine (plus the pet).
+Medium    levels    40  Train Runecraft to 70  | 66 → 70: 217K XP to go. About 3–4 hours.
+Medium    clog      38  Get any missing piece of Chompy bird set  | 13 still missing from Chompy Bird Hunting: Chompy bird hat, Chompy bird hat, Chompy bird hat, Chompy bird hat…
+Medium    combat    38  Zulrah Adept  | Zulrah: Kill Zulrah 25 times.
+
+== Long: top 15 of 553
+Long      diaries   63  Lumbridge & Draynor Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   62  Ardougne Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   59  Kandarin Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   58  Varrock Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      57  Get Metamorphic dust  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      57  Get Torn prayer scroll  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      57  Get Dark relic  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      57  Get Twisted ancestral colour kit  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      57  Get Xeric's guard  | From the Chambers of Xeric collection log page (Raids tab).
+Long      diaries   57  Morytania Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      goals     55  Goal: Chambers of Xeric collection log  | Currently 8/23.
+Long      diaries   55  Western Provinces Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      pets      55  Hunt Olmlet  | Drops from Chambers of Xeric.
+Long      diaries   53  Kourend & Kebos Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      51  Get Xeric's sentinel  | From the Chambers of Xeric collection log page (Raids tab).
+
+== Challenge: top 12 of 12
+Challenge clog      33  Complete the Fortis Colosseum log  | 3/9 slots. Missing: Sunfire fanatic cuirass, Sunfire fanatic chausses, Echo crystal, Tonalztics of Ralos (uncharged) and 1 more (plus the pet).
+Challenge clog      33  Complete the Barrows Chests log  | 5/25 slots. Missing: Ahrim's hood, Dharok's helm, Guthan's helm, Torag's helm and 16 more.
+Challenge clog      31  Complete the Champion's Challenge log  | 2/11 slots. Missing: Earth warrior champion scroll, Ghoul champion scroll, Giant champion scroll, Goblin champion scroll and 5 more.
+Challenge clog      30  Complete The Nightmare log  | 1/12 slots. Missing: Inquisitor's mace, Inquisitor's great helm, Inquisitor's hauberk, Inquisitor's plateskirt and 6 more (plus the pet).
+Challenge clog      29  Complete The Fractured Archive log  | 1/17 slots. Missing: Obligator (uncharged), Ascension crossbows, Zorya's tome (uncharged), Rondache and 11 more (plus the pet).
+Challenge clog      27  Complete the Nex log  | 0/8 slots. Missing: Ancient hilt, Nihil horn, Zaryte vambraces, Torva full helm (damaged) and 3 more (plus the pet).
+Challenge clog      24  Complete the Corporeal Beast log  | 0/7 slots. Missing: Elysian sigil, Spectral sigil, Arcane sigil, Holy elixir and 2 more (plus the pet).
+Challenge clog      24  Complete the Sea Treasures log  | 1/17 slots. Missing: Medallion fragment, Medallion fragment, Medallion fragment, Medallion fragment and 12 more.
+Challenge clog      20  Complete the Miscellaneous log  | 9/63 slots. Missing: Dragon warhammer, Big swordfish, Big shark, Giant blue krill and 48 more (plus the pet).
+Challenge clog      18  Complete the Slayer log  | 16/95 slots. Missing: Crawling hand, Cockatrice head, Basilisk head, Kurask head and 75 more.
+Challenge clog      12  Complete the Tombs of Amascut log  | 5/27 slots. Missing: Tumeken's shadow (uncharged), Elidinis' ward, Masori mask, Masori body and 17 more (plus the pet).
+Challenge clog       8  Complete the Theatre of Blood log  | 1/17 slots. Missing: Scythe of Vitur (uncharged), Ghrazi rapier, Sanguinesti staff (uncharged), Justiciar faceguard and 11 more (plus the pet).
+
+== Picks (no shuffle)
+Quick: Train Sailing to 50 / Get any missing Spirit piece / Perfect Scurrius
+Medium: Complete Desert Treasure II - The Fallen Empire / Goal: Dragon Slayer II / Complete the Hunter Guild log
+Long: Lumbridge & Draynor Elite diary / Get Metamorphic dust / Goal: Chambers of Xeric collection log
+Mixed: Train Sailing to 50 / Get any missing Spirit piece / Complete Desert Treasure II - The Fallen Empire / Goal: Dragon Slayer II / Zulrah Adept / Lumbridge & Draynor Elite diary / Hunt Olmlet
+Challenge: Complete the Fortis Colosseum log
+Shuffled once (seed 7919): Complete Desert Treasure II - The Fallen Empire / Goal: Dragon Slayer II / Complete the Hespori log
+
+== Slayer: Slayer task: 150 Gargoyles left (Medium)
+
+== Within reach
+Dragon Slayer II
+Western Provinces Hard diary
+Fremennik Hard diary
+Wilderness Medium diary
+Desert Treasure II - The Fallen Empire  | missing: Secrets of the North
+Desert Hard diary  | missing: Spirits of the Elid
+Secrets of the North  | missing: Making Friends with My Arm, The General's Shadow
+
+== Hidden until unlocked
+Alchemical Hydra: 95 Slayer (19)
+Araxxor: 92 Slayer (21)
+Cerberus: 91 Slayer (15)
+Duke Sucellus: Desert Treasure II - The Fallen Empire (18)
+Kraken: 87 Slayer (9)
+Moons of Peril: Perilous Moons (11)
+Phantom Muspah: Secrets of the North (19)
+The Leviathan: Desert Treasure II - The Fallen Empire (16)
+The Whisperer: Desert Treasure II - The Fallen Empire (16)
+Thermonuclear Smoke Devil: 93 Slayer (8)
+Vardorvis: Desert Treasure II - The Fallen Empire (15)
+Vorkath: Dragon Slayer II (20)
+
+`;
+
+exports[`sample account \"hcgim\", default filters 1`] = `
+954 suggestions (Quick 114, Medium 292, Long 537, Challenge 11)
+
+== Quick: top 15 of 114
+Quick     levels    59  Train Hunter to 70  | 68 → 70: 79K XP to go.
+Quick     levels    58  Train Sailing to 40  | 38 → 40: 4,216 XP to go. Under an hour.
+Quick     combat    45  Barrows Champion  | Barrows: Open the Barrows chest 25 times.
+Quick     clog      43  Get Bolt rack  | From the Barrows Chests collection log page (Bosses tab).
+Quick     combat    42  Noxious Foe  | Aberrant Spectre: Kill an Aberrant Spectre.
+Quick     combat    42  Deranged Archaeologist Novice  | Deranged Archaeologist: Kill the Deranged Archaeologist 10 times.
+Quick     clog      36  Get any missing Spirit piece  | 5 still missing from Tempoross: Spirit angler headband, Spirit angler top, Spirit angler waders, Spirit angler boots…
+Quick     clog      36  Get any missing Ancient page  | 23 still missing from My Notes: Ancient page, Ancient page, Ancient page, Ancient page…
+Quick     combat    35  Brutal, Big, Black and Firey  | Brutal Black Dragon: Kill a Brutal Black Dragon.
+Quick     combat    35  Bryophyta Champion  | Bryophyta: Open Bryophyta's chest 5 times.
+Quick     combat    35  Quick Cutter  | Bryophyta: Kill all 3 of Bryophyta's growthlings within 3 seconds of the first one dying.
+Quick     combat    35  Demonic Weakening  | Skotizo: Kill Skotizo with no altars active.
+Quick     combat    35  Deranged Archaeologist Champion  | Deranged Archaeologist: Kill the Deranged Archaeologist 25 times.
+Quick     combat    35  Mage of the Swamp  | Deranged Archaeologist: Kill the Deranged Archaeologist with only magical attacks.
+Quick     combat    35  I'd Rather Be Illiterate  | Deranged Archaeologist: Kill the Deranged Archaeologist without anyone being hit by his "Learn to Read" attack.
+
+== Medium: top 15 of 292
+Medium    quests    70  Complete Dragon Slayer II  | You meet the main skill requirements.
+Medium    quests    66  Complete Monkey Madness II  | You meet the main skill requirements.
+Medium    quests    65  Complete Desert Treasure II - The Fallen Empire  | You meet the main skill requirements.
+Medium    goals     60  Goal: Recipe for Disaster  | Currently in progress.
+Medium    quests    53  Finish Getting Ahead  | Pick up where you left off.
+Medium    quests    53  Finish Mage Arena II  | Pick up where you left off.
+Medium    quests    53  Finish My Arm's Big Adventure  | Pick up where you left off.
+Medium    quests    53  Finish Recipe for Disaster - Sir Amik Varze  | Pick up where you left off.
+Medium    quests    53  Finish Watchtower  | Pick up where you left off.
+Medium    clog      52  Complete the Brutus log  | 2/4 slots. Missing: Mooleta (plus the pet).
 Medium    quests    50  Complete Sins of the Father  | You meet the main skill requirements.
 Medium    quests    45  Complete Secrets of the North  | You meet the main skill requirements.
-Medium    combat    38  Sample task C  | Barrows: Loot a chest without taking damage from any brother.
-Medium    combat    38  Sample task E  | Zulrah: Kill the boss without taking venom damage.
-Medium    combat    38  Sample task F  | Zulrah: Kill the boss in under 1:20.
-Medium    combat    36  Finish every Medium task at Giant Mole  | Tasks: “Sample task H”, “Sample task I”
-Medium    levels    30  Train Agility to 75  | 70 → 75: 473K XP to go. About 9–10 hours.
+Medium    combat    40  Finish every Medium task at Deranged Archaeologist  | Tasks: “Deranged Archaeologist Champion”, “Mage of the Swamp”, “I'd Rather Be Illiterate”
+Medium    combat    40  Finish every Medium task at Royal Titans  | Tasks: “Royal Titan Champion”, “Royal Titan Adept”, “It takes too long”
+Medium    clog      40  Complete the Bryophyta log  | 0/1 slots. Missing: Bryophyta's essence.
 
-== Long: top 15 of 16
+== Long: top 15 of 537
 Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      clog      62  Complete the Barrows Chests log  | 10/12 slots. Missing: Ahrim's robeskirt, Verac's helm.
+Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   55  Western Provinces Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      54  Get Metamorphic dust  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      54  Get Dark relic  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      54  Get Onyx  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      54  Get Twisted ancestral colour kit  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      54  Get Xeric's guard  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      53  Complete the Barrows Chests log  | 22/25 slots. Missing: Ahrim's hood, Dharok's platelegs, Bolt rack.
+Long      pets      51  Hunt Olmlet  | Drops from Chambers of Xeric.
+Long      diaries   51  Desert Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   51  Fremennik Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+
+== Challenge: top 11 of 11
+Challenge clog      36  Complete the Nex log  | 2/8 slots. Missing: Ancient hilt, Zaryte vambraces, Torva full helm (damaged), Torva platelegs (damaged) and 1 more (plus the pet).
+Challenge clog      32  Complete The Nightmare log  | 3/12 slots. Missing: Inquisitor's mace, Inquisitor's great helm, Nightmare staff, Volatile orb and 4 more (plus the pet).
+Challenge clog      31  Complete the Champion's Challenge log  | 2/11 slots. Missing: Earth warrior champion scroll, Ghoul champion scroll, Giant champion scroll, Goblin champion scroll and 5 more.
+Challenge clog      29  Complete the Sea Treasures log  | 4/17 slots. Missing: Medallion fragment, Medallion fragment, Medallion fragment, Medallion fragment and 9 more.
+Challenge clog      27  Complete The Fractured Archive log  | 0/17 slots. Missing: Obligator (uncharged), Ascension crossbows, Zorya's tome (uncharged), Rondache and 12 more (plus the pet).
+Challenge clog      26  Complete the Slayer log  | 22/95 slots. Missing: Crawling hand, Basilisk head, Kurask head, Abyssal head and 69 more.
+Challenge clog      24  Complete the Corporeal Beast log  | 0/7 slots. Missing: Elysian sigil, Spectral sigil, Arcane sigil, Holy elixir and 2 more (plus the pet).
+Challenge clog      23  Complete the Fortis Colosseum log  | 1/9 slots. Missing: Dizana's quiver (uncharged), Sunfire fanatic cuirass, Sunfire fanatic chausses, Sunfire fanatic helm and 3 more (plus the pet).
+Challenge clog      16  Complete the Miscellaneous log  | 7/63 slots. Missing: Dragon warhammer, Big swordfish, Big shark, Golden haddock and 50 more (plus the pet).
+Challenge clog      11  Complete the Theatre of Blood log  | 1/17 slots. Missing: Scythe of Vitur (uncharged), Ghrazi rapier, Sanguinesti staff (uncharged), Justiciar faceguard and 11 more (plus the pet).
+Challenge clog       4  Complete the Tombs of Amascut log  | 1/27 slots. Missing: Tumeken's shadow (uncharged), Elidinis' ward, Masori mask, Masori body and 21 more (plus the pet).
+
+== Picks (no shuffle)
+Quick: Train Hunter to 70 / Barrows Champion / Get Bolt rack
+Medium: Complete Dragon Slayer II / Goal: Recipe for Disaster / Complete the Brutus log
+Long: Lumbridge & Draynor Hard diary / Get Metamorphic dust / Hunt Olmlet
+Mixed: Train Hunter to 70 / Barrows Champion / Complete Dragon Slayer II / Goal: Recipe for Disaster / Complete the Brutus log / Lumbridge & Draynor Hard diary / Hunt Olmlet
+Challenge: Complete the Nex log
+Shuffled once (seed 7919): Complete Dragon Slayer II / Goal: Recipe for Disaster / Complete the Brutus log
+
+== Slayer: Slayer task: 110 Dust devils left (Quick)
+
+== Within reach
+Recipe for Disaster
+Sins of the Father
+Wilderness Easy diary
+Lumbridge & Draynor Hard diary  | missing: Recipe for Disaster
+Kourend & Kebos Hard diary  | missing: Dream Mentor
+Varrock Hard diary  | missing: Enlightened Journey
+Song of the Elves  | missing: 70 hunter, Mourning's End Part II
+Secrets of the North  | missing: Making Friends with My Arm
+Dragon Slayer II  | missing: Dream Mentor, Barbarian Training
+Falador Hard diary  | missing: Grim Tales, The Slug Menace
+
+== Hidden until unlocked
+Abyssal Sire: 85 Slayer (14)
+Alchemical Hydra: 95 Slayer (21)
+Araxxor: 92 Slayer (22)
+Cerberus: 91 Slayer (14)
+Corrupted Hunllef: Song of the Elves (14)
+Crystalline Hunllef: Song of the Elves (12)
+Demonic Gorilla: Monkey Madness II (3)
+Duke Sucellus: Desert Treasure II - The Fallen Empire (19)
+Kraken: 87 Slayer (11)
+Moons of Peril: Perilous Moons (16)
+Phantom Muspah: Secrets of the North (23)
+Song of the Elves: 70 Hunter (1)
+The Gauntlet: Song of the Elves (2)
+The Leviathan: Desert Treasure II - The Fallen Empire (16)
+The Whisperer: Desert Treasure II - The Fallen Empire (17)
+Thermonuclear Smoke Devil: 93 Slayer (7)
+Tormented Demon: While Guthix Sleeps (6)
+Tormented Demons: While Guthix Sleeps (3)
+Vardorvis: Desert Treasure II - The Fallen Empire (17)
+Vorkath: Dragon Slayer II (18)
+Zalcano: Song of the Elves (9)
+
+`;
+
+exports[`sample account \"hcim\", default filters 1`] = `
+1011 suggestions (Quick 145, Medium 315, Long 538, Challenge 13)
+
+== Quick: top 15 of 145
+Quick     levels    70  Train Runecraft to 50  | 40 → 50: 61K XP to go. About 1–2 hours.
+Quick     levels    64  Train Herblore to 50  | 48 → 50: 17K XP to go. Under an hour.
+Quick     levels    62  Train Smithing to 60  | 50 → 60: 169K XP to go. About 1 hour.
+Quick     levels    61  Train Sailing to 30  | 20 → 30: 8,473 XP to go.
+Quick     levels    60  Train Prayer to 60  | 52 → 60: 147K XP to go. Under an hour.
+Quick     levels    60  Train Hunter to 56  | 52 → 56: 53K XP to go.
+Quick     levels    58  Train Agility to 60  | 55 → 60: 98K XP to go. About 2 hours.
+Quick     levels    58  Train Thieving to 60  | 55 → 60: 94K XP to go. Under an hour.
+Quick     levels    58  Train Crafting to 56  | 55 → 56: 12K XP to go. Under an hour.
+Quick     levels    58  Train Farming to 60  | 55 → 60: 100K XP to go.
+Quick     levels    55  Train Firemaking to 75  | 70 → 75: 469K XP to go. About 1–2 hours.
+Quick     combat    52  Fighting as Intended II  | Bryophyta: Kill Bryophyta on a free to play world.
+Quick     combat    52  Obor Novice  | Obor: Open Obor's chest once.
+Quick     combat    52  Sleeping Giant  | Obor: Kill Obor whilst he is immobilized.
+Quick     combat    52  Fighting as Intended  | Obor: Kill Obor on a free to play world.
+
+== Medium: top 15 of 315
+Medium    diaries   69  Morytania Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    diaries   65  Kourend & Kebos Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    levels    62  Train Construction to 60  | 50 → 60: 165K XP to go.
+Medium    clog      62  Complete the Wintertodt log  | 8/10 slots. Missing: Dragon axe (plus the pet).
+Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    goals     60  Goal: Recipe for Disaster  | Currently in progress.
+Medium    diaries   57  Desert Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    diaries   57  Fremennik Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    levels    55  Train Mining to 68  | 60 → 68: 331K XP to go. About 4–5 hours.
+Medium    levels    55  Train Magic to 75  | 70 → 75: 412K XP to go.
+Medium    levels    55  Train Woodcutting to 70  | 66 → 70: 227K XP to go. About 3–5 hours.
+Medium    levels    55  Train Slayer to 69  | 60 → 69: 386K XP to go.
+Medium    quests    53  Finish A Ruff Situation  | Pick up where you left off.
+Medium    quests    53  Finish A Soul's Bane  | Pick up where you left off.
+Medium    quests    53  Finish Fallen From Grace  | Pick up where you left off.
+
+== Long: top 15 of 538
+Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   65  Kandarin Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   55  Karamja Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      48  Complete the Giant Mole log  | 1/4 slots. Missing: Mole claw, Immaculate mole skin (plus the pet).
+Long      clog      42  Complete the Amoxliatl log  | 1/4 slots. Missing: Glacial temotli, Pendant of Ates (inert) (plus the pet).
+Long      clog      42  Complete the Prison of Ræun log  | 1/3 slots. Missing: Sunken treasure, Fremennik graceful ornament kit.
+Long      combat    40  Finish every Hard task at K'ril Tsutsaroth  | Tasks: “K'ril Tsutsaroth Adept”, “Yarr No More”, “Demonic Showdown” and 1 more
+Long      combat    40  Finish every Hard task at Tombs of Amascut: Entry Mode  | Tasks: “Novice Tomb Explorer”, “Novice Tomb Looter”, “Movin' on up” and 1 more
+Long      combat    40  Finish every Hard task at Amoxliatl  | Tasks: “Amoxliatl Adept”, “Amoxliatl Speed-Trialist”, “Nagua Negation” and 2 more
+Long      combat    40  Finish every Hard task at Royal Titans  | Tasks: “Perfect Royal Titans”, “Royal Titan Speed-Runner”, “Titan Killer” and 1 more
+Long      clog      39  Get any missing champion scroll  | 7 still missing from Champion's Challenge: Giant champion scroll, Goblin champion scroll, Hobgoblin champion scroll, Imp champion scroll…
+Long      clog      39  Complete the Tempoross log  | 5/12 slots. Missing: Spirit angler headband, Spirit angler boots, Tome of Water (empty), Tackle box and 2 more (plus the pet).
+
+== Challenge: top 13 of 13
+Challenge clog      38  Complete the Barrows Chests log  | 9/25 slots. Missing: Karil's coif, Dharok's helm, Guthan's helm, Verac's helm and 12 more.
+Challenge clog      34  Complete the Champion's Challenge log  | 3/11 slots. Missing: Giant champion scroll, Goblin champion scroll, Hobgoblin champion scroll, Imp champion scroll and 4 more.
+Challenge clog      27  Complete the Sea Treasures log  | 3/17 slots. Missing: Medallion fragment, Medallion fragment, Medallion fragment, Medallion fragment and 10 more.
+Challenge clog      26  Complete the Nex log  | 1/8 slots. Missing: Ancient hilt, Nihil horn, Zaryte vambraces, Torva platebody (damaged) and 2 more (plus the pet).
+Challenge clog      22  Complete The Fractured Archive log  | 0/17 slots. Missing: Obligator (uncharged), Ascension crossbows, Zorya's tome (uncharged), Rondache and 12 more (plus the pet).
+Challenge clog      22  Complete The Nightmare log  | 1/12 slots. Missing: Inquisitor's mace, Inquisitor's great helm, Inquisitor's hauberk, Inquisitor's plateskirt and 6 more (plus the pet).
+Challenge clog      19  Complete the Slayer log  | 10/95 slots. Missing: Cockatrice head, Basilisk head, Abyssal head, Imbued heart and 81 more.
+Challenge clog      19  Complete the Corporeal Beast log  | 0/7 slots. Missing: Elysian sigil, Spectral sigil, Arcane sigil, Holy elixir and 2 more (plus the pet).
+Challenge clog      19  Complete the Fortis Colosseum log  | 0/9 slots. Missing: Dizana's quiver (uncharged), Sunfire fanatic cuirass, Sunfire fanatic chausses, Sunfire fanatic helm and 4 more (plus the pet).
+Challenge clog      18  Complete the Miscellaneous log  | 11/63 slots. Missing: Dragon warhammer, Big swordfish, Big shark, Big bass and 46 more (plus the pet).
+Challenge clog       1  Complete the Theatre of Blood log  | 0/17 slots. Missing: Scythe of Vitur (uncharged), Ghrazi rapier, Sanguinesti staff (uncharged), Justiciar faceguard and 12 more (plus the pet).
+Challenge clog      -2  Complete the Tombs of Amascut log  | 0/27 slots. Missing: Tumeken's shadow (uncharged), Elidinis' ward, Masori mask, Masori body and 22 more (plus the pet).
+Challenge clog     -14  Complete the Chambers of Xeric log  | 0/23 slots. Missing: Metamorphic dust, Twisted bow, Elder maul, Kodai insignia and 18 more (plus the pet).
+
+== Picks (no shuffle)
+Quick: Train Runecraft to 50 / Fighting as Intended II / Get any missing Spirit piece
+Medium: Morytania Medium diary / Train Construction to 60 / Complete the Wintertodt log
+Long: Lumbridge & Draynor Hard diary / Complete the Giant Mole log / Finish every Hard task at K'ril Tsutsaroth
+Mixed: Train Runecraft to 50 / Fighting as Intended II / Morytania Medium diary / Complete the Wintertodt log / Goal: Recipe for Disaster / Hunt Phoenix / Lumbridge & Draynor Hard diary
+Challenge: Complete the Barrows Chests log
+Shuffled once (seed 7919): Morytania Medium diary / Complete the Wintertodt log / Goal: Recipe for Disaster
+
+== Slayer: Slayer task: 64 Fire giants left (Medium)
+
+== Within reach
+Morytania Medium diary
+Wilderness Easy diary
+Western Provinces Medium diary  | missing: The Eyes of Glouphrie
+Desert Medium diary  | missing: Spirits of the Elid
+Fremennik Medium diary  | missing: Between a Rock...
+
+== Hidden until unlocked
+A Kingdom Divided: 50 Herblore (1)
+Abyssal Sire: 85 Slayer (16)
+Alchemical Hydra: 95 Slayer (21)
+Araxxor: 92 Slayer (22)
+Cerberus: 91 Slayer (16)
+Corrupted Hunllef: Song of the Elves (14)
+Crystalline Hunllef: Song of the Elves (12)
+Demonic Gorilla: Monkey Madness II (3)
+Desert Treasure II - The Fallen Empire: 75 Firemaking, 75 Magic, 70 Thieving, 62 Herblore, 60 Runecraft, 60 Construction (1)
+Dragon Slayer II: 75 Magic, 70 Smithing, 68 Mining, 62 Crafting, 60 Agility, 60 Thieving (1)
+Duke Sucellus: Desert Treasure II - The Fallen Empire (20)
+Grotesque Guardians: 75 Slayer (23)
+Kraken: 87 Slayer (10)
+Lunar Diplomacy: 61 Crafting (1)
+Monkey Madness II: 69 Slayer, 70 Crafting, 60 Hunter (1)
+Moons of Peril: Perilous Moons (20)
+Phantom Muspah: Secrets of the North (22)
+Secrets of the North: 69 Agility, 64 Thieving, 56 Hunter (1)
+Sins of the Father: 56 Crafting (1)
+Song of the Elves: 70 Agility, 70 Construction, 70 Farming, 70 Herblore, 70 Hunter, 70 Mining, 70 Smithing, 70 Woodcutting (1)
+The Gauntlet: Song of the Elves (4)
+The Leviathan: Desert Treasure II - The Fallen Empire (18)
+The Whisperer: Desert Treasure II - The Fallen Empire (18)
+Thermonuclear Smoke Devil: 93 Slayer (9)
+Tormented Demon: While Guthix Sleeps (6)
+Tormented Demons: While Guthix Sleeps (4)
+Vardorvis: Desert Treasure II - The Fallen Empire (18)
+Vorkath: Dragon Slayer II (20)
+Zalcano: Song of the Elves (9)
+
+`;
+
+exports[`sample account \"iron\", default filters 1`] = `
+946 suggestions (Quick 103, Medium 296, Long 536, Challenge 11)
+
+== Quick: top 15 of 103
+Quick     levels    87  Train Crafting to 62  | 61 → 62: 12K XP to go. Under an hour.
+Quick     levels    82  Train Smithing to 70  | 68 → 70: 120K XP to go. Under an hour.
+Quick     levels    67  Train Runecraft to 60  | 55 → 60: 101K XP to go. About 2 hours.
+Quick     levels    60  Train Thieving to 70  | 64 → 70: 329K XP to go. About 1–3 hours.
+Quick     levels    59  Train Sailing to 40  | 34 → 40: 16K XP to go. Under an hour.
+Quick     levels    58  Train Herblore to 70  | 66 → 70: 225K XP to go. Under an hour.
+Quick     combat    52  Mummy!  | Wintertodt: Heal a pyromancer after they have fallen.
+Quick     combat    45  Avoiding Those Little Arms  | Giant Mole: Kill the Giant Mole without her damaging anyone.
+Quick     combat    45  Leaving No One Behind  | Wintertodt: Subdue the Wintertodt without any of the Pyromancers falling.
+Quick     combat    42  Big, Black and Fiery  | Black Dragon: Kill a Black Dragon.
+Quick     combat    42  A Demon's Best Friend  | Hellhound: Kill a Hellhound.
+Quick     combat    42  Let them fight  | Royal Titans: Kill the Royal Titans while having them kill a total of 10 elementals.
+Quick     clog      41  Get any missing Spirit piece  | 3 still missing from Tempoross: Spirit angler headband, Spirit angler waders, Spirit flakes
+Quick     clog      36  Get any missing Ancient page  | 23 still missing from My Notes: Ancient page, Ancient page, Ancient page, Ancient page…
+Quick     combat    35  Deranged Archaeologist Champion  | Deranged Archaeologist: Kill the Deranged Archaeologist 25 times.
+
+== Medium: top 15 of 296
+Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
+Medium    quests    68  Finish A Kingdom Divided  | You meet the main skill requirements.
+Medium    levels    61  Train Construction to 70  | 62 → 70: 386K XP to go.
+Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    levels    61  Train Hunter to 70  | 63 → 70: 345K XP to go.
+Medium    clog      58  Complete the Giant Mole log  | 2/4 slots. Missing: Immaculate mole skin (plus the pet).
+Medium    diaries   57  Desert Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    diaries   57  Fremennik Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    levels    55  Train Slayer to 80  | 78 → 80: 320K XP to go.
+Medium    quests    53  Finish Enakhra's Lament  | Pick up where you left off.
+Medium    quests    53  Finish Getting Ahead  | Pick up where you left off.
+Medium    quests    53  Finish Mage Arena II  | Pick up where you left off.
+Medium    quests    53  Finish Tears of Guthix  | Pick up where you left off.
+Medium    clog      53  Complete the Shooting Stars log  | 1/2 slots. Missing: Celestial ring (uncharged).
+Medium    clog      52  Complete the Amoxliatl log  | 2/4 slots. Missing: Frozen tear (plus the pet).
+
+== Long: top 15 of 536
+Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      goals     60  Goal: 85 Slayer  | Currently 78/85 Slayer.
 Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
 Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      52  Complete the Barrows Chests log  | 21/25 slots. Missing: Guthan's platebody, Ahrim's robeskirt, Guthan's warspear, Torag's hammers.
+Long      clog      48  Complete the Wintertodt log  | 6/10 slots. Missing: Pyromancer garb, Pyromancer robe, Warm gloves (plus the pet).
 Long      goals     45  Goal: Dragon Slayer II  | Currently not started.
+Long      clog      42  Get Guthan's platebody  | From the Barrows Chests collection log page (Bosses tab).
 Long      clog      42  Get Ahrim's robeskirt  | From the Barrows Chests collection log page (Bosses tab).
-Long      clog      42  Get Verac's helm  | From the Barrows Chests collection log page (Bosses tab).
-Long      clog      34  Complete the Zulrah log  | 3/6 slots. Missing: Magic fang, Pet snakeling, Uncut onyx.
-Long      combat    32  Finish every Hard task at Zulrah  | Tasks: “Sample task E”, “Sample task F”
-Long      clog      30  Get Pet snakeling  | From the Zulrah collection log page (Bosses tab).
-Long      diaries   19  Kandarin Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
-Long      diaries   17  Morytania Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      42  Get Guthan's warspear  | From the Barrows Chests collection log page (Bosses tab).
+Long      clog      42  Get Torag's hammers  | From the Barrows Chests collection log page (Bosses tab).
+Long      clog      41  Complete the Tempoross log  | 6/12 slots. Missing: Spirit angler headband, Spirit angler waders, Fish barrel, Dragon harpoon and 1 more (plus the pet).
+Long      combat    40  Finish every Hard task at Grotesque Guardians  | Tasks: “Grotesque Guardians Adept”, “Prison Break”, “Granite Footwork” and 2 more
 
-== Challenge: top 0 of 0
+== Challenge: top 11 of 11
+Challenge clog      34  Complete the Champion's Challenge log  | 3/11 slots. Missing: Ghoul champion scroll, Goblin champion scroll, Hobgoblin champion scroll, Imp champion scroll and 4 more.
+Challenge clog      26  Complete the Nex log  | 1/8 slots. Missing: Ancient hilt, Nihil horn, Torva full helm (damaged), Torva platebody (damaged) and 2 more (plus the pet).
+Challenge clog      26  Complete the Fortis Colosseum log  | 1/9 slots. Missing: Dizana's quiver (uncharged), Sunfire fanatic cuirass, Sunfire fanatic chausses, Sunfire fanatic helm and 3 more (plus the pet).
+Challenge clog      26  Complete the Sea Treasures log  | 2/17 slots. Missing: Medallion fragment, Medallion fragment, Medallion fragment, Medallion fragment and 11 more.
+Challenge clog      25  Complete the Miscellaneous log  | 13/63 slots. Missing: Big swordfish, Big shark, Big bass, Giant blue krill and 44 more (plus the pet).
+Challenge clog      24  Complete The Fractured Archive log  | 1/17 slots. Missing: Obligator (uncharged), Ascension crossbows, Zorya's tome (uncharged), Rondache and 11 more (plus the pet).
+Challenge clog      22  Complete The Nightmare log  | 1/12 slots. Missing: Inquisitor's mace, Inquisitor's great helm, Inquisitor's hauberk, Inquisitor's plateskirt and 6 more (plus the pet).
+Challenge clog      19  Complete the Slayer log  | 20/95 slots. Missing: Cockatrice head, Basilisk head, Kurask head, Imbued heart and 71 more.
+Challenge clog      11  Complete the Theatre of Blood log  | 2/17 slots. Missing: Scythe of Vitur (uncharged), Ghrazi rapier, Sanguinesti staff (uncharged), Justiciar legguards and 10 more (plus the pet).
+Challenge clog       0  Complete the Tombs of Amascut log  | 2/27 slots. Missing: Tumeken's shadow (uncharged), Elidinis' ward, Masori mask, Masori body and 20 more (plus the pet).
+Challenge clog     -13  Complete the Chambers of Xeric log  | 1/23 slots. Missing: Twisted bow, Elder maul, Kodai insignia, Dragon claws and 17 more (plus the pet).
 
 == Picks (no shuffle)
-Quick: Train Crafting to 62 / Sample task B / Train Smithing to 70
+Quick: Train Crafting to 62 / Mummy! / Get any missing Spirit piece
 Medium: Finish Recipe for Disaster / Train Construction to 70 / Western Provinces Medium diary
-Long: Lumbridge & Draynor Hard diary / Complete the Barrows Chests log / Goal: 85 Slayer
-Mixed: Train Crafting to 62 / Sample task B / Finish Recipe for Disaster / Western Provinces Medium diary / Get Magic fang / Goal: 85 Slayer / Lumbridge & Draynor Hard diary
-Challenge: none
-Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium diary / Train Construction to 70
+Long: Lumbridge & Draynor Hard diary / Goal: 85 Slayer / Complete the Barrows Chests log
+Mixed: Train Crafting to 62 / Mummy! / Finish Recipe for Disaster / Western Provinces Medium diary / Complete the Giant Mole log / Goal: 85 Slayer / Hunt Scurry
+Challenge: Complete the Champion's Challenge log
+Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium diary / Complete the Giant Mole log
 
 == Slayer: Slayer task: 118 Hellhounds left (Medium)
 
@@ -288,18 +647,237 @@ Shuffled once (seed 7919): Finish Recipe for Disaster / Western Provinces Medium
 Recipe for Disaster
 A Kingdom Divided
 Wilderness Easy diary
-Sins of the Father  | missing: A Taste of Hope
-Western Provinces Medium diary  | missing: The Eyes of Glouphrie
-Desert Medium diary  | missing: Enakhra's Lament
-Fremennik Medium diary  | missing: Between a Rock...
+Western Provinces Medium diary  | missing: Eagles' Peak
 Kourend & Kebos Hard diary  | missing: 70 smithing, Dream Mentor
-Varrock Hard diary  | missing: 66 hunter, Garden of Tranquillity
+Varrock Hard diary  | missing: 66 hunter, Enlightened Journey
+Secrets of the North  | missing: Making Friends with My Arm, Hazeel Cult
+Desert Medium diary  | missing: Eagles' Peak, Enakhra's Lament
+Fremennik Medium diary  | missing: Between a Rock..., Eagles' Peak
 
 == Hidden until unlocked
+Abyssal Sire: 85 Slayer (15)
+Alchemical Hydra: 95 Slayer (22)
+Araxxor: 92 Slayer (20)
+Cerberus: 91 Slayer (13)
+Corrupted Hunllef: Song of the Elves (14)
+Crystalline Hunllef: Song of the Elves (12)
+Demonic Gorilla: Monkey Madness II (3)
 Desert Treasure II - The Fallen Empire: 70 Thieving, 60 Runecraft (1)
 Dragon Slayer II: 70 Smithing, 62 Crafting (1)
+Duke Sucellus: Desert Treasure II - The Fallen Empire (20)
+Kraken: 87 Slayer (7)
 Monkey Madness II: 70 Crafting (1)
+Moons of Peril: Perilous Moons (16)
+Phantom Muspah: Secrets of the North (23)
 Song of the Elves: 70 Construction, 70 Herblore, 70 Hunter, 70 Smithing (1)
-Vorkath: Dragon Slayer II (1)
+The Gauntlet: Song of the Elves (3)
+The Leviathan: Desert Treasure II - The Fallen Empire (17)
+The Whisperer: Desert Treasure II - The Fallen Empire (17)
+Thermonuclear Smoke Devil: 93 Slayer (9)
+Tormented Demon: While Guthix Sleeps (6)
+Tormented Demons: While Guthix Sleeps (4)
+Vardorvis: Desert Treasure II - The Fallen Empire (17)
+Vorkath: Dragon Slayer II (20)
+Zalcano: Song of the Elves (9)
+
+`;
+
+exports[`sample account \"main\", default filters 1`] = `
+865 suggestions (Quick 78, Medium 239, Long 541, Challenge 7)
+
+== Quick: top 15 of 78
+Quick     levels    54  Train Sailing to 60  | 55 → 60: 93K XP to go. About 1 hour.
+Quick     clog      41  Get any missing Spirit piece  | 4 still missing from Tempoross: Spirit angler headband, Spirit angler waders, Spirit angler boots, Spirit flakes
+Quick     clog      40  Get any missing Ancient page  | 15 still missing from My Notes: Ancient page, Ancient page, Ancient page, Ancient page…
+Quick     levels    36  Train Prayer to 80  | 77 → 80: 372K XP to go. Under an hour.
+Quick     combat    35  A Smashing Time  | Gargoyle: Kill a Gargoyle.
+Quick     clog      34  Get Bolt rack  | From the Barrows Chests collection log page (Bosses tab).
+Quick     clog      34  Get any missing defender  | 6 still missing from Cyclopes: Iron defender, Steel defender, Black defender, Mithril defender…
+Quick     clog      33  Get any missing satchel  | 5 still missing from Creature Creation: Green satchel, Red satchel, Black satchel, Gold satchel…
+Quick     clog      33  Get Mole skin  | From the Giant Mole collection log page (Bosses tab).
+Quick     clog      33  Get any missing piece of Light mystic robes  | 5 still missing from Slayer: Mystic hat (light), Mystic robe top (light), Mystic robe bottom (light), Mystic gloves (light)…
+Quick     levels    32  Train Thieving to 85  | 82 → 85: 644K XP to go. About 3 hours.
+Quick     clog      32  Get Mokhaiotl waystone  | From the Doom of Mokhaiotl collection log page (Bosses tab).
+Quick     clog      32  Get Ancient essence  | From the Phantom Muspah collection log page (Bosses tab).
+Quick     clog      32  Get Dark claw  | From the Skotizo collection log page (Bosses tab).
+Quick     clog      32  Get any missing piece of Dark mystic robes  | 4 still missing from Slayer: Mystic hat (dark), Mystic robe bottom (dark), Mystic gloves (dark), Mystic boots (dark)
+
+== Medium: top 15 of 239
+Medium    quests    83  Finish Desert Treasure II - The Fallen Empire  | You meet the main skill requirements.
+Medium    levels    55  Train Slayer to 95  | 93 → 95: 1.2M XP to go.
+Medium    clog      55  Complete the Dagannoth Kings log  | 6/10 slots. Missing: Seers ring (plus the pet).
+Medium    clog      52  Complete the Brutus log  | 2/4 slots. Missing: Cow slippers (plus the pet).
+Medium    clog      47  Complete the Sarachnis log  | 2/5 slots. Missing: Giant egg sac(full), Pristine spider silk (plus the pet).
+Medium    clog      40  Complete the Bryophyta log  | 0/1 slots. Missing: Bryophyta's essence.
+Medium    clog      40  Complete the Scurrius log  | 0/2 slots. Missing: Scurrius' spine (plus the pet).
+Medium    clog      39  Get Pyromancer robe  | From the Wintertodt collection log page (Bosses tab).
+Medium    clog      39  Get Bruma torch  | From the Wintertodt collection log page (Bosses tab).
+Medium    combat    38  Just Like That  | Barrows: Kill Karil using only damage dealt by special attacks.
+Medium    combat    38  Zulrah Adept  | Zulrah: Kill Zulrah 25 times.
+Medium    clog      38  Complete the Shooting Stars log  | 0/2 slots. Missing: Celestial ring (uncharged), Star fragment.
+Medium    clog      38  Get any missing boots  | 10 still missing from Slayer: Granite boots, Bronze boots, Iron boots, Steel boots…
+Medium    clog      37  Get any missing piece of Shayzien armour  | 11 still missing from Shayzien Armour: Shayzien gloves (1), Shayzien boots (1), Shayzien gloves (2), Shayzien boots (2)…
+Medium    clog      37  Get any missing piece of Chompy bird set  | 15 still missing from Chompy Bird Hunting: Chompy bird hat, Chompy bird hat, Chompy bird hat, Chompy bird hat…
+
+== Long: top 15 of 541
+Long      goals     63  Goal: 99 Slayer  | Currently 93/99 Slayer.
+Long      diaries   57  Ardougne Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   57  Lumbridge & Draynor Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      55  Complete the Abyssal Sire log  | 6/9 slots. Missing: Bludgeon spine, Bludgeon claw (plus the pet).
+Long      clog      53  Complete the K'ril Tsutsaroth log  | 5/8 slots. Missing: Godsword shard 2, Godsword shard 3 (plus the pet).
+Long      diaries   53  Kourend & Kebos Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      53  Complete the Vorkath log  | 5/6 slots. Missing: Jar of Decay.
+Long      goals     52  Goal: Chambers of Xeric collection log  | Currently 5/23.
+Long      clog      50  Complete the Doom of Mokhaiotl log  | 3/6 slots. Missing: Avernic treads, Mokhaiotl waystone (plus the pet).
+Long      clog      50  Complete the Phantom Muspah log  | 3/6 slots. Missing: Charged ice, Ancient essence (plus the pet).
+Long      clog      50  Get Torn prayer scroll  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      50  Get Onyx  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      50  Get Twisted ancestral colour kit  | From the Chambers of Xeric collection log page (Raids tab).
+Long      clog      50  Get Xeric's guard  | From the Chambers of Xeric collection log page (Raids tab).
+Long      diaries   49  Falador Elite diary  | 3 of 4 tiers done. Open the diary in-game for the exact task list.
+
+== Challenge: top 7 of 7
+Challenge clog      40  Complete the Barrows Chests log  | 11/25 slots. Missing: Ahrim's hood, Dharok's helm, Guthan's helm, Torag's helm and 10 more.
+Challenge clog      35  Complete The Fractured Archive log  | 7/17 slots. Missing: Rondache, Fragment of whispering wind, Fragment of deep water, Fragment of living earth and 5 more (plus the pet).
+Challenge clog      34  Complete the Champion's Challenge log  | 3/11 slots. Missing: Earth warrior champion scroll, Ghoul champion scroll, Giant champion scroll, Hobgoblin champion scroll and 4 more.
+Challenge clog      30  Complete The Nightmare log  | 4/12 slots. Missing: Inquisitor's mace, Inquisitor's plateskirt, Volatile orb, Harmonised orb and 3 more (plus the pet).
+Challenge clog      28  Complete the Theatre of Blood log  | 8/17 slots. Missing: Sanguinesti staff (uncharged), Justiciar faceguard, Justiciar legguards, Sinhaza shroud tier 1 and 4 more (plus the pet).
+Challenge clog      20  Complete the Miscellaneous log  | 9/63 slots. Missing: Dragon warhammer, Big swordfish, Big shark, Big bass and 48 more (plus the pet).
+Challenge clog      14  Complete the Tombs of Amascut log  | 9/27 slots. Missing: Elidinis' ward, Masori mask, Masori body, Masori chaps and 13 more (plus the pet).
+
+== Picks (no shuffle)
+Quick: Train Sailing to 60 / Get any missing Spirit piece / A Smashing Time
+Medium: Finish Desert Treasure II - The Fallen Empire / Train Slayer to 95 / Complete the Dagannoth Kings log
+Long: Goal: 99 Slayer / Ardougne Elite diary / Complete the Abyssal Sire log
+Mixed: Train Sailing to 60 / Get any missing Spirit piece / Finish Desert Treasure II - The Fallen Empire / Just Like That / Train Slayer to 95 / Goal: 99 Slayer / Ardougne Elite diary
+Challenge: Complete the Barrows Chests log
+Shuffled once (seed 7919): Finish Desert Treasure II - The Fallen Empire / Train Slayer to 95 / Complete the Brutus log
+
+== Slayer: Slayer task: 140 Abyssal demons left (Medium)
+
+== Within reach
+Desert Treasure II - The Fallen Empire
+Fremennik Elite diary  | missing: 82 runecraft
+Kourend & Kebos Elite diary  | missing: 95 slayer, 90 woodcutting
+Western Provinces Elite diary  | missing: 85 thieving, 85 agility
+
+== Hidden until unlocked
+Alchemical Hydra: 95 Slayer (22)
+Duke Sucellus: Desert Treasure II - The Fallen Empire (17)
+Moons of Peril: Perilous Moons (8)
+The Leviathan: Desert Treasure II - The Fallen Empire (15)
+The Whisperer: Desert Treasure II - The Fallen Empire (12)
+Vardorvis: Desert Treasure II - The Fallen Empire (17)
+
+`;
+
+exports[`sample account \"uim\", default filters 1`] = `
+972 suggestions (Quick 125, Medium 300, Long 535, Challenge 12)
+
+== Quick: top 15 of 125
+Quick     levels    66  Train Smithing to 60  | 55 → 60: 96K XP to go. Under an hour.
+Quick     levels    66  Train Construction to 60  | 55 → 60: 107K XP to go.
+Quick     levels    62  Train Herblore to 62  | 60 → 62: 37K XP to go. Under an hour.
+Quick     levels    61  Train Sailing to 40  | 30 → 40: 24K XP to go. About 1 hour.
+Quick     levels    60  Train Crafting to 70  | 62 → 70: 391K XP to go. About 1–2 hours.
+Quick     levels    55  Train Slayer to 69  | 68 → 69: 11K XP to go.
+Quick     combat    52  Master of Buckets  | Tempoross: Extinguish at least 5 fires during a single Tempoross fight.
+Quick     combat    52  Calm Before the Storm  | Tempoross: Repair either a mast or a totem pole.
+Quick     combat    45  Pray for Success  | Barrows: Kill all six Barrows Brothers and loot the Barrows chest without taking any damage from any of the brothers.
+Quick     combat    45  Wintertodt Champion  | Wintertodt: Subdue the Wintertodt 10 times.
+Quick     combat    45  Can We Fix It?  | Wintertodt: Subdue the Wintertodt without allowing all 4 braziers to be broken at the same time.
+Quick     combat    45  Tempoross Champion  | Tempoross: Subdue Tempoross 10 times.
+Quick     combat    42  A Slow Death  | Bryophyta: Kill Bryophyta with either poison or venom being the final source of damage.
+Quick     combat    42  The Walking Volcano  | Fire Giant: Kill a Fire Giant.
+Quick     combat    42  Sleeping Giant  | Obor: Kill Obor whilst he is immobilized.
+
+== Medium: top 15 of 300
+Medium    quests   100  Finish Recipe for Disaster  | You meet the main skill requirements.
+Medium    clog      65  Complete the Tempoross log  | 10/12 slots. Missing: Spirit flakes (plus the pet).
+Medium    clog      65  Complete the Wintertodt log  | 8/10 slots. Missing: Pyromancer robe (plus the pet).
+Medium    levels    63  Train Farming to 70  | 58 → 70: 509K XP to go.
+Medium    diaries   61  Western Provinces Medium diary  | 1 of 4 tiers done. Open the diary in-game for the exact task list.
+Medium    goals     59  Goal: 80 Agility  | Currently 72/80 Agility.
+Medium    levels    55  Train Agility to 75  | 72 → 75: 296K XP to go. About 6 hours.
+Medium    quests    53  Finish Between a Rock...  | Pick up where you left off.
+Medium    quests    53  Finish Enlightened Journey  | Pick up where you left off.
+Medium    quests    53  Finish Tai Bwo Wannai Trio  | Pick up where you left off.
+Medium    quests    53  Finish Tears of Guthix  | Pick up where you left off.
+Medium    quests    53  Finish Temple of the Eye  | Pick up where you left off.
+Medium    quests    53  Finish The Birds and the Wasps  | Pick up where you left off.
+Medium    quests    53  Finish The Enchanted Key  | Pick up where you left off.
+Medium    quests    53  Finish The Forsaken Tower  | Pick up where you left off.
+
+== Long: top 15 of 535
+Long      diaries   69  Lumbridge & Draynor Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   68  Ardougne Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   64  Varrock Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   63  Morytania Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   59  Kourend & Kebos Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      goals     56  Goal: Hallowed Sepulchre collection log  | Currently 6/16.
+Long      diaries   55  Falador Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   55  Karamja Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   51  Desert Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      diaries   51  Fremennik Hard diary  | 2 of 4 tiers done. Open the diary in-game for the exact task list.
+Long      clog      42  Complete the Amoxliatl log  | 1/4 slots. Missing: Glacial temotli, Pendant of Ates (inert) (plus the pet).
+Long      clog      42  Complete the Prison of Ræun log  | 1/3 slots. Missing: Sunken treasure, Fremennik graceful ornament kit.
+Long      combat    40  Finish every Hard task at K'ril Tsutsaroth  | Tasks: “K'ril Tsutsaroth Adept”, “Yarr No More”, “Demonic Showdown” and 1 more
+Long      combat    40  Finish every Hard task at Amoxliatl  | Tasks: “Amoxliatl Speed-Trialist”, “Nagua Negation”, “Kemo Makti” and 1 more
+Long      combat    40  Finish every Hard task at Royal Titans  | Tasks: “Perfect Royal Titans”, “Royal Titan Speed-Runner”, “Titan Killer” and 1 more
+
+== Challenge: top 12 of 12
+Challenge clog      33  Complete the Barrows Chests log  | 5/25 slots. Missing: Karil's coif, Ahrim's hood, Guthan's helm, Torag's helm and 16 more.
+Challenge clog      29  Complete the Champion's Challenge log  | 1/11 slots. Missing: Earth warrior champion scroll, Giant champion scroll, Goblin champion scroll, Hobgoblin champion scroll and 6 more.
+Challenge clog      27  Complete the Sea Treasures log  | 3/17 slots. Missing: Medallion fragment, Medallion fragment, Medallion fragment, Medallion fragment and 10 more.
+Challenge clog      23  Complete the Fortis Colosseum log  | 1/9 slots. Missing: Dizana's quiver (uncharged), Sunfire fanatic cuirass, Sunfire fanatic chausses, Sunfire fanatic helm and 3 more (plus the pet).
+Challenge clog      22  Complete the Nex log  | 0/8 slots. Missing: Ancient hilt, Nihil horn, Zaryte vambraces, Torva full helm (damaged) and 3 more (plus the pet).
+Challenge clog      22  Complete The Fractured Archive log  | 0/17 slots. Missing: Obligator (uncharged), Ascension crossbows, Zorya's tome (uncharged), Rondache and 12 more (plus the pet).
+Challenge clog      20  Complete the Miscellaneous log  | 15/63 slots. Missing: Dragon warhammer, Big shark, Big bass, Orangefin and 42 more (plus the pet).
+Challenge clog      19  Complete the Corporeal Beast log  | 0/7 slots. Missing: Elysian sigil, Spectral sigil, Arcane sigil, Holy elixir and 2 more (plus the pet).
+Challenge clog      19  Complete The Nightmare log  | 0/12 slots. Missing: Inquisitor's mace, Inquisitor's great helm, Inquisitor's hauberk, Inquisitor's plateskirt and 7 more (plus the pet).
+Challenge clog       1  Complete the Theatre of Blood log  | 0/17 slots. Missing: Scythe of Vitur (uncharged), Ghrazi rapier, Sanguinesti staff (uncharged), Justiciar faceguard and 12 more (plus the pet).
+Challenge clog      -2  Complete the Tombs of Amascut log  | 0/27 slots. Missing: Tumeken's shadow (uncharged), Elidinis' ward, Masori mask, Masori body and 22 more (plus the pet).
+Challenge clog     -14  Complete the Chambers of Xeric log  | 0/23 slots. Missing: Metamorphic dust, Twisted bow, Elder maul, Kodai insignia and 18 more (plus the pet).
+
+== Picks (no shuffle)
+Quick: Train Smithing to 60 / Master of Buckets / Get any missing Ancient page
+Medium: Finish Recipe for Disaster / Complete the Tempoross log / Train Farming to 70
+Long: Lumbridge & Draynor Hard diary / Goal: Hallowed Sepulchre collection log / Complete the Amoxliatl log
+Mixed: Train Smithing to 60 / Master of Buckets / Finish Recipe for Disaster / Complete the Tempoross log / Western Provinces Medium diary / Goal: Hallowed Sepulchre collection log / Hunt Tiny tempor
+Challenge: Complete the Barrows Chests log
+Shuffled once (seed 7919): Finish Recipe for Disaster / Complete the Tempoross log / Train Farming to 70
+
+== Slayer: Slayer task: 90 Kurask left (Medium)
+
+== Within reach
+Wilderness Medium diary
+Western Provinces Medium diary  | missing: Eagles' Peak
+
+== Hidden until unlocked
+Abyssal Sire: 85 Slayer (15)
+Alchemical Hydra: 95 Slayer (20)
+Araxxor: 92 Slayer (22)
+Cerberus: 91 Slayer (15)
+Corrupted Hunllef: Song of the Elves (14)
+Crystalline Hunllef: Song of the Elves (12)
+Demonic Gorilla: Monkey Madness II (3)
+Desert Treasure II - The Fallen Empire: 62 Herblore, 60 Construction (1)
+Dragon Slayer II: 70 Smithing (1)
+Duke Sucellus: Desert Treasure II - The Fallen Empire (22)
+Grotesque Guardians: 75 Slayer (21)
+Kraken: 87 Slayer (10)
+Monkey Madness II: 69 Slayer, 70 Crafting (1)
+Moons of Peril: Perilous Moons (19)
+Phantom Muspah: Secrets of the North (22)
+Song of the Elves: 70 Construction, 70 Farming, 70 Herblore, 70 Smithing (1)
+The Gauntlet: Song of the Elves (4)
+The Leviathan: Desert Treasure II - The Fallen Empire (17)
+The Whisperer: Desert Treasure II - The Fallen Empire (18)
+Thermonuclear Smoke Devil: 93 Slayer (9)
+Tormented Demon: While Guthix Sleeps (6)
+Tormented Demons: While Guthix Sleeps (3)
+Vardorvis: Desert Treasure II - The Fallen Empire (16)
+Vorkath: Dragon Slayer II (19)
+Zalcano: Song of the Elves (9)
 
 `;

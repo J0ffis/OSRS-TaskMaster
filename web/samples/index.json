@@ -1,0 +1,111 @@
+{
+  "about": "Made-up sample accounts, one per account type. Made by tests/make-sample-profiles.mjs (npm run samples); don't edit by hand.",
+  "accounts": [
+    {
+      "id": "main",
+      "name": "Sample Main",
+      "accountType": "Normal",
+      "goals": [
+        {
+          "id": "g1",
+          "type": "skill",
+          "skill": "slayer",
+          "level": 99
+        },
+        {
+          "id": "g2",
+          "type": "clog",
+          "page": "Chambers of Xeric"
+        }
+      ]
+    },
+    {
+      "id": "iron",
+      "name": "Sample Iron",
+      "accountType": "Ironman",
+      "goals": [
+        {
+          "id": "g1",
+          "type": "skill",
+          "skill": "slayer",
+          "level": 85
+        },
+        {
+          "id": "g2",
+          "type": "quest",
+          "quest": "Dragon Slayer II"
+        }
+      ]
+    },
+    {
+      "id": "hcim",
+      "name": "Sample HCIM",
+      "accountType": "Hardcore Ironman",
+      "goals": [
+        {
+          "id": "g1",
+          "type": "quest",
+          "quest": "Recipe for Disaster"
+        },
+        {
+          "id": "g2",
+          "type": "skill",
+          "skill": "prayer",
+          "level": 70
+        }
+      ]
+    },
+    {
+      "id": "uim",
+      "name": "Sample UIM",
+      "accountType": "Ultimate Ironman",
+      "goals": [
+        {
+          "id": "g1",
+          "type": "skill",
+          "skill": "agility",
+          "level": 80
+        },
+        {
+          "id": "g2",
+          "type": "clog",
+          "page": "Hallowed Sepulchre"
+        }
+      ]
+    },
+    {
+      "id": "gim",
+      "name": "Sample GIM",
+      "accountType": "Group Ironman",
+      "goals": [
+        {
+          "id": "g1",
+          "type": "clog",
+          "page": "Chambers of Xeric"
+        },
+        {
+          "id": "g2",
+          "type": "quest",
+          "quest": "Dragon Slayer II"
+        }
+      ]
+    },
+    {
+      "id": "hcgim",
+      "name": "Sample HCGIM",
+      "accountType": "Hardcore Group Ironman",
+      "goals": [
+        {
+          "id": "g1",
+          "type": "quest",
+          "quest": "Recipe for Disaster"
+        },
+        {
+          "id": "g2",
+          "type": "clog",
+          "page": "Chambers of Xeric"
+        }
+      ]
+    }
+  ]
+}

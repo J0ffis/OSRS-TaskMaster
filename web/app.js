@@ -12,8 +12,10 @@ import {
   planRoute, hoursRangeText,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
-import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML } from "./game-icons.js";
+import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
 import { SYNC_API } from "./config.js";
+// Data guards (tests/guards.test.mjs): values a profile can't really have.
+import { profileIssues } from "./recommender.js";
 
 // Small helpers used everywhere below.
 /** The first element matching a CSS selector, e.g. $("#cards"). */
@@ -28,11 +30,29 @@ const pageSortKey = (n) => n.replace(/^the\s+/i, "");
 const pageLabel = (n) => (/^the\s+/i.test(n) ? `${n.replace(/^the\s+/i, "")}, The` : n);
 const byPageName = (a, b) => pageSortKey(a).localeCompare(pageSortKey(b));
 const SAMPLE = "__sample__";
+// The sample accounts, one per account type, each its own made-up profile in samples/<id>.json
+// (made by tests/make-sample-profiles.mjs; samples/index.json has each one's starting goals).
+const SAMPLE_ACCOUNTS = [
+  { id: "main", label: "Main account" },
+  { id: "iron", label: "Ironman" },
+  { id: "hcim", label: "Hardcore Ironman" },
+  { id: "uim", label: "Ultimate Ironman" },
+  { id: "gim", label: "Group Ironman" },
+  { id: "hcgim", label: "Hardcore Group Ironman" },
+];
+const sampleAccount = (id) => SAMPLE_ACCOUNTS.find((a) => a.id === id) ?? SAMPLE_ACCOUNTS[1];
+// "#sample=hcim" opens the sample as that account type, so testers can share a link to one.
+// OSRS names can't contain "=", so this never clashes with a player's name.
+// What a profile's browser storage (marks, Not for me, history) is kept under: each sample
+// account has its own. Real names can't start with "_", so these never clash with a player.
+const storeName = (name) => (name === SAMPLE ? `${SAMPLE} ${state.sampleType}` : name);
+const sampleFromHash = (h) => (/^sample=\w+$/i.test(h) ? sampleAccount(h.slice(7).toLowerCase()).id : null);
 
 // Everything the page is currently showing. Settings that should survive a reload are also kept
 // in localStorage under "tm.*" keys.
 const state = {
   name: null, // the loaded player's name (SAMPLE for the sample data)
+  sampleType: sampleAccount(localStorage.getItem("tm.sampleType")).id, // which SAMPLE_ACCOUNTS the sample shows
   raw: null, // their profile ("snapshot") as the plugin wrote it
   snap: null, // the same with progress marked by hand laid over it; everything renders from this
   marks: { quests: {}, diaries: {}, ca: {} }, // progress marked by hand: { bucket: { key: time } }
@@ -126,11 +146,11 @@ async function load(name, opts = {}) {
     : name !== SAMPLE && !opts.local ? links.byName(name) : null;
   try {
     if (name === SAMPLE) {
-      state.snap = await api("sample-profile.json");
-      state.goals = JSON.parse(localStorage.getItem("tm.sampleGoals") || "null") ?? [
-        { id: "g1", type: "skill", skill: "slayer", level: 85 },
-        { id: "g2", type: "quest", quest: "Dragon Slayer II" },
-      ];
+      const id = sampleAccount(state.sampleType).id;
+      const [snap, index] = await Promise.all([api(`samples/${id}.json`), api("samples/index.json")]);
+      state.snap = snap;
+      state.goals = JSON.parse(localStorage.getItem(`tm.sampleGoals:${id}`) || "null")
+        ?? index.accounts.find((a) => a.id === id)?.goals ?? [];
       source = { kind: "sample" };
     } else if (link) {
       const r = await syncApi(`/v1/profile/${encodeURIComponent(link.id)}`);
@@ -150,17 +170,19 @@ async function load(name, opts = {}) {
       state.snap = r.profile; state.goals = r.goals;
       source = { kind: "sync", id: r.id, edit: links.byId(r.id)?.edit ?? null, public: true };
     }
-    name = state.snap.player?.name ?? name;
+    // Samples keep SAMPLE as their name (storeName, the sample drop-down and #sample= rely on it).
+    if (name !== SAMPLE) name = state.snap.player?.name ?? name;
     // Wealth tracking was removed; drop any old net-worth goals.
     state.goals = (state.goals ?? []).filter((g) => g.type !== "wealth");
     state.goalsSeen = new Set(state.goals.map((g) => g.id));
     delete state.snap.wealth;
     state.raw = state.snap;
-    state.prev = trackPrevious(name, state.raw, state.goals);
-    state.marks = loadMarks(name, state.raw);
+    const key = storeName(name);
+    state.prev = trackPrevious(key, state.raw, state.goals);
+    state.marks = loadMarks(key, state.raw);
     state.snap = applyManual(state.raw, state.marks);
-    state.hidden = loadHidden(name);
-    state.route = loadRoute(name);
+    state.hidden = loadHidden(key);
+    state.route = loadRoute(key);
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
     // A name lookup that can't reach the upload service reads like "not found": pasting still works.
@@ -199,6 +221,8 @@ async function load(name, opts = {}) {
     history.replaceState(null, "", `#id=${source.id}`);
   } else if (name !== SAMPLE) {
     history.replaceState(null, "", `#${encodeURIComponent(name)}`);
+  } else {
+    history.replaceState(null, "", `#sample=${state.sampleType}`);
   }
   if (name !== SAMPLE) localStorage.setItem("tm.last", name);
   refreshKnown();
@@ -316,7 +340,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 async function saveGoals() {
-  if (state.name === SAMPLE) return localStorage.setItem("tm.sampleGoals", JSON.stringify(state.goals));
+  if (state.name === SAMPLE) return localStorage.setItem(`tm.sampleGoals:${state.sampleType}`, JSON.stringify(state.goals));
   if (state.source?.kind === "sync") {
     if (!state.source.edit) return;
     // `known`: every goal this page has seen, so the service keeps goals added meanwhile from the
@@ -373,7 +397,7 @@ function loadHidden(name) {
   return h;
 }
 function saveHidden() {
-  localStorage.setItem(hiddenKey(state.name), JSON.stringify(state.hidden));
+  localStorage.setItem(hiddenKey(storeName(state.name)), JSON.stringify(state.hidden));
 }
 const isHidden = (c) => {
   const e = state.hidden[c.id];
@@ -395,7 +419,7 @@ function unhide(ids) {
 function setMark(bucket, key, on) {
   const b = (state.marks[bucket] ??= {});
   if (on) b[key] = Date.now(); else delete b[key];
-  localStorage.setItem(marksKey(state.name), JSON.stringify(state.marks));
+  localStorage.setItem(marksKey(storeName(state.name)), JSON.stringify(state.marks));
   state.snap = applyManual(state.raw, state.marks);
   renderAll();
 }
@@ -544,7 +568,8 @@ function renderSummary() {
   const { badges } = completions(s);
   $("#summary").innerHTML = `
     <div class="who">
-      <h2>${esc(p.name)}</h2>
+      <h2>${helmHTML(p.accountType)}${esc(p.name)}</h2>
+      ${sampleTypeHTML()}
       <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `${state.source.kind === "sync" ? "Uploaded" : "Synced"} <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}${isReadOnly() ? ` · <span class="viewonly" title="Opened from a share link or public profile: you can see the suggestions but not change the goals">View only</span>` : ""}${ownerToggleHTML()}</div>
       ${isReadOnly() ? "" : `<div class="manualrow">
         <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't ${state.source.kind === "sync" ? "uploaded" : "synced"} since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until your profile shows them done.">Mark progress by hand</button>
@@ -585,6 +610,21 @@ function ownerToggleHTML() {
     <button type="button" id="visitorbtn" class="link small" title="Preview the view-only page your share link shows other people">See it as others do</button>`;
 }
 
+/** On the sample data: a drop-down to view it as another account type. */
+function sampleTypeHTML() {
+  if (state.name !== SAMPLE) return "";
+  return `<label class="sampletype muted small">View the sample as
+    <select id="sampletype">${SAMPLE_ACCOUNTS.map((a) =>
+      `<option value="${a.id}"${a.id === state.sampleType ? " selected" : ""}>${esc(a.label)}</option>`).join("")}</select></label>`;
+}
+
+/** Switch the sample to another account type (goals and settings stay as they are). */
+function setSampleType(id) {
+  state.sampleType = sampleAccount(id).id;
+  localStorage.setItem("tm.sampleType", state.sampleType);
+  return load(SAMPLE);
+}
+
 // "Since last time": progress over the last 8 hours of syncs (see trackPrevious), from the raw profile
 // (progress marked by hand isn't counted until a sync confirms it). Hover a part for details.
 function sinceLastHTML() {
@@ -606,10 +646,13 @@ const missingWhy = (n = 1) => `Profiles from older versions of the TaskMaster pl
 const isMissing = (key) => missingSections(state.raw).some((m) => m.key === key);
 
 function missingHTML() {
+  if (state.name === SAMPLE) return "";
   const m = missingSections(state.raw);
-  if (!m.length || state.name === SAMPLE) return "";
-  return `<p class="missing small"><span aria-hidden="true">ⓘ</span> Not in this profile: ${m.map((x) =>
-    `<b title="${esc(cap(x.detail))}">${esc(x.label)}</b>`).join(", ")}. <span class="muted">${esc(missingWhy(m.length))}</span></p>`;
+  // Values that can't be right: say so, rather than quietly suggesting things from them.
+  const issues = profileIssues(state.raw);
+  return (m.length ? `<p class="missing small"><span aria-hidden="true">ⓘ</span> Not in this profile: ${m.map((x) =>
+    `<b title="${esc(cap(x.detail))}">${esc(x.label)}</b>`).join(", ")}. <span class="muted">${esc(missingWhy(m.length))}</span></p>` : "")
+    + (issues.length ? `<p class="missing small"><span aria-hidden="true">⚠</span> Some of this profile doesn't add up, so a few suggestions may be off: ${esc(issues.map((i) => i.text).join("; "))}. <span class="muted">Sync or copy a fresh profile from the plugin to fix it.</span></p>` : "");
 }
 
 /** A progress bar with an optional short counter ("30/50 kills") beside it. */
@@ -1465,8 +1508,9 @@ const ROUTE_SHOWN = 4;
 function saveRoute(route) {
   if (isReadOnly()) return;
   state.route = route;
-  if (route) localStorage.setItem(routeKey(state.name), JSON.stringify(route));
-  else localStorage.removeItem(routeKey(state.name));
+  // Per sample account too, like marks and hidden suggestions (storeName).
+  if (route) localStorage.setItem(routeKey(storeName(state.name)), JSON.stringify(route));
+  else localStorage.removeItem(routeKey(storeName(state.name)));
   schedulePicks(); // the RuneLite panel shows the pinned route too
 }
 
@@ -1674,6 +1718,9 @@ $("#summary").addEventListener("click", async (e) => {
   localStorage.setItem("tm.manualMode", state.manualMode ? "1" : "0");
   renderAll();
 });
+$("#summary").addEventListener("change", (e) => {
+  if (e.target.id === "sampletype") setSampleType(e.target.value);
+});
 $("#app").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-mark]");
   if (!b || !state.raw || isReadOnly()) return;
@@ -1715,6 +1762,8 @@ function readHash() {
 
 window.addEventListener("hashchange", () => {
   const h = readHash();
+  const sample = h.name ? sampleFromHash(h.name) : null;
+  if (sample) { if (state.name !== SAMPLE || sample !== state.sampleType) setSampleType(sample); return; }
   if (h.id && (h.id !== state.source?.id || h.focus)) load(null, h);
   else if (h.name && h.name !== state.name) { $("#name").value = h.name; load(h.name); }
 });
@@ -1864,6 +1913,8 @@ function setupImport() {
   refreshKnown();
   const h = readHash();
   if (h.id) return load(null, h);
+  const sample = h.name ? sampleFromHash(h.name) : null;
+  if (sample) return setSampleType(sample);
   const last = h.name || localStorage.getItem("tm.last");
   if (last) {
     $("#name").value = last;

@@ -4,7 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { candidates, compactProfile, sinceLast, accountKind } from "../web/recommender.js";
-import { loadDropRates, sampleAccount, fullAccount } from "./test-account.mjs";
+import { loadDropRates, sampleAccount, SAMPLE_IDS, fullAccount } from "./test-account.mjs";
+import { WILDERNESS_PAGES } from "../web/knowledge-base.js";
 
 loadDropRates();
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -86,6 +87,29 @@ test("Group Ironmen get team content raised; other Ironmen don't", () => {
   const iron = raid(withType(base, "Ironman"));
   assert.equal(gim.score - iron.score, 5);
   assert.ok(gim.why.some((w) => /Ironman group/.test(w)));
+});
+
+// ---- Sample accounts ---------------------------------------------------------------------------
+
+test("there's a sample account for each of the six account types, each with its own progress", () => {
+  const samples = SAMPLE_IDS.map((id) => sampleAccount(id));
+  assert.deepEqual(samples.map((s) => s.player.accountType),
+    ["Normal", "Ironman", "Hardcore Ironman", "Ultimate Ironman", "Group Ironman", "Hardcore Group Ironman"]);
+  const fingerprint = (s) => JSON.stringify([s.skills.overall, s.questPoints, s.combatAchievements.points, s.collectionLog.obtained]);
+  assert.equal(new Set(samples.map(fingerprint)).size, samples.length, "no two samples have the same progress");
+});
+
+test("sample accounts show their account type's rules", () => {
+  const why = (id) => candidates(sampleAccount(id), [], {}).flatMap((c) => c.why);
+  assert.ok(!why("main").some((w) => /Ironman/.test(w)), "a main gets no Ironman reasons");
+  assert.ok(why("iron").some((w) => /an Ironman/.test(w)), "an Ironman gets Ironman priorities");
+  for (const id of ["gim", "hcgim"]) assert.ok(why(id).some((w) => /Ironman group/.test(w)), `${id} gets team content raised`);
+  for (const id of ["hcim", "hcgim"]) {
+    const s = sampleAccount(id);
+    const wild = Object.entries(s.collectionLog.pages).filter(([p]) => WILDERNESS_PAGES.has(p)).flatMap(([, p]) => p.items);
+    assert.ok(wild.every((i) => !i.quantity), `${id} has no Wilderness drops`);
+    assert.ok(!Object.values(s.diaries.Wilderness).some(Boolean), `${id} has no Wilderness diary`);
+  }
 });
 
 // ---- Kill-count time estimates ----------------------------------------------------------------

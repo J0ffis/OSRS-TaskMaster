@@ -1,7 +1,7 @@
 <#
   Rewrites JSON so people can read it. Values are copied exactly as written; only the spacing changes.
 
-    .\scripts\Format-Json.ps1 web\sample-profile.json     # format a file in place
+    .\scripts\Format-Json.ps1 web\samples\index.json      # format a file in place
 
   Layout:
     - Objects and arrays that hold other objects or arrays get one entry per line, indented 2 spaces.

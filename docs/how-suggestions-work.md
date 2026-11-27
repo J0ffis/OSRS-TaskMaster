@@ -42,6 +42,13 @@ The plugin records the account type, and suggestions follow it (`applyAccountTyp
 - **Hardcore** accounts: Wilderness cards and the Wilderness toggle carry a stronger warning, since
   a death there also ends Hardcore status. Wilderness stays opt-in as for everyone.
 
+The website shows the game's helm for the account type in front of the player's name. To compare
+account types, load the sample data and use **View the sample as**: a made-up main, Ironman,
+Hardcore, Ultimate, Group or Hardcore Group Ironman (`#sample=main`, `iron`, `hcim`, `uim`, `gim`,
+`hcgim`). Each is its own account at its own stage of the game (`web/samples/`, made by
+`npm run samples` from `tests/make-sample-profiles.mjs`); hardcore samples have no Wilderness
+progress. The engine has no rules of its own for Ultimate Ironmen yet: they're treated as Ironmen.
+
 ## Not for me
 
 Every suggestion card (and the Challenge card) has **Not for me**, which hides it **for a week**

@@ -56,7 +56,8 @@ up from chat messages as you play, and from a boss's collection log page when yo
     estimates). Edit this to tune suggestions.
   - `app.js` – the page itself: importing profiles, rendering cards, managing goals.
   - `config.js` – where the Automatic upload service runs (local or live).
-  - `sample-profile.json` – the made-up account behind **Load sample data**.
+  - `samples/` – the made-up accounts behind **Load sample data**, one per account type (made by
+    `tests/make-sample-profiles.mjs`, `npm run samples`).
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
   - `data/quest-reqs.json` – a snapshot of every quest's requirements from the OSRS Wiki (the
     route planner and **Within reach** use it).
@@ -116,12 +117,16 @@ opened from this PC (`localhost` / `127.0.0.1`) talk to the local sync service, 
 With [Node.js](https://nodejs.org/) installed (no packages needed):
 
 ```powershell
-npm run check         # web/knowledge-base.js: misspelt names, tiers that don't exist
-npm test              # the checker's tests and the suggestion snapshots
+npm run check         # web/knowledge-base.js: misspelt names, tiers that don't exist, game data over 90 days old
+npm test              # the checker's tests, the suggestion snapshots and the data guards
 npm run test:update   # accept intended changes to the suggestions, then review the snapshot diff
 ```
 
-The publish workflow runs the same checks first and doesn't publish if they fail.
+The publish workflow runs the same checks first and doesn't publish if they fail. The data guards
+(`tests/guards.test.mjs`) fail if any suggestion shows "undefined", "NaN" or a progress outside
+0–100%, and check that `profileIssues` flags impossible profiles (a level that doesn't match its XP,
+combat achievement points that don't add up); the website then tells the player their
+suggestions may be off.
 [How suggestions work](docs/how-suggestions-work.md#checking-an-edit) explains them.
 
 ### Running the Automatic upload service
