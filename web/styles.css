@@ -83,10 +83,36 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 /* Summary */
 .summary { display: grid; grid-template-columns: auto 1fr; gap: 18px 28px; align-items: center;
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; }
-.who h2 { font: 600 26px var(--serif); margin: 0; }
+.who h2 { font: 600 26px var(--serif); margin: 0; display: flex; align-items: center; flex-wrap: wrap; }
 .who .muted { font-size: 13px; }
 /* Account type helm in front of the name, like the game's chat badge (sprites are 10-13 px). */
-.who h2 .ghelm { height: 20px; width: auto; image-rendering: pixelated; vertical-align: 1px; margin-right: 8px; }
+.who h2 .ghelm { height: 20px; width: auto; image-rendering: pixelated; margin-right: 8px; }
+/* Showcase: one item or pet the player picked (or their rarest), framed like a collection log slot. */
+.showcase { display: inline-grid; place-items: center; min-width: 40px; height: 38px; margin-left: 12px; padding: 2px 4px;
+  border-radius: 8px; border: 1px solid var(--gold-dim); cursor: pointer;
+  background: radial-gradient(circle at 50% 40%, rgba(224, 176, 74, .18), var(--panel-2) 70%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 1px 0 rgba(0,0,0,.4); }
+.showcase:hover, .showcase:focus-visible { border-color: var(--gold); }
+.showcase.pet { border-color: color-mix(in srgb, var(--c-pets) 60%, transparent);
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--c-pets) 22%, transparent), var(--panel-2) 70%); }
+.showcase .gicon { max-height: 32px; max-width: 36px; width: auto; height: auto; image-rendering: pixelated; }
+.showcase .name { font: 600 12px var(--sans); color: var(--gold); padding: 0 4px; white-space: nowrap; }
+.showcase.empty { border-style: dashed; border-color: var(--line); color: var(--muted); background: none; font: 600 16px var(--sans); }
+.showcase.empty:hover { color: var(--gold); border-color: var(--gold-dim); }
+#showcasefilter { width: 100%; margin: 10px 0; }
+.showcasemode { margin-bottom: 8px; }
+.showcaselist { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 50vh; overflow-y: auto; }
+.showcaselist .pick { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 5px 9px; border-radius: 6px;
+  background: var(--panel-2); color: var(--text); border: 1px solid transparent; font: inherit; font-size: 13px; cursor: pointer; }
+.showcaselist .pick:hover { border-color: var(--gold-dim); }
+.showcaselist .pick.on { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
+.showcaselist .grow { flex: 1; }
+/* ☆ on owned items in the Collection log and Pets tabs. */
+.star { background: none; border: 0; padding: 0 6px 0 0; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; opacity: .55; }
+.star:hover, .star:focus-visible, .star.on { color: var(--gold); opacity: 1; }
+.clogitems li:not(:hover) .star:not(.on):not(:focus-visible), .pet:not(:hover) .star:not(.on):not(:focus-visible) { opacity: 0; }
+@media (hover: none) { .clogitems li .star, .pet .star { opacity: .55 !important; } .star.on { opacity: 1 !important; } }
+.pet .q { display: inline-flex; align-items: center; }
 .sampletype { display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; }
 .sampletype select { padding: 4px 8px; font-size: 13px; }
 .stats { display: flex; flex-wrap: wrap; gap: 8px 26px; justify-content: flex-end; }

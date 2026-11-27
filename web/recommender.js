@@ -978,6 +978,49 @@ function itemIndexRaw(snap) {
   return out;
 }
 
+// ---- Showcase ------------------------------------------------------------------------------
+
+// Clue casket rates are per reward roll, not per clue, so they'd look far rarer than boss drops.
+const isCluePage = (page) => /Treasure Trails/i.test(page ?? "");
+
+/**
+ * Everything the player could show off next to their name: each owned collection log item and
+ * pet once, as { id, name, pet, page, p, rarity }. `p` is the best chance per attempt from the
+ * drop-rate snapshot, null when it has none or when it's a clue reward (see isCluePage).
+ * Ordered the way automatic picks them: pets, then rarest first, clue rewards last, then A–Z.
+ */
+function showcaseOptionsRaw(snap) {
+  const pets = petInfo(snap).ids;
+  const out = [];
+  for (const i of itemIndex(snap).values()) {
+    if (!i.owned) continue;
+    const d = isCluePage(i.page) ? null : dropChance(i.name, i.page ?? "");
+    out.push({ id: i.id, name: i.name, pet: pets.has(i.id), page: i.page ?? null, p: d?.p ?? null, rarity: d?.rarity ?? null, from: d?.from ?? null });
+  }
+  const rank = (o) => (o.p ?? (isCluePage(o.page) ? 3 : 2));
+  return out.sort((a, b) => Number(b.pet) - Number(a.pet) || rank(a) - rank(b) || a.name.localeCompare(b.name));
+}
+export const showcaseOptions = memoBySnap(showcaseOptionsRaw);
+
+/** The value saved for "show nothing" (an item name can't be a dash). */
+export const SHOWCASE_NONE = "-";
+
+/**
+ * The item to show next to the player's name. `choice` is the saved pick: an item name,
+ * SHOWCASE_NONE, or empty for automatic. A pick they don't own (renamed, another account) falls
+ * back to automatic. Automatic is the rarest pet they own, or with no pets the rarest item.
+ * Returns { ...option, auto } or null when they own nothing.
+ */
+export function showcaseItem(snap, choice) {
+  if (choice === SHOWCASE_NONE) return null;
+  const opts = showcaseOptions(snap);
+  if (choice) {
+    const hit = opts.find((o) => o.name.toLowerCase() === String(choice).toLowerCase());
+    if (hit) return { ...hit, auto: false };
+  }
+  return opts.length ? { ...opts[0], auto: true } : null;
+}
+
 // ---- Goals -----------------------------------------------------------------------------
 
 /** Returns { progress 0..1, done, label } for a goal against the snapshot. */

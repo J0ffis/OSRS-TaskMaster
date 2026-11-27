@@ -8,7 +8,7 @@ import {
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
-  planRoute, hoursRangeText,
+  planRoute, hoursRangeText, showcaseItem, showcaseOptions, SHOWCASE_NONE,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
@@ -73,6 +73,7 @@ const state = {
   locked: [], // content hidden until unlocked (lockedContent), for the dialog
   tab: "skills", // open tab in the Account panel
   clogOpen: null, // the collection log page (or CA tier) open in the Account panel
+  showcase: "", // the item shown next to the name: a name, SHOWCASE_NONE, or "" for automatic
 };
 
 // ---- Data -------------------------------------------------------------------------------
@@ -99,7 +100,7 @@ const local = {
     localStorage.setItem("tm.profileNames", JSON.stringify([name, ...names]));
   },
   forget(name) {
-    for (const k of ["profile", "goals", "marks", "hidden", "history", "seen", "prev", "route"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
+    for (const k of ["profile", "goals", "marks", "hidden", "history", "seen", "prev", "route", "showcase"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
     localStorage.setItem("tm.profileNames", JSON.stringify(local.names().filter((n) => keyOf(n) !== keyOf(name))));
   },
   goals: (name) => JSON.parse(localStorage.getItem(`tm.goals:${keyOf(name)}`) || "[]"),
@@ -134,6 +135,7 @@ async function load(name) {
     state.snap = applyManual(state.raw, state.marks);
     state.hidden = loadHidden(key);
     state.route = loadRoute(key);
+    state.showcase = loadShowcase(key);
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
     if (e.status === 404 && !serverMode) return showError(`No profile for "${name}" in this browser yet. In RuneLite, open the OSRS TaskMaster panel, click Copy my profile, then paste it here.`);
@@ -327,7 +329,7 @@ function renderSummary() {
   const { badges } = completions(s);
   $("#summary").innerHTML = `
     <div class="who">
-      <h2>${helmHTML(p.accountType)}${esc(p.name)}</h2>
+      <h2>${helmHTML(p.accountType)}${esc(p.name)}${showcaseHTML()}</h2>
       ${sampleTypeHTML()}
       <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `Synced <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}</div>
       <div class="manualrow">
@@ -348,6 +350,57 @@ function renderSummary() {
     ${badges.length ? `<div class="badges" aria-label="Milestones reached">${badges.map((b) =>
       `<span class="badge" title="${esc(b.detail)}"><span aria-hidden="true">✦</span> ${esc(b.label)}</span>`).join("")}</div>` : ""}`;
 }
+// ---- Showcase: one item or pet from the collection log, shown next to the name -------------
+// Picked by the player (the badge, or ☆ on an owned item in the Collection log and Pets tabs),
+// otherwise the rarest pet or item they own. Kept per profile in this browser.
+
+const showcaseKey = (name) => `tm.showcase:${keyOf(name)}`;
+const loadShowcase = (name) => localStorage.getItem(showcaseKey(name)) ?? "";
+function setShowcase(value) {
+  state.showcase = value ?? "";
+  if (state.showcase) localStorage.setItem(showcaseKey(storeName(state.name)), state.showcase);
+  else localStorage.removeItem(showcaseKey(storeName(state.name)));
+  renderSummary();
+  renderTabs();
+  if ($("#showcasedlg").open) renderShowcasePicker();
+}
+/** "Vorki · 1/3,000 from Vorkath" for the badge's tooltip and the picker. */
+const showcaseDetail = (o) => (o.rarity ? `${o.rarity}${o.from ? ` from ${o.from}` : ""}` : o.pet ? "Pet" : (o.page ?? ""));
+
+function showcaseHTML() {
+  const o = showcaseItem(state.snap, state.showcase);
+  if (!o) {
+    // Picked "None", or nothing owned yet: a quiet + only when there's something to pick.
+    return showcaseOptions(state.snap).length
+      ? `<button type="button" id="showcasebtn" class="showcase empty" title="Show off an item or pet next to your name" aria-label="Choose a showcase item">+</button>` : "";
+  }
+  const icon = iconImg(itemUrl(o.id), { cls: "gicon item" });
+  const tip = `Showcase: ${o.name}${showcaseDetail(o) ? ` (${showcaseDetail(o)})` : ""}${o.auto ? ". Picked for you as your rarest " + (o.pet ? "pet" : "item") : ""}. Click to change.`;
+  return `<button type="button" id="showcasebtn" class="showcase${o.pet ? " pet" : ""}" title="${esc(tip)}" aria-label="${esc(`Showcase: ${o.name}. Change it`)}">${icon || `<span class="name">${esc(o.name)}</span>`}</button>`;
+}
+
+function openShowcase() {
+  $("#showcasefilter").value = "";
+  renderShowcasePicker();
+  $("#showcasedlg").showModal();
+  $("#showcasefilter").focus();
+}
+function renderShowcasePicker() {
+  const q = $("#showcasefilter").value.trim().toLowerCase();
+  const current = showcaseItem(state.snap, state.showcase);
+  const opts = showcaseOptions(state.snap).filter((o) => !q || o.name.toLowerCase().includes(q));
+  const mode = state.showcase === SHOWCASE_NONE ? "none" : state.showcase && !current?.auto ? "pick" : "auto";
+  const row = (o) => `<li><button type="button" class="pick${!current?.auto && current?.id === o.id ? " on" : ""}" data-showcase="${esc(o.name)}" aria-pressed="${!current?.auto && current?.id === o.id}">
+      ${iconImg(itemUrl(o.id), { cls: "gicon tiny item" })}<span class="grow">${esc(o.name)}</span><span class="muted small">${esc(showcaseDetail(o))}</span></button></li>`;
+  $("#showcasebody").innerHTML = `
+    <div class="seg showcasemode" role="radiogroup" aria-label="Showcase">
+      <button type="button" role="radio" data-showcase-mode="auto" aria-checked="${mode === "auto"}">Rarest, picked for me</button>
+      <button type="button" role="radio" data-showcase-mode="none" aria-checked="${mode === "none"}">None</button>
+    </div>
+    ${opts.length ? `<ul class="showcaselist">${opts.map(row).join("")}</ul>`
+      : `<p class="note">${q ? "Nothing you own matches that." : "Nothing obtained in your collection log yet. Open it in-game and click Search, then sync."}</p>`}`;
+}
+
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
 
 /** On the sample data: a drop-down to view it as another account type. */
@@ -1081,13 +1134,14 @@ const TAB_RENDER = {
       const got = p.items.filter((i) => i.quantity > 0).length;
       return { n, got, total: p.items.length, tab: p.tab, items: p.items };
     }).sort((a, b) => byPageName(a.n, b.n));
+    const shown = showcaseItem(s, state.showcase);
     return `<table class="list"><thead><tr><th>Tab</th><th class="num">Slots</th></tr></thead><tbody>${cats}</tbody></table>
       ${pages.length ? `<div class="clogpages">${pages.map((p) => `
         <details class="clogpage" name="clogpage" data-page="${esc(p.n)}" ${state.clogOpen === p.n ? "open" : ""}>
           <summary><span>${esc(pageLabel(p.n))} <span class="muted small">${esc(p.tab)}</span></span>
             <span class="pill ${p.got === p.total ? "ok" : ""}">${p.got}/${p.total}</span></summary>
           <ul class="clogitems">${p.items.map((i) => i.quantity > 0
-            ? `<li class="have"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
+            ? `<li class="have"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">${starHTML(i.name, shown)}${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
             : `<li class="need"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">not obtained</span></li>`).join("")}</ul>
         </details>`).join("")}</div>`
       : `<p class="note">No pages recorded yet. Open the collection log in-game and click Search, then sync.</p>`}`;
@@ -1095,12 +1149,19 @@ const TAB_RENDER = {
   pets(s) {
     const { pets, owned } = petInfo(s);
     if (!pets.length) return `<p class="note">No pet data yet. Sync with the latest plugin to load the All Pets page.</p>`;
+    const shown = showcaseItem(s, state.showcase);
     const sorted = [...pets].sort((a, b) => Number(b.owned) - Number(a.owned) || a.name.localeCompare(b.name));
     return `<p class="note" style="margin:0 0 10px">${owned} of ${pets.length} pets</p>
       <div class="petgrid">${sorted.map((p) =>
-        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${iconImg(itemUrl(p.id), { cls: "gicon tiny item" })}${esc(p.name)}</span><i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></div>`).join("")}</div>`;
+        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${iconImg(itemUrl(p.id), { cls: "gicon tiny item" })}${esc(p.name)}</span><span class="q">${p.owned ? starHTML(p.name, shown) : ""}<i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></span></div>`).join("")}</div>`;
   },
 };
+
+/** The ☆ on an owned item in the tabs: makes it the showcase (★ when it already is). */
+function starHTML(name, shown) {
+  const on = shown?.name === name;
+  return `<button type="button" class="star${on ? " on" : ""}" data-showcase="${esc(name)}" aria-pressed="${on}" title="${on ? "Shown next to your name" : "Show next to your name"}" aria-label="${esc(`Show ${name} next to your name`)}">${on ? "★" : "☆"}</button>`;
+}
 
 // ---- Events --------------------------------------------------------------------------------
 
@@ -1505,6 +1566,19 @@ $("#tabbody").addEventListener("toggle", (e) => {
   }
 }, true);
 
+$("#tabbody").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-showcase]");
+  if (b) setShowcase(b.dataset.showcase);
+});
+$("#showcasedlg").addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
+  const mode = e.target.closest("[data-showcase-mode]");
+  if (mode) return setShowcase(mode.dataset.showcaseMode === "none" ? SHOWCASE_NONE : "");
+  const pick = e.target.closest("[data-showcase]");
+  if (pick) { setShowcase(pick.dataset.showcase); e.currentTarget.close(); }
+});
+$("#showcasefilter").addEventListener("input", renderShowcasePicker);
+
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab]");
   if (!b) return;
@@ -1514,6 +1588,7 @@ $("#tabs").addEventListener("click", (e) => {
 
 // Marking by hand: the toggle in the summary, and every "Mark done" control on cards and tabs.
 $("#summary").addEventListener("click", (e) => {
+  if (e.target.closest("#showcasebtn")) return openShowcase();
   if (!e.target.closest("#manualbtn")) return;
   state.manualMode = !state.manualMode;
   localStorage.setItem("tm.manualMode", state.manualMode ? "1" : "0");

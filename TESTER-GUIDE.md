@@ -62,6 +62,9 @@ Then click **Copy my profile** again and use **Update profile** on the website.
   **Take on this challenge** adds it to your goals; **Another challenge** shows a different one.
 - In the **Diaries** tab, green tiers are done and yellow ones are in progress. Click a square to
   open that tier on the wiki.
+- The framed icon next to your name is your **showcase**: your rarest pet, or your rarest item
+  if you have no pets. Click it to pick something else or hide it, or click **☆** next to
+  anything you own in the **Collection log** and **Pets** tabs.
 - Click the **OSRS TaskMaster** logo at the top left to go back to the start page.
 - Minigames, Wilderness and clue tasks are hidden until you switch them on under
   **Also include**. Wilderness tasks are marked **☠ Wilderness: PvP risk**: other players can

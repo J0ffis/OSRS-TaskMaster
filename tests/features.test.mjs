@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { candidates, compactProfile, sinceLast, accountKind } from "../web/recommender.js";
+import { candidates, compactProfile, sinceLast, accountKind, showcaseItem, showcaseOptions, SHOWCASE_NONE } from "../web/recommender.js";
 import { loadDropRates, sampleAccount, SAMPLE_IDS, fullAccount } from "./test-account.mjs";
 import { WILDERNESS_PAGES } from "../web/knowledge-base.js";
 
@@ -262,4 +262,42 @@ test("hidden until unlocked: each row says which goals unlock it, and the planne
     assert.ok(plan.steps.length, `${l.content}: the route has steps`);
     assert.deepEqual(plan.done, [], `${l.content}: none of its goals are done yet`);
   }
+});
+
+// ---- Showcase ----------------------------------------------------------------------------
+
+test("showcase: automatic picks the rarest pet, and a pick sticks while it's owned", () => {
+  const snap = sampleAccount("main");
+  const auto = showcaseItem(snap, "");
+  assert.equal(auto.name, "Vorki", "rarest of Vorki 1/3,000, Callisto cub 1/1,500 and TzRek-Jad 1/200");
+  assert.ok(auto.pet && auto.auto);
+  const pick = showcaseItem(snap, "abyssal WHIP");
+  assert.equal(pick.name, "Abyssal whip", "names match without caring about capitalisation");
+  assert.equal(pick.auto, false);
+  assert.equal(showcaseItem(snap, "Twisted bow").name, "Vorki", "a pick they don't own falls back to automatic");
+  assert.equal(showcaseItem(snap, SHOWCASE_NONE), null);
+});
+
+test("showcase: with no pets, the rarest item; clue rewards only as a last resort", () => {
+  const snap = sampleAccount("iron");
+  const opts = showcaseOptions(snap);
+  assert.ok(opts.length > 0 && opts.every((o) => !o.pet));
+  const auto = showcaseItem(snap, "");
+  assert.ok(auto.p != null && !/Treasure Trails/.test(auto.page), `${auto.name} from ${auto.page}`);
+  assert.ok(opts.filter((o) => o.p != null).every((o) => o.p >= auto.p));
+  // Clue casket rates are per roll, so they never get a rate to compare.
+  assert.ok(opts.filter((o) => /Treasure Trails/.test(o.page)).every((o) => o.p == null));
+});
+
+test("showcase: only owned items, each once, and nothing when the log is empty", () => {
+  const snap = fullAccount();
+  const opts = showcaseOptions(snap);
+  assert.equal(new Set(opts.map((o) => o.name.toLowerCase())).size, opts.length);
+  const owned = new Set(Object.values(snap.collectionLog.pages).flatMap((p) => p.items.filter((i) => i.quantity > 0).map((i) => i.name.toLowerCase())));
+  // By name: an item on several pages counts as owned when any of them has it.
+  assert.ok(opts.every((o) => owned.has(o.name.toLowerCase())));
+  const empty = clone(snap);
+  for (const p of Object.values(empty.collectionLog.pages)) for (const i of p.items) i.quantity = 0;
+  assert.equal(showcaseItem(empty, ""), null);
+  assert.equal(showcaseItem({}, ""), null, "a profile with no collection log at all");
 });
