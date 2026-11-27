@@ -8,10 +8,14 @@
 let sprites = {};
 let items = new Set();
 
-/** Read icons/game/index.json once at startup. Never throws: no index just means no icons. */
+/**
+ * Read icons/game/index.json once at startup. Never throws: no index just means no icons.
+ * "no-cache" makes the browser check for a newer copy, so a stale index (cached by GitHub Pages)
+ * can't hide icons that newer page code asks for.
+ */
 export async function loadGameIcons() {
   try {
-    const r = await fetch("icons/game/index.json");
+    const r = await fetch("icons/game/index.json", { cache: "no-cache" });
     if (!r.ok) return;
     const index = await r.json();
     sprites = index.sprites ?? {};

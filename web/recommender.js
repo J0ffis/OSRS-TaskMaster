@@ -1416,22 +1416,29 @@ function contentTag(c, snap) {
 /** What still blocks access to a suggestion's content, or null if it's open to you. */
 function lockOf(c, a) {
   const m = c.meta ?? {};
+  // `goals`: what to aim for to unlock it. A quest is its own goal (the planner adds its
+  // requirements); other content gets a goal per missing quest or skill level.
   if (m.quest && m.missing?.length) {
-    return { content: m.quest, needs: m.missing.map((x) => `${x.level} ${cap(x.skill)}`) };
+    return { content: m.quest, needs: m.missing.map((x) => `${x.level} ${cap(x.skill)}`), goals: [{ type: "quest", quest: m.quest }] };
   }
   const name = m.page ?? m.monster;
   if (!name) return null;
   const req = CONTENT_REQS.find((r) => r.match.test(name));
   if (!req) return null;
-  const needs = [
-    ...(req.quests ?? []).filter((q) => !a.done(q)),
-    ...a.missingReqs(req.skills).map((x) => `${x.level} ${cap(x.skill)}`),
+  const quests = (req.quests ?? []).filter((q) => !a.done(q));
+  const skills = a.missingReqs(req.skills);
+  const needs = [...quests, ...skills.map((x) => `${x.level} ${cap(x.skill)}`)];
+  const goals = [
+    ...quests.map((quest) => ({ type: "quest", quest })),
+    ...skills.filter((x) => SKILLS.includes(x.skill)).map((x) => ({ type: "skill", skill: x.skill, level: x.level })),
   ];
-  return needs.length ? { content: name, needs } : null;
+  return needs.length ? { content: name, needs, goals } : null;
 }
 
 /**
- * Content hidden because you can't access it yet: [{ content, needs: [..], hidden: n }].
+ * Content hidden because you can't access it yet:
+ *   [{ content, needs: [..], goals: [goal without an id, ..], hidden: n }].
+ * `goals` are what to aim for to unlock it (see lockOf).
  * Opt-in toggles are applied first, so switched-off content isn't listed.
  */
 export function lockedContent(snap, opts = {}) {
