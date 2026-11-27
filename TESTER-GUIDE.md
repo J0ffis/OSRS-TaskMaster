@@ -9,9 +9,11 @@ and nothing is uploaded anywhere.
 
 ## 1. Download it
 
-1. Go to **https://github.com/J0ffis/OSRS-TaskMaster**
-2. Click the green **Code** button → **Download ZIP**.
-3. Find the ZIP in your Downloads folder, right-click it → **Extract All…** → **Extract**.
+1. Download the test version:
+   **https://github.com/J0ffis/OSRS-TaskMaster/archive/refs/heads/feature/auto-upload.zip**
+   (it's the Automatic upload test build, so it isn't what the green **Code** button on the
+   project page gives you).
+2. Find the ZIP in your Downloads folder, right-click it → **Extract All…** → **Extract**.
    Don't run anything from inside the ZIP itself; it has to be extracted first.
 
 ## 2. Start it
