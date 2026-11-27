@@ -19,7 +19,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * OSRS TaskMaster local server. No dependencies: run with `java Server.java` (JDK 11+).
+ * OSRS TaskMaster local server. No dependencies: run with `java Server.java` (JDK 17+, for HexFormat).
+ * Usually started by scripts/Start-LocalServer.ps1. Options: -Droot=<server folder> (where data/
+ * is kept) and -Dport=<port> (default 8787).
  *
  *   POST /api/sync              snapshot from the RuneLite plugin (needs X-TaskMaster-Token)
  *   GET  /api/profiles          names with a stored snapshot

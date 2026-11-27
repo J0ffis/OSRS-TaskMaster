@@ -55,9 +55,11 @@ up from chat messages as you play. The full list of what the plugin reads is in
   - `Start-TaskMaster.ps1` – the tester launcher behind `Start TaskMaster.bat`.
   - `Start-RuneLiteDev.ps1` – starts RuneLite with the plugin, for development.
   - `Start-LocalServer.ps1` – starts the optional local server.
-  - `Update-DropRates.ps1` – refreshes `web/data/drop-rates.json` from the OSRS Wiki.
+  - `Update-DropRates.ps1` – adds new items' drop rates from the OSRS Wiki to `web/data/drop-rates.json`.
   - `Format-Json.ps1` – lays JSON files out one entry per line so they're easy to read.
-- `docs/` – reference notes: what the plugin reads, and publishing to the Plugin Hub.
+- `docs/` – reference notes: [how suggestions work](docs/how-suggestions-work.md) (start here
+  to tune them), [what the plugin reads](docs/data-sources.md), and
+  [publishing to the Plugin Hub](docs/plugin-hub.md).
 - `Start TaskMaster.bat` / `Forget TaskMaster login.bat` – double-click entry points for testers.
 - `.editorconfig` / `.gitattributes` – formatting and line-ending rules, so every editor and
   checkout stays consistent.
@@ -96,7 +98,8 @@ have to copy and paste.
 ```
 
 It prints a sync token (also saved in `server/data/token.txt`) and serves the site at
-http://localhost:8787. In RuneLite, open **Configuration → OSRS TaskMaster → Your own server
+http://localhost:8787 (use `-Port 8788` if that port is taken, and point the plugin's server
+address at the same port). In RuneLite, open **Configuration → OSRS TaskMaster → Your own server
 (advanced)**, switch on **Send to my own server** and paste the token into **Sync token**.
 
 The plugin then syncs on login and at most every 5 minutes after something changes. The server
@@ -112,8 +115,19 @@ committed.
 .\scripts\Update-DropRates.ps1
 ```
 
-It looks up every collection log item from your latest synced profile on the OSRS Wiki, in about
-30 paced, batched requests. The website only ever reads the local file. Effort is estimated as
+It takes the collection log item names from your latest synced profile and asks the OSRS Wiki
+only about the ones the file doesn't cover yet, in paced, batched requests. Items the wiki has no
+drops for are remembered too (`noDrops`), so a re-run with nothing new sends no requests at all.
+To be kind to the wiki, stick to the default and use the other modes only when you need them:
+
+```powershell
+.\scripts\Update-DropRates.ps1 -DryRun           # list what would be looked up; contacts nothing
+.\scripts\Update-DropRates.ps1 -RecheckNoDrops   # also re-ask about the items with no drops
+.\scripts\Update-DropRates.ps1 -Full             # re-ask about everything (about 30 requests)
+```
+
+Use `-Full` when existing drop rates have changed, for example after a drop table rework,
+since the default never re-checks items it already has. The website only ever reads the local file. Effort is estimated as
 (1 ÷ chance per attempt) × minutes per attempt, using `MINUTES_PER_ATTEMPT` and `EFFORT_HOURS` in
 `web/knowledge-base.js`; fixed rules there (guaranteed rewards, raids, duplicate protection and
 so on) take priority over the rates.
