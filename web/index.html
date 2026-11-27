@@ -94,27 +94,21 @@
       <div class="lower">
         <!-- Goals and the route pinned from them share one column (the sticky left column on wide screens). -->
         <div class="goalcol">
-        <section id="route" class="panel routepanel" aria-labelledby="route-h" hidden></section>
-        <section class="panel" aria-labelledby="goals-h">
-          <div class="panelhead">
-            <h3 id="goals-h">Goals</h3>
-            <span class="muted small">Goals push matching suggestions to the top.</span>
-            <button id="planbtn" type="button" class="btn tiny" hidden>Plan a route</button>
-          </div>
-          <ul id="goals" class="goals"></ul>
-          <form id="goalform" class="goalform">
-            <select id="gtype" aria-label="Goal type">
-              <option value="skill">Skill level</option>
-              <option value="quest">Quest</option>
-              <option value="diary">Diary tier</option>
-              <option value="ca">CA tier</option>
-              <option value="clog">Collection log page</option>
-              <option value="custom">Custom</option>
-            </select>
-            <span id="gfields" class="gfields"></span>
-            <button class="btn" type="submit">Add goal</button>
-          </form>
-        </section>
+          <section id="route" class="panel routepanel" aria-labelledby="route-h" hidden></section>
+          <section class="panel" aria-labelledby="goals-h">
+            <div class="panelhead">
+              <h3 id="goals-h">Goals</h3>
+              <span class="muted small">Goals push matching suggestions to the top.</span>
+              <button id="planbtn" type="button" class="btn tiny" hidden>Plan a route</button>
+            </div>
+            <ul id="goals" class="goals"></ul>
+            <form id="goalform" class="goalform">
+              <!-- Filled in by renderGoalTypes with the goal types this account still has left. -->
+              <select id="gtype" aria-label="Goal type"></select>
+              <span id="gfields" class="gfields"></span>
+              <button class="btn" type="submit">Add goal</button>
+            </form>
+          </section>
         </div>
 
         <section class="panel" aria-labelledby="acct-h">
@@ -147,7 +141,7 @@
     <p class="muted small forgetrow"><button id="forget" type="button" class="link small">Remove this profile from this browser</button></p>
   </dialog>
 
-  <footer class="foot muted small">Drop rates, XP rates and quest requirements from the <a href="https://oldschool.runescape.wiki/" target="_blank" rel="noopener">Old School RuneScape Wiki</a> (CC BY-NC-SA 3.0), saved locally in this project.
+  <footer class="foot muted small">Drop rates, XP rates and quest requirements from the <a href="https://oldschool.runescape.wiki/" target="_blank" rel="noopener noreferrer">Old School RuneScape Wiki</a> (CC BY-NC-SA 3.0), saved locally in this project.
     Game images © Jagex Ltd. OSRS TaskMaster is a free fan-made tool, not made by or affiliated with Jagex.</footer>
   <script type="module" src="app.js"></script>
 </body>

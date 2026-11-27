@@ -8,9 +8,16 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 
 # Website: 2 spaces.
-[*.{js,css,html,json,yml}]
+[*.{js,mjs,css,html,json,yml}]
 indent_style = space
 indent_size = 2
+
+# PowerShell scripts: 2 spaces, and ASCII only (Windows PowerShell 5.1 misreads other
+# characters in a script saved without a byte order mark).
+[*.ps1]
+indent_style = space
+indent_size = 2
+charset = latin1
 
 # RuneLite plugin and local server: tabs, like RuneLite's own code.
 [*.java]

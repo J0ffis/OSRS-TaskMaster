@@ -10,9 +10,10 @@ name: Publish website
 on:
   push:
     branches: [main]
-    paths: ["web/**", "tests/**", "package.json", ".github/workflows/pages.yml"]
+    # scripts/update-quest-reqs.mjs is in the list because tests/quest-reqs.test.mjs imports it.
+    paths: ["web/**", "tests/**", "scripts/update-quest-reqs.mjs", "package.json", ".github/workflows/pages.yml"]
   pull_request:
-    paths: ["web/**", "tests/**", "package.json", ".github/workflows/pages.yml"]
+    paths: ["web/**", "tests/**", "scripts/update-quest-reqs.mjs", "package.json", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:

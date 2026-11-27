@@ -5,14 +5,18 @@
                                                        diaries, combat achievements
     2. Game icons    web/icons/game                    from the game cache on this PC
     3. Drop rates    web/data/drop-rates.json          new items only, from the OSRS Wiki
-    4. Quest reqs    web/data/quest-reqs.json          every quest's requirements, from the OSRS Wiki
+    4. Quest reqs    web/data/quest-reqs.json          only if there are new quests, from the OSRS Wiki
     5. Checks        npm run check + npm test
 
   Then it lists what changed. "Nothing new" means there's nothing to commit; otherwise review
   the changes, commit them and push to main, which republishes the website.
 
+  The wiki is only asked about things the files don't cover yet, so after a game update with
+  nothing new it isn't contacted at all.
+
     .\scripts\Update-GameData.ps1                    # everything
-    .\scripts\Update-GameData.ps1 -DryRun            # drop rates: say what would be looked up, contact nothing
+    .\scripts\Update-GameData.ps1 -DryRun            # wiki steps: say what would be looked up, contact nothing
+    .\scripts\Update-GameData.ps1 -Full              # wiki steps: re-ask about everything (e.g. after a drop table rework)
     .\scripts\Update-GameData.ps1 -SkipDropRates -SkipQuestReqs   # names, icons and checks only (no wiki contact)
     .\scripts\Update-GameData.ps1 -Profile <file>    # read game names from this profile file
     .\scripts\Update-GameData.ps1 -Cache <dir>       # another copy of the game cache
@@ -27,7 +31,8 @@ param(
   [switch]$SkipIcons,
   [switch]$SkipDropRates,
   [switch]$SkipQuestReqs,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$Full
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -72,7 +77,7 @@ if ($SkipIcons) { Step 'Game icons (skipped)' } else {
 # ---- 4. Drop rates --------------------------------------------------------------------------
 if ($SkipDropRates) { Step 'Drop rates (skipped)' } else {
   Step ($(if ($DryRun) { 'Drop rates (dry run)' } else { 'Drop rates' }))
-  & (Join-Path $PSScriptRoot 'Update-DropRates.ps1') -Profile $Profile -DryRun:$DryRun
+  & (Join-Path $PSScriptRoot 'Update-DropRates.ps1') -Profile $Profile -DryRun:$DryRun -Full:$Full
 }
 
 # ---- 5. Quest requirements ------------------------------------------------------------------
@@ -80,6 +85,7 @@ if ($SkipQuestReqs) { Step 'Quest requirements (skipped)' } else {
   Step ($(if ($DryRun) { 'Quest requirements (dry run)' } else { 'Quest requirements' }))
   $qargs = @((Join-Path $root 'scripts\update-quest-reqs.mjs'))
   if ($DryRun) { $qargs += '--dry-run' }
+  if ($Full) { $qargs += '--full' }
   & $node @qargs
   if ($LASTEXITCODE -ne 0) { throw 'Updating quest requirements failed.' }
 }

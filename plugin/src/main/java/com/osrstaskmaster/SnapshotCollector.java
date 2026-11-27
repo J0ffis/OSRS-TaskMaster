@@ -45,7 +45,7 @@ public class SnapshotCollector
 	private static final int PARAM_CA_ID = 1306;
 	private static final int PARAM_CA_NAME = 1308;
 	private static final int PARAM_CA_DESCRIPTION = 1309;
-	private static final int PARAM_CA_TIER = 1310;
+	// (Param 1310 is the tier; it isn't read, since each tier has its own enum above.)
 	private static final int PARAM_CA_TYPE = 1311;
 	private static final int PARAM_CA_MONSTER = 1312;
 

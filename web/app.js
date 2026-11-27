@@ -67,7 +67,12 @@ const state = {
   excluded: new Set(), // suggestion ids the player swapped away
   hidden: {}, // suggestions marked "Not for me": { id: { until (time, or 0 for good), title, effort } }
   picks: [], // the cards on screen now
+  challenge: null, // the Challenge card on screen, if any
+  challengeSeen: null, // Challenge ids already shown by "Another challenge" (a Set)
+  reach: [], // the Within reach entries on screen
+  locked: [], // content hidden until unlocked (lockedContent), for the dialog
   tab: "skills", // open tab in the Account panel
+  clogOpen: null, // the collection log page (or CA tier) open in the Account panel
 };
 
 // ---- Data -------------------------------------------------------------------------------
@@ -184,7 +189,6 @@ const markCount = () => Object.values(state.marks).reduce((n, b) => n + Object.k
 // themselves; the "hidden by you" list in the filters row brings any of them back sooner.
 
 const hiddenKey = (name) => `tm.hidden:${keyOf(name)}`;
-const WEEK = 7 * 864e5;
 
 function loadHidden(name) {
   const h = JSON.parse(localStorage.getItem(hiddenKey(name)) || "{}");
@@ -210,6 +214,9 @@ function unhide(ids) {
   renderOptIns();
   renderCards(true);
 }
+
+/** "5 min", "3 h", "2 days": how long `ms` is, for "Synced 5 min ago" and "Last 3 h". */
+const durationText = (ms) => (ms < 36e5 ? `${Math.max(1, Math.round(ms / 6e4))} min` : ms < 864e5 ? `${Math.round(ms / 36e5)} h` : `${Math.round(ms / 864e5)} days`);
 
 /** Mark something done (or undo a mark), then redraw everything from the updated profile. */
 function setMark(bucket, key, on) {
@@ -311,7 +318,7 @@ function renderSummary() {
   const a = analyse(s);
   const p = s.player ?? {};
   const age = Date.now() - (s.syncedAt ?? 0);
-  const ago = age < 36e5 ? `${Math.max(1, Math.round(age / 6e4))} min ago` : age < 864e5 ? `${Math.round(age / 36e5)} h ago` : `${Math.round(age / 864e5)} days ago`;
+  const ago = `${durationText(age)} ago`;
   const log = s.collectionLog ?? {};
   const pets = petInfo(s);
   const qDone = (s.quests ?? []).filter((q) => q.state === "FINISHED").length;
@@ -367,7 +374,7 @@ function sinceLastHTML() {
   // A rolling 8 hours when there's a profile that old; otherwise since the oldest one seen.
   const span = (state.raw.syncedAt ?? 0) - (state.prev.syncedAt ?? 0);
   const full = span >= RECENT_HOURS * 36e5;
-  const ago = span < 36e5 ? `${Math.max(1, Math.round(span / 6e4))} min` : span < 864e5 ? `${Math.round(span / 36e5)} h` : `${Math.round(span / 864e5)} days`;
+  const ago = durationText(span);
   const label = full && span < 2 * RECENT_HOURS * 36e5 ? `Last ${RECENT_HOURS} hours:` : `Last ${ago}:`;
   return `<p class="since small"><span class="muted" title="Progress over the last ${RECENT_HOURS} hours of syncs this browser has seen (compared with your profile from ${ago} before this sync).">${label}</span> ${parts.map((p) =>
     `<span class="sincepart k-${p.kind}"${p.detail ? ` title="${esc(p.detail)}"` : ""}>${esc(p.text)}</span>`).join('<span class="muted"> · </span>')}</p>`;
@@ -433,7 +440,7 @@ function reachHTML(e, i) {
   const unknownLine = unknown.length
     ? `<li class="unk" title="Not in your synced quest list, so TaskMaster can't check it"><span aria-hidden="true">?</span> ${esc(unknown.map((r) => r.label).join(", "))}</li>` : "";
   const goal = toGoal(e);
-  const isGoal = goal && state.goals.some((x) => goalTitle(x) === goalTitle(goal));
+  const isGoal = goal && hasGoal(goal);
   return `
     <article class="card reach ${e.ready ? "ready" : ""}" style="--c:var(--c-${e.category})">
       <div class="cat"><span class="catname">${e.kind === "quest" ? (e.inProgress ? "Quest · started" : "Quest") : "Achievement diary"}</span>${status}</div>
@@ -505,7 +512,6 @@ function renderOptIns() {
 // offer a route for them.
 const lockedAdded = new Map();
 const lockedIds = () => new Set([...lockedAdded.values()].flat());
-const hasGoal = (g) => state.goals.some((x) => goalTitle(x) === goalTitle(g));
 
 function renderLockedList() {
   const rows = state.locked ?? [];
@@ -560,7 +566,7 @@ function closeLocked() {
 function addLockedGoals(l) {
   const ids = [];
   for (const t of l.goals) {
-    const have = state.goals.find((x) => goalTitle(x) === goalTitle(t));
+    const have = state.goals.find((x) => goalTitle(x) === goalTitle(t)); // as hasGoal, but the goal itself
     if (have) {
       // Already a goal: note what it unlocks too, so the hint says so.
       if (!(have.unlocks ?? []).includes(l.content)) have.unlocks = [...(have.unlocks ?? []), l.content];
@@ -634,9 +640,6 @@ function finishSpin(el) {
   }, 1000);
 }
 
-// The Challenge tier sits above Long haul: huge log completions that take weeks or months. It's
-// never one of the regular picks or a grind style; one is offered on its own below them, as a
-// long-term goal for players who want one.
 // Wilderness warning: other players can attack and take your items there. Hardcore accounts get a
 // stronger one, since a death there also ends their Hardcore status.
 const WILD_TIP = "Wilderness: other players can attack you here, and you can lose items you carry when you die. Bring only what you can afford to lose.";
@@ -647,6 +650,9 @@ const wildBadge = (c) => c.wilderness
   ? `<span class="wildbadge${isHardcore() ? " hc" : ""}" title="${esc(wildTip())}" role="note">${skullHTML()} ${isHardcore() ? "Wilderness: risks your Hardcore status" : "Wilderness: PvP risk"}</span>`
   : "";
 
+// The Challenge tier sits above Long haul: huge log completions that take weeks or months. It's
+// never one of the regular picks or a grind style; one is offered on its own below them, as a
+// long-term goal for players who want one.
 function renderChallenge() {
   const el = $("#challenge");
   const c = state.challenge;
@@ -679,7 +685,7 @@ function bossChips(bosses) {
   return `<p class="bosses small"><span class="muted">Also counts:</span> ${bosses.map((b) => {
     const open = !b.needs.length;
     const tip = open ? `You can fight ${b.name} on this task` : `Needs ${b.needs.join(", ")}`;
-    return `<a class="bosschip ${open ? "open" : "locked"}" href="${wikiPage(b.name)}" target="_blank" rel="noopener" title="${esc(tip)}">${b.wilderness ? `${skullHTML()} ` : ""}${esc(b.name)}${open ? "" : ` <span class="need">(${esc(b.needs.join(", "))})</span>`}</a>`;
+    return `<a class="bosschip ${open ? "open" : "locked"}" href="${wikiPage(b.name)}" target="_blank" rel="noopener noreferrer" title="${esc(tip)}">${b.wilderness ? `${skullHTML()} ` : ""}${esc(b.name)}${open ? "" : ` <span class="need">(${esc(b.needs.join(", "))})</span>`}</a>`;
   }).join(" ")}</p>`;
 }
 
@@ -843,6 +849,20 @@ function toGoal(c) {
     return next ? { id, type: "ca", tier: next.tier } : null;
   }
   return null;
+}
+
+/** Is there already a goal for the same thing? Goals are compared by what they ask for (their title). */
+const hasGoal = (g) => state.goals.some((x) => goalTitle(x) === goalTitle(g));
+
+/** Add a goal made from a card ("Make it a goal"), unless it's already one, and redraw. */
+function addGoalFrom(c) {
+  const goal = toGoal(c);
+  if (!goal || hasGoal(goal)) return;
+  state.goals.push(goal);
+  saveGoals();
+  renderGoals();
+  renderReach();
+  renderCards(true);
 }
 
 // Which category's icon a goal gets when it has no item, skill or tier of its own.
@@ -1089,7 +1109,7 @@ $("#sample").addEventListener("click", () => load(SAMPLE));
 
 $("#shuffle").addEventListener("click", () => {
   state.seed = (state.seed + 1) * 7919 % 100003;
-  // Never show the same cards twice in a row; start over once a tier has been cycled through.
+  // Never show the same cards twice in a row.
   for (const c of state.picks) state.excluded.add(c.id);
   // Once a tier has been cycled through, start over: avoid what's on screen if there's enough
   // else to fill the cards, otherwise allow repeats (pickThree never returns fewer than it can).
@@ -1174,15 +1194,7 @@ $("#cards").addEventListener("click", (e) => {
     return;
   }
   const g = e.target.closest("[data-goal]");
-  if (g) {
-    const goal = toGoal(state.picks[+g.dataset.goal]);
-    if (goal && !state.goals.some((x) => goalTitle(x) === goalTitle(goal))) {
-      state.goals.push(goal);
-      saveGoals();
-      renderGoals();
-      renderCards(true);
-    }
-  }
+  if (g) addGoalFrom(state.picks[+g.dataset.goal]);
 });
 
 $("#challenge").addEventListener("click", (e) => {
@@ -1211,15 +1223,7 @@ $("#challenge").addEventListener("click", (e) => {
     $("#challenge .card")?.classList.add("spin");
     return;
   }
-  if (e.target.closest("[data-challenge-goal]")) {
-    const goal = toGoal(state.challenge);
-    if (goal && !state.goals.some((x) => goalTitle(x) === goalTitle(goal))) {
-      state.goals.push(goal);
-      saveGoals();
-      renderGoals();
-      renderCards(true);
-    }
-  }
+  if (e.target.closest("[data-challenge-goal]")) addGoalFrom(state.challenge);
 });
 
 $("#optins").addEventListener("click", (e) => {
@@ -1533,16 +1537,7 @@ $("#reach").addEventListener("click", (e) => {
     return;
   }
   const g = e.target.closest("[data-reach-goal]");
-  if (g) {
-    const goal = toGoal(state.reach[+g.dataset.reachGoal]);
-    if (goal && !state.goals.some((x) => goalTitle(x) === goalTitle(goal))) {
-      state.goals.push(goal);
-      saveGoals();
-      renderGoals();
-      renderReach();
-      renderCards(true);
-    }
-  }
+  if (g) addGoalFrom(state.reach[+g.dataset.reachGoal]);
 });
 
 // ---- Boot --------------------------------------------------------------------------------
@@ -1667,12 +1662,15 @@ function setupImport() {
   try { setQuestReqs(await api("data/quest-reqs.json")); } catch { /* fall back to the hand-made quest tables */ }
   // Game icons are local files too (exported from the game cache); without them the page uses text.
   await loadGameIcons();
-  // Server mode only when this page is served by Start-LocalServer.ps1; anywhere else (the hosted
-  // site) profiles are pasted in and kept in the browser.
-  try {
-    const names = await api("api/profiles");
-    if (Array.isArray(names)) { serverMode = true; refreshKnown.server = names; }
-  } catch { /* hosted site, or the server isn't running */ }
+  // Server mode only when this page is served by Start-LocalServer.ps1, which answers on localhost
+  // only; anywhere else (the hosted site) profiles are pasted in and kept in the browser, and the
+  // page doesn't ask for a server that can't be there.
+  if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+    try {
+      const names = await api("api/profiles");
+      if (Array.isArray(names)) { serverMode = true; refreshKnown.server = names; }
+    } catch { /* a plain static server, or the local server isn't running */ }
+  }
   document.body.classList.remove("booting");
   document.body.classList.toggle("static", !serverMode);
   setupImport();

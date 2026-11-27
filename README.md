@@ -36,8 +36,8 @@ reads your client                          keeps your profile in this browser
    goals live in `localStorage`.
 
 For a complete collection log, open it in game and click **Search** once. Kill counts are picked
-up from chat messages as you play, and from a boss's collection log page when you open it. The full list of what the plugin reads is in
-[docs/data-sources.md](docs/data-sources.md).
+up from chat messages as you play, and from a boss's collection log page when you open it. The
+full list of what the plugin reads is in [docs/data-sources.md](docs/data-sources.md).
 
 ## Project structure
 
@@ -64,10 +64,13 @@ up from chat messages as you play, and from a boss's collection log page when yo
   - `Start-TaskMaster.ps1` – the tester launcher behind `Start TaskMaster.bat`.
   - `Start-RuneLiteDev.ps1` – starts RuneLite with the plugin, for development.
   - `Start-LocalServer.ps1` – starts the optional local server.
-  - `Update-DropRates.ps1` – adds new items' drop rates from the OSRS Wiki to `web/data/drop-rates.json`.
+  - `Update-DropRates.ps1` – adds new items' drop rates from the OSRS Wiki to
+    `web/data/drop-rates.json`.
   - `Update-GameIcons.ps1` – exports the website's game icons from the game cache on this PC.
-  - `update-quest-reqs.mjs` – refreshes `web/data/quest-reqs.json` from the OSRS Wiki (one request; Node.js).
-  - `Update-GameData.ps1` – after a game update: game names, icons, drop rates, quest requirements and checks in one go.
+  - `update-quest-reqs.mjs` – adds new quests' requirements from the OSRS Wiki to
+    `web/data/quest-reqs.json` (Node.js).
+  - `Update-GameData.ps1` – after a game update: game names, icons, drop rates, quest
+    requirements and checks in one go.
   - `Format-Json.ps1` – lays JSON files out one entry per line so they're easy to read.
 - `docs/` – reference notes: [how suggestions work](docs/how-suggestions-work.md) (start here
   to tune them), [what the plugin reads](docs/data-sources.md), and
@@ -147,11 +150,14 @@ One command brings the website's game data up to date:
 Log in once with the plugin first, so its saved profile and RuneLite's game cache are current.
 It then refreshes, in order: the game names in `tests/fixtures/game-names.json` (read from the
 newest profile the plugin saved in `%USERPROFILE%\.runelite\osrs-taskmaster`), the game icons
-(below), the drop rates for new items (below), every quest's requirements (one wiki request), and
-runs the checks and tests. At the end it says
-**Nothing new** (nothing to commit) or lists what changed; review that, commit and push to `main`
-to republish the website. `-DryRun` contacts nothing for drop rates or quests; `-SkipDropRates`,
-`-SkipQuestReqs` and `-SkipIcons` leave those out. Each part can also be run on its own, as below.
+(below), the drop rates for new items (below), the requirements of new quests (below), and runs
+the checks and tests. At the end it says **Nothing new** (nothing to commit) or lists what
+changed; review that, commit and push to `main` to republish the website.
+
+The wiki steps only ask about what the files don't cover yet, so a run after an update with no
+new items or quests doesn't contact the wiki at all. `-DryRun` says what they would look up and
+contacts nothing; `-Full` re-asks about everything (rarely needed, see below); `-SkipDropRates`,
+`-SkipQuestReqs` and `-SkipIcons` leave those steps out. Each part can also be run on its own.
 
 ### Drop rates
 
@@ -161,9 +167,10 @@ to republish the website. `-DryRun` contacts nothing for drop rates or quests; `
 .\scripts\Update-DropRates.ps1
 ```
 
-It takes the collection log item names from your latest synced profile and asks the OSRS Wiki
-only about the ones the file doesn't cover yet, in paced, batched requests. Items the wiki has no
-drops for are remembered too (`noDrops`), so a re-run with nothing new sends no requests at all.
+It takes the collection log item names from the newest profile the plugin saved (or
+`-Profile <file>`) and asks the OSRS Wiki only about the ones the file doesn't cover yet, in
+paced, batched requests. Items the wiki has no drops for are remembered too (`noDrops`), so a
+re-run with nothing new sends no requests at all.
 To be kind to the wiki, stick to the default and use the other modes only when you need them:
 
 ```powershell
@@ -173,10 +180,25 @@ To be kind to the wiki, stick to the default and use the other modes only when y
 ```
 
 Use `-Full` when existing drop rates have changed, for example after a drop table rework,
-since the default never re-checks items it already has. The website only ever reads the local file. Effort is estimated as
-(1 ÷ chance per attempt) × minutes per attempt, using `MINUTES_PER_ATTEMPT` and `EFFORT_HOURS` in
-`web/knowledge-base.js`; fixed rules there (guaranteed rewards, raids, duplicate protection and
-so on) take priority over the rates.
+since the default never re-checks items it already has. The website only ever reads the local
+file. Effort is estimated as (1 ÷ chance per attempt) × minutes per attempt, using
+`MINUTES_PER_ATTEMPT` and `EFFORT_HOURS` in `web/knowledge-base.js`; fixed rules there
+(guaranteed rewards, raids, duplicate protection and so on) take priority over the rates.
+
+### Quest requirements
+
+`web/data/quest-reqs.json` holds every quest's and miniquest's requirements from the OSRS Wiki
+(the route planner and **Within reach** use it):
+
+```powershell
+npm run quest-reqs                                  # only if the game has quests the file doesn't
+node scripts/update-quest-reqs.mjs --dry-run        # say whether it would ask; contacts nothing
+node scripts/update-quest-reqs.mjs --full           # ask anyway, e.g. after a quest's requirements changed
+```
+
+It compares the quests in `tests/fixtures/game-names.json` with the file and sends one request
+(the wiki's whole quest list) only when there's a new one. Game names the wiki has no page for
+are remembered in `notOnWiki`, so they don't send a request every time.
 
 If you edit a JSON file by hand, `.\scripts\Format-Json.ps1 <file>` puts it back in the same
 layout.
@@ -206,8 +228,8 @@ Not done yet. The steps are written up in [docs/plugin-hub.md](docs/plugin-hub.m
 
 ## Credits
 
-Drop rates are from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki/), licensed
-CC BY-NC-SA 3.0.
+Drop rates, XP rates and quest requirements are from the
+[Old School RuneScape Wiki](https://oldschool.runescape.wiki/), licensed CC BY-NC-SA 3.0.
 
 Game images (in `web/icons/game` and the icons the plugin shows) are © Jagex Ltd. OSRS
 TaskMaster is a free, non-commercial fan-made tool and isn't made by or affiliated with Jagex.

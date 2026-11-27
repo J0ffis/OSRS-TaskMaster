@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseRequirements, gameName, buildQuests } from "../scripts/update-quest-reqs.mjs";
+import { parseRequirements, gameName, buildQuests, missingQuests } from "../scripts/update-quest-reqs.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (...p) => JSON.parse(readFileSync(join(root, ...p), "utf8"));
@@ -62,6 +62,15 @@ test("quest requirements: wiki page names become the game's names", () => {
   ]);
   assert.deepEqual(Object.keys(built), ["Monkey Madness II", "Recipe for Disaster - King Awowogei"]);
   assert.deepEqual(built["Monkey Madness II"].quests, ["Recipe for Disaster - King Awowogei"]);
+});
+
+test("quest requirements script: only asks the wiki about quests the file doesn't cover", () => {
+  const file = { quests: { "Cook's Assistant": {}, "Dragon Slayer I": {} }, notOnWiki: ["Odd Name"] };
+  assert.deepEqual(missingQuests(["Cook's Assistant", "Dragon Slayer I", "Odd Name"], file), [], "nothing new: no request");
+  assert.deepEqual(missingQuests(["Cook's Assistant", "A Brand New Quest"], file), ["A Brand New Quest"]);
+  assert.deepEqual(missingQuests(["Cook's Assistant"], null), ["Cook's Assistant"], "no file yet: everything is missing");
+  // The real snapshot covers the game names, so a normal re-run sends nothing.
+  assert.deepEqual(missingQuests(readJson("tests", "fixtures", "game-names.json").quests, readJson("web", "data", "quest-reqs.json")), []);
 });
 
 test("quest requirement snapshot: covers every quest in the game, with no broken links or loops", () => {
