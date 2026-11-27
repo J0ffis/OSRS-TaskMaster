@@ -151,6 +151,7 @@ async function load(name, opts = {}) {
     name = state.snap.player?.name ?? name;
     // Wealth tracking was removed; drop any old net-worth goals.
     state.goals = (state.goals ?? []).filter((g) => g.type !== "wealth");
+    state.goalsSeen = new Set(state.goals.map((g) => g.id));
     delete state.snap.wealth;
     state.raw = state.snap;
     state.prev = trackPrevious(name, state.raw, state.goals);
@@ -237,11 +238,17 @@ function iconFor(c, snap) {
 async function publishPicks() {
   if (state.source?.kind !== "sync" || !state.source.edit || state.viewAsVisitor || !listCache.all?.length) return;
   const snap = state.snap;
-  const toPick = (c) => ({
-    id: c.id, title: c.title, detail: c.detail, category: c.category,
-    progress: typeof c.progress === "number" ? c.progress : null,
-    wilderness: !!c.wilderness, icon: iconFor(c, snap),
-  });
+  const toPick = (c) => {
+    // The goal this suggestion would make, so the panel's "Make it a goal" adds exactly what the
+    // button here would (the service gives it an id when it's used).
+    const { id: _, ...goal } = (c.category !== "goals" && toGoal(c)) || {};
+    return {
+      id: c.id, title: c.title, detail: c.detail, category: c.category,
+      progress: typeof c.progress === "number" ? c.progress : null,
+      wilderness: !!c.wilderness, icon: iconFor(c, snap),
+      goal: goal.type ? goal : null,
+    };
+  };
   const tiers = {};
   for (const [tier, n] of Object.entries(PANEL_TIERS)) {
     // Suggestions hidden with "Not for me" stay out of the panel too.
@@ -304,8 +311,18 @@ async function saveGoals() {
   if (state.name === SAMPLE) return localStorage.setItem("tm.sampleGoals", JSON.stringify(state.goals));
   if (state.source?.kind === "sync") {
     if (!state.source.edit) return;
+    // `known`: every goal this page has seen, so the service keeps goals added meanwhile from the
+    // RuneLite panel instead of this (older) list wiping them.
+    for (const g of state.goals) state.goalsSeen.add(g.id);
+    const body = JSON.stringify({ goals: state.goals, known: [...state.goalsSeen] });
     return syncApi(`/v1/goals/${encodeURIComponent(state.source.id)}`, {
-      method: "PUT", headers: { "Content-Type": "application/json", "X-Edit-Token": state.source.edit }, body: JSON.stringify(state.goals),
+      method: "PUT", headers: { "Content-Type": "application/json", "X-Edit-Token": state.source.edit }, body,
+    }).then((r) => {
+      if (!Array.isArray(r?.goals) || r.goals.length === state.goals.length) return;
+      state.goals = r.goals;
+      for (const g of r.goals) state.goalsSeen.add(g.id);
+      renderGoals();
+      renderCards(true);
     }).catch(() => alert("Couldn't save goals: the OSRS TaskMaster upload service didn't respond. Your change will be lost when you leave this page."));
   }
   if (!serverMode) return local.saveGoals(state.name, state.goals);

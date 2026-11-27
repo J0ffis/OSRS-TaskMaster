@@ -14,7 +14,10 @@
 //                                                               every old link stops working
 //   GET    /v1/profile/:id                                      profile + goals (anyone with the id)
 //   GET    /v1/public/:name                                     same, for profiles marked public
-//   PUT    /v1/goals/:id          X-Edit-Token: <token>          replace the goals list
+//   PUT    /v1/goals/:id          X-Edit-Token: <token>          replace the goals list ({ goals, known }
+//                                                               keeps goals added elsewhere meanwhile)
+//   POST   /v1/goals/:id          X-Edit-Token: <token>          { pick }: add the goal that saved pick
+//                                                               would make (the panel's Make it a goal)
 //   PUT    /v1/picks/:id          X-Edit-Token: <token>          the website's current suggestions
 //                                                               and the owner's view (for visitors)
 //   GET    /v1/picks/:id                                        those suggestions (the RuneLite panel)
@@ -26,7 +29,8 @@
 
 const MAX_PROFILE_BYTES = 1_500_000;
 const MAX_GOALS_BYTES = 64_000;
-const MAX_PICKS_BYTES = 48_000;
+const MAX_PICKS_BYTES = 96_000;  // 50 picks, each with the goal it would make
+const MAX_GOALS = 200;
 const PICK_TIERS = ["Quick", "Medium", "Long", "Challenge"];
 // The Challenge tier used to be called "Bonus"; picks saved or sent under the old name still count.
 const withChallenge = (tiers) => (tiers && tiers.Bonus && !tiers.Challenge ? { ...tiers, Challenge: tiers.Bonus } : tiers);
@@ -67,6 +71,7 @@ async function route(request, env) {
   if ((p = path.match(/^\/v1\/profile\/([^/]+)$/)) && m === "GET") return readById(env, p[1]);
   if ((p = path.match(/^\/v1\/public\/([^/]+)$/)) && m === "GET") return readPublic(env, decodeURIComponent(p[1]));
   if ((p = path.match(/^\/v1\/goals\/([^/]+)$/)) && m === "PUT") return saveGoals(request, env, p[1]);
+  if ((p = path.match(/^\/v1\/goals\/([^/]+)$/)) && m === "POST") return addGoal(request, env, p[1]);
   if ((p = path.match(/^\/v1\/picks\/([^/]+)$/)) && m === "PUT") return savePicks(request, env, p[1]);
   if ((p = path.match(/^\/v1\/picks\/([^/]+)$/)) && m === "GET") return readPicks(env, p[1]);
   if (path === "" || path === "/v1") return json({ service: "osrs-taskmaster-sync", ok: true });
@@ -187,16 +192,57 @@ async function requireEditToken(request, env, id) {
   }
 }
 
+/**
+ * Replace the goals list. Body: the list, or { goals, known } where `known` is every goal id the
+ * website has seen since it loaded. Goals stored here that the website has never seen (added
+ * meanwhile from the RuneLite panel) are kept, so a stale page can't wipe them. Replies with the
+ * saved list.
+ */
 async function saveGoals(request, env, id) {
   await requireEditToken(request, env, id);
   const raw = await readBody(request, MAX_GOALS_BYTES);
-  let goals;
-  try { goals = JSON.parse(raw); } catch { throw new HttpError(400, "Body isn't JSON"); }
-  if (!Array.isArray(goals) || goals.length > 200 || goals.some((g) => !g || typeof g !== "object" || typeof g.type !== "string")) {
-    throw new HttpError(400, "Goals must be a list of up to 200 goals");
+  let body;
+  try { body = JSON.parse(raw); } catch { throw new HttpError(400, "Body isn't JSON"); }
+  let goals = Array.isArray(body) ? body : body?.goals;
+  if (!Array.isArray(goals) || goals.length > MAX_GOALS || goals.some((g) => !g || typeof g !== "object" || typeof g.type !== "string")) {
+    throw new HttpError(400, `Goals must be a list of up to ${MAX_GOALS} goals`);
+  }
+  if (!Array.isArray(body) && Array.isArray(body.known)) {
+    const known = new Set(body.known.filter((k) => typeof k === "string"));
+    const sent = new Set(goals.map((g) => g.id));
+    const row = await env.DB.prepare("SELECT goals FROM profiles WHERE id = ?").bind(id).first();
+    const added = JSON.parse(row?.goals || "[]").filter((g) => g?.id && !known.has(g.id) && !sent.has(g.id));
+    goals = [...goals, ...added].slice(0, MAX_GOALS);
   }
   await env.DB.prepare("UPDATE profiles SET goals = ? WHERE id = ?").bind(JSON.stringify(goals), id).run();
-  return json({ ok: true }, 200);
+  return json({ ok: true, goals }, 200);
+}
+
+/**
+ * The RuneLite panel's "Make it a goal": body { pick: <suggestion id> }. The goal itself comes
+ * from the picks the owner's website saved (each pick carries the goal it would make), so the
+ * plugin never builds goals and only website-made goals are ever stored. Adding a goal that's
+ * already there is a no-op ({ added: false }).
+ */
+async function addGoal(request, env, id) {
+  await requireEditToken(request, env, id);
+  let body;
+  try { body = JSON.parse(await readBody(request, 1_000)); } catch { throw new HttpError(400, "Body isn't JSON"); }
+  if (typeof body?.pick !== "string") throw new HttpError(400, "Say which suggestion: { pick: <id> }");
+  const row = await env.DB.prepare("SELECT goals, picks FROM profiles WHERE id = ?").bind(id).first();
+  const picks = row?.picks ? JSON.parse(row.picks) : null;
+  const pick = Object.values(withChallenge(picks?.tiers) ?? {}).flat().find((p) => p?.id === body.pick);
+  if (!pick) throw new HttpError(404, "That suggestion isn't in your list any more. Click Sync and try again.");
+  if (!pick.goal) throw new HttpError(400, "That suggestion can't be made into a goal.");
+  const goals = JSON.parse(row.goals || "[]");
+  const same = (g) => JSON.stringify({ ...g, id: undefined }) === JSON.stringify({ ...pick.goal, id: undefined });
+  const existing = goals.find(same);
+  if (existing) return json({ ok: true, added: false, goal: existing }, 200);
+  if (goals.length >= MAX_GOALS) throw new HttpError(400, `You already have ${MAX_GOALS} goals.`);
+  const goal = { id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), ...pick.goal };
+  goals.push(goal);
+  await env.DB.prepare("UPDATE profiles SET goals = ? WHERE id = ?").bind(JSON.stringify(goals), id).run();
+  return json({ ok: true, added: true, goal }, 200);
 }
 
 async function savePicks(request, env, id) {
@@ -249,7 +295,18 @@ function cleanPick(p, tier) {
     progress: typeof p.progress === "number" && p.progress >= 0 && p.progress <= 1 ? Math.round(p.progress * 1000) / 1000 : null,
     wilderness: p.wilderness === true,
     icon,
+    goal: cleanGoal(p.goal),
   };
+}
+
+// The goal a pick would make (what the website's "Make it a goal" builds), for the panel's
+// "Make it a goal". Only the website's goal kinds, small, and without an id (added when used).
+const GOAL_TYPES = ["skill", "xp", "pet", "item", "quest", "diary", "family", "clog", "catask", "cabundle", "ca"];
+function cleanGoal(g) {
+  if (!g || typeof g !== "object" || Array.isArray(g) || !GOAL_TYPES.includes(g.type)) return null;
+  const { id, ...rest } = g;
+  const text = JSON.stringify(rest);
+  return text.length <= 1_500 ? JSON.parse(text) : null;
 }
 
 const cleanText = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");

@@ -31,6 +31,12 @@ class Picks
 		Double progress;
 		boolean wilderness;
 		Icon icon;
+		/**
+		 * The goal this suggestion would make, as the website built it; null when it can't be a
+		 * goal. The plugin only checks it's there: "Make it a goal" sends the pick's id and the
+		 * service adds this goal.
+		 */
+		Map<String, Object> goal;
 	}
 
 	static class Icon

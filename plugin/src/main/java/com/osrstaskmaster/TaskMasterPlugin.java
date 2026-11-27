@@ -139,6 +139,7 @@ public class TaskMasterPlugin extends Plugin
 			@Override public void resetLinks() { clientThread.invokeLater(TaskMasterPlugin.this::resetLinks); }
 			@Override public void syncPicks() { clientThread.invokeLater(TaskMasterPlugin.this::syncPicks); }
 			@Override public void openPick(String pickId) { clientThread.invokeLater(() -> openWebsiteOn(pickId)); }
+			@Override public void makeGoal(Picks.Pick pick) { clientThread.invokeLater(() -> TaskMasterPlugin.this.makeGoal(pick)); }
 		});
 		// Item icons load in the background and appear in the label when ready (safe from any thread).
 		panel.setIconSources(this::skillIcon, (itemId, label) -> itemManager.getImage(itemId).addTo(label), gameSprites::get);
@@ -838,6 +839,71 @@ public class TaskMasterPlugin extends Plugin
 		{
 			return null; // a skill this client doesn't know
 		}
+	}
+
+	/**
+	 * Make it a goal (right-click a row in Your next grinds): the service adds the goal the website
+	 * saved with that suggestion, so it's exactly what the website's own button would add. Needs
+	 * the edit token, which this plugin derives from the upload key like the owner's link does.
+	 */
+	private void makeGoal(Picks.Pick pick)
+	{
+		String key = config.autoUpload() ? uploadKey(false) : null;
+		if (key == null)
+		{
+			panel.setStatus("Turn on Automatic upload in the plugin settings and log in first.", false);
+			return;
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("pick", pick.id);
+		Request request;
+		try
+		{
+			request = new Request.Builder()
+				.url(serverUrl() + "/v1/goals/" + deriveId(key))
+				.header("X-Edit-Token", deriveEditToken(key))
+				.post(RequestBody.create(JSON, gson.toJson(body)))
+				.build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
+			return;
+		}
+		panel.setStatus("Adding goal...", true);
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				panel.setStatus("Couldn't reach the upload server (" + serverUrl() + "), so the goal wasn't added.", false);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				try (Response r = response)
+				{
+					Map<?, ?> reply = parse(r.body() == null ? "" : r.body().string());
+					if (r.isSuccessful())
+					{
+						boolean added = Boolean.TRUE.equals(reply.get("added"));
+						panel.goalAdded(pick.id);
+						panel.setStatus((added ? "New goal: " : "Already a goal: ") + pick.title
+							+ (added ? ". It shows on the website next time it loads." : "."), true);
+					}
+					else
+					{
+						Object err = reply.get("error");
+						panel.setStatus("Couldn't add the goal: " + (err instanceof String ? err : "server error " + r.code()), false);
+					}
+				}
+				catch (IOException ex)
+				{
+					panel.setStatus("Couldn't add the goal: the server's reply didn't arrive.", false);
+				}
+			}
+		});
 	}
 
 	/** Copy share link: a read-only link to your uploaded profile. */

@@ -167,6 +167,46 @@ test("picks: a new upload keeps them", async () => {
   assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.tiers.Quick[0].id, "keep");
 });
 
+test("make it a goal (panel): adds the goal the saved pick carries, once", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  const tok = { "X-Edit-Token": edit };
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  await api("PUT", `/v1/goals/${id}`, { body: [{ id: "g0", type: "custom", text: "Fire cape" }], headers: tok });
+  const goal = { type: "quest", quest: "Dragon Slayer II" };
+  const body = { tiers: { Quick: [pick("quest:Dragon Slayer II", { goal: { ...goal, id: "dropped" } }), pick("odd", { goal: { type: "wealth", gp: 1 } })] } };
+  await api("PUT", `/v1/picks/${id}`, { body, headers: tok });
+  const saved = (await api("GET", `/v1/picks/${id}`)).data.picks.tiers.Quick;
+  assert.deepEqual(saved[0].goal, goal, "goal kept without its id");
+  assert.equal(saved[1].goal, null, "unknown goal kinds are dropped");
+
+  assert.equal((await api("POST", `/v1/goals/${id}`, { body: { pick: "quest:Dragon Slayer II" } })).status, 403, "needs the edit token");
+  const add = await api("POST", `/v1/goals/${id}`, { body: { pick: "quest:Dragon Slayer II" }, headers: tok });
+  assert.equal(add.status, 200);
+  assert.equal(add.data.added, true);
+  assert.equal(add.data.goal.quest, "Dragon Slayer II");
+  const again = await api("POST", `/v1/goals/${id}`, { body: { pick: "quest:Dragon Slayer II" }, headers: tok });
+  assert.equal(again.data.added, false, "already a goal");
+  assert.equal(again.data.goal.id, add.data.goal.id);
+  assert.equal((await api("POST", `/v1/goals/${id}`, { body: { pick: "odd" }, headers: tok })).status, 400, "no goal for that pick");
+  assert.equal((await api("POST", `/v1/goals/${id}`, { body: { pick: "gone" }, headers: tok })).status, 404, "not in the list");
+  const goals = (await api("GET", `/v1/profile/${id}`)).data.goals;
+  assert.deepEqual(goals.map((g) => g.type), ["custom", "quest"]);
+});
+
+test("goals: a website save keeps goals added elsewhere since it loaded", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  const tok = { "X-Edit-Token": edit };
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  await api("PUT", `/v1/goals/${id}`, { body: [{ id: "a", type: "custom", text: "A" }, { id: "b", type: "custom", text: "B" }], headers: tok });
+  // Meanwhile the panel adds "p"; the website (which loaded a and b) deletes b and adds c.
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [pick("x", { goal: { type: "quest", quest: "Monkey Madness II" } })] } }, headers: tok });
+  const p = (await api("POST", `/v1/goals/${id}`, { body: { pick: "x" }, headers: tok })).data.goal;
+  const r = await api("PUT", `/v1/goals/${id}`, { body: { goals: [{ id: "a", type: "custom", text: "A" }, { id: "c", type: "custom", text: "C" }], known: ["a", "b", "c"] }, headers: tok });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.data.goals.map((g) => g.id), ["a", "c", p.id], "b stays deleted, p is kept");
+  assert.deepEqual((await api("GET", `/v1/profile/${id}`)).data.goals.map((g) => g.id), ["a", "c", p.id]);
+});
+
 test("delete removes the profile", async () => {
   const key = newKey(), { id } = await ids(key);
   await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });

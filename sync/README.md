@@ -38,7 +38,8 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 | `POST /v1/profile/rotate` | plugin (`Authorization: Bearer <old key>`) | `{ newKey }`: move everything to the new key; old links stop working |
 | `GET /v1/profile/:id` | website | profile + goals |
 | `GET /v1/public/:name` | website | the same, for public profiles |
-| `PUT /v1/goals/:id` | website (`X-Edit-Token`) | replace the goals list |
+| `PUT /v1/goals/:id` | website (`X-Edit-Token`) | replace the goals list; with `{ goals, known }`, goals added elsewhere since the page loaded are kept |
+| `POST /v1/goals/:id` | plugin (`X-Edit-Token`) | `{ pick }`: add the goal that saved pick carries (the panel's *Make it a goal*) |
 | `PUT /v1/picks/:id` | website (`X-Edit-Token`) | save its current top picks per tier |
 | `GET /v1/picks/:id` | plugin | those picks, for the panel's *Your next grinds* list |
 
@@ -48,7 +49,13 @@ owner's browser works the suggestions out and saves the top 15 per tier (5 Chall
 only displays them. Picks follow the site's filters and goals and refresh whenever the owner
 opens the website. Running the engine here instead would need the $5/month Workers Paid plan.
 
-Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows), uploads at most every 30 seconds per key, browsers
+**Goals from the panel:** each saved pick carries the goal the website's *Make it a goal* would
+build for it. The plugin derives the edit token from its key and sends only the pick's id, so the
+service adds exactly that website-made goal (never one the plugin built). The website sends
+`known` (every goal id it has seen) when saving, so a page left open can't wipe a goal the panel
+added meanwhile.
+
+Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows, plus each pick's goal up to 1.5 KB), uploads at most every 30 seconds per key, browsers
 only from the sites in `ALLOWED_ORIGINS` (`wrangler.toml`), and no wealth data.
 
 ## Try it on your PC (one click)

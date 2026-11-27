@@ -40,7 +40,9 @@ then uploads on login and as you play, and **Open website** shows your latest su
 browser, with your goals.
 
 - **Your next grinds** appears in the panel: your suggestions per tier (Quick wins, Balanced,
-  Long haul, Challenge), with item and skill icons. Click one to open it on the website.
+  Long haul, Challenge), with item and skill icons. Click one to open it on the website;
+  right-click it and choose **Make it a goal** to add it to your goals (the row then says
+  "Goal ✓", and the website shows it next time it loads).
   **Refresh** shows different suggestions from the same tier (5 at a time, up to 15).
   **Sync** uploads your progress now and fetches the website's latest list; anything you've
   finished in game drops off straight away. The list itself is made by the website, so opening

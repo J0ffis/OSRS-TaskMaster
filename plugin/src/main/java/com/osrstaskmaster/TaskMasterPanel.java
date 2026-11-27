@@ -22,8 +22,10 @@ import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -51,6 +53,8 @@ class TaskMasterPanel extends PluginPanel
 		void syncPicks();
 		/** Open the website on one suggestion. */
 		void openPick(String pickId);
+		/** Add one suggestion to your goals (right-click a row). */
+		void makeGoal(Picks.Pick pick);
 	}
 
 	// Tier and category colours match the website (styles.css).
@@ -416,7 +420,9 @@ class TaskMasterPanel extends PluginPanel
 			BorderFactory.createMatteBorder(0, 3, 0, 0, tierColor),
 			BorderFactory.createEmptyBorder(6, 6, 6, 6)));
 		row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		row.setToolTipText("<html><body style='width:220px'>" + esc(p.detail) + "<br><i>Click to open on the website</i></body></html>");
+		boolean isGoal = goalPicks.contains(p.id);
+		row.setToolTipText("<html><body style='width:220px'>" + esc(p.detail) + "<br><i>Click to open on the website"
+			+ (p.goal != null && !isGoal ? ". Right-click to make it a goal." : "") + "</i></body></html>");
 
 		JLabel icon = new JLabel();
 		icon.setPreferredSize(new Dimension(32, 32));
@@ -448,7 +454,8 @@ class TaskMasterPanel extends PluginPanel
 		text.setOpaque(false);
 		// Wilderness rows: the game's PvP skull (the ☠ character until the sprite has loaded).
 		ImageIcon skull = p.wilderness ? spriteIcon("skull", 12) : null;
-		JLabel cat = new JLabel((p.wilderness ? (skull != null ? "" : "☠ ") + "Wilderness · " : "") + CATEGORY_LABELS.getOrDefault(p.category, ""));
+		JLabel cat = new JLabel((p.wilderness ? (skull != null ? "" : "☠ ") + "Wilderness · " : "") + CATEGORY_LABELS.getOrDefault(p.category, "")
+			+ (isGoal ? " · Goal ✓" : ""));
 		if (skull != null)
 		{
 			cat.setIcon(skull);
@@ -497,7 +504,14 @@ class TaskMasterPanel extends PluginPanel
 			@Override
 			public void mouseClicked(MouseEvent e)
 			{
-				actions.openPick(p.id);
+				if (SwingUtilities.isRightMouseButton(e))
+				{
+					rowMenu(p, isGoal).show(row, e.getX(), e.getY());
+				}
+				else
+				{
+					actions.openPick(p.id);
+				}
 			}
 
 			@Override
@@ -513,6 +527,37 @@ class TaskMasterPanel extends PluginPanel
 			}
 		});
 		return row;
+	}
+
+	/** A row's right-click menu: Make it a goal, Open on the website. */
+	private JPopupMenu rowMenu(Picks.Pick p, boolean isGoal)
+	{
+		JPopupMenu menu = new JPopupMenu();
+		JMenuItem goal = new JMenuItem(isGoal ? "Already one of your goals" : "Make it a goal");
+		goal.setEnabled(p.goal != null && !isGoal);
+		if (p.goal == null)
+		{
+			goal.setToolTipText("This kind of suggestion can't be a goal");
+		}
+		goal.addActionListener(e -> actions.makeGoal(p));
+		JMenuItem open = new JMenuItem("Open on the website");
+		open.addActionListener(e -> actions.openPick(p.id));
+		menu.add(goal);
+		menu.add(open);
+		return menu;
+	}
+
+	/** Suggestions made into goals from this panel; their rows say so until the list changes. */
+	private final java.util.Set<String> goalPicks = new java.util.HashSet<>();
+
+	/** A suggestion was added to your goals (or already was one). */
+	void goalAdded(String pickId)
+	{
+		SwingUtilities.invokeLater(() ->
+		{
+			goalPicks.add(pickId);
+			renderPicks();
+		});
 	}
 
 	private static JLabel note(String text)
