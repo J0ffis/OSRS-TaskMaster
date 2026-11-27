@@ -67,6 +67,14 @@ harder of the task's own tier and that time. The hour limits are `EFFORT_HOURS`;
 in `PAGE_EFFORT`, `MONSTER_EFFORT` and `ITEM_EFFORT` win over the maths, for things like the Fire
 cape or team content.
 
+Level cards ("Train Cooking to 70") show a time range when the skill has rates in `XP_RATES`:
+XP/hour ranges for one mainstream method per level band, copied from the OSRS Wiki's training
+guides, e.g. "1.2M XP to go. About 5–7 hours." with "Time based on karambwans" in the reasons. A
+band's method keeps applying until the next band starts. The card's tier then follows the middle
+of that range instead of the XP gap. Skills whose guides gave no usable figure (the melee skills,
+Hitpoints, Magic, Slayer, Hunter, Construction, Farming, Fletching), and levels below a skill's
+first band, keep the XP-gap tier and show no time.
+
 ## Within reach
 
 The row under the summary lists notable quests and the next tier of each achievement diary that

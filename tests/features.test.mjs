@@ -118,3 +118,41 @@ test("missing sections: none for a current profile, named for one from an older 
   assert.deepEqual(missingSections(old).map((m) => m.key), ["slayer", "diaryStarted"]);
   assert.deepEqual(missingSections(null), []);
 });
+
+// ---- Level time estimates -------------------------------------------------------------------
+
+test("level hours: sums each band at its own rate and names the methods", async () => {
+  const { levelHours, hoursRangeText, xpForLevel } = await import("../web/recommender.js");
+  // Cooking 50 -> 70 is all karambwans at 180k-218k XP/h.
+  const gap = xpForLevel(70) - xpForLevel(50);
+  const t = levelHours("cooking", xpForLevel(50), xpForLevel(70));
+  assert.ok(Math.abs(t.low - gap / 218000) < 1e-9 && Math.abs(t.high - gap / 180000) < 1e-9);
+  assert.deepEqual(t.methods, ["karambwans"]);
+  // Across bands: Woodcutting 60 -> 80 is teak until 71, then sulliuscep.
+  const wc = levelHours("woodcutting", xpForLevel(60), xpForLevel(80));
+  assert.deepEqual(wc.methods, ["teak trees", "sulliuscep"]);
+  const expectHigh = (xpForLevel(71) - xpForLevel(60)) / 46000 + (xpForLevel(80) - xpForLevel(71)) / 86300;
+  assert.ok(Math.abs(wc.high - expectHigh) < 1e-9);
+  // No rates, below the first band, or already there: no estimate.
+  assert.equal(levelHours("attack", 0, xpForLevel(50)), null);
+  assert.equal(levelHours("prayer", xpForLevel(10), xpForLevel(40)), null);
+  assert.equal(levelHours("cooking", xpForLevel(70), xpForLevel(60)), null);
+  assert.equal(hoursRangeText({ low: 0.2, high: 0.6 }), "under an hour");
+  assert.equal(hoursRangeText({ low: 3.2, high: 4.6 }), "about 3–5 hours");
+  assert.equal(hoursRangeText({ low: 41, high: 44 }), "about 40–45 hours");
+  assert.equal(hoursRangeText({ low: 1, high: 1.2 }), "about 1 hour");
+});
+
+test("level cards: time in the detail, method in the reasons, and the tier follows the time", () => {
+  const list = candidates(fullAccount(), [], { content: { minigames: true, wilderness: true, clues: true } });
+  const levels = list.filter((c) => c.category === "levels");
+  const timed = levels.filter((c) => c.meta.hours);
+  assert.ok(timed.length, "some skills on the test account have rates");
+  for (const c of timed) {
+    assert.match(c.detail, /XP to go\. (Under an hour|About [\d,]+(–[\d,]+)? hours?)\.$/, c.title);
+    assert.ok(c.why.some((w) => /^Time based on .+ OSRS Wiki/.test(w)), c.title);
+    const h = (c.meta.hours.low + c.meta.hours.high) / 2;
+    assert.equal(c.effort, h <= 3 ? "Quick" : h <= 20 ? "Medium" : "Long", `${c.title}: ${h.toFixed(1)} h`);
+  }
+  for (const c of levels.filter((c) => !c.meta.hours)) assert.doesNotMatch(c.detail, /hour/, c.title);
+});

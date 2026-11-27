@@ -434,3 +434,28 @@ export const DIARY_REQS = {
   },
 };
 
+
+// ---- XP per hour (time to a level) -----------------------------------------------------------
+// Rough XP/hour ranges for one mainstream method per level band, copied from the OSRS Wiki's
+// training guides (read 2026-11-26). Each band starts at `from` and its method keeps applying until
+// the next band starts (methods don't get slower as you level). [from, low, high, method].
+// Skills whose guides gave no usable figure are left out (no estimate is shown for them):
+// Attack, Strength, Defence, Hitpoints, Magic, Slayer, Hunter, Construction, Farming, Fletching.
+// Levels below a skill's first band get no estimate either. Ranges are the guide's, so the top
+// end is often a best case; the card shows both ends.
+export const XP_RATES = {
+  agility: [[40, 45000, 50000, "Brimhaven Agility Arena"], [50, 50000, 60000, "the Wilderness course (PK risk)"], [70, 47000, 53000, "rooftop courses"], [90, 66000, 70000, "the Ardougne rooftop course"]],
+  cooking: [[30, 141000, 180000, "karambwans"], [50, 180000, 218000, "karambwans"], [70, 218000, 263000, "karambwans"], [90, 263000, 273000, "karambwans"]],
+  crafting: [[20, 139000, 298850, "cutting gems (costs money)"], [54, 245000, 336875, "battlestaves"], [71, 353850, 434730, "d'hide bodies (costs money)"]],
+  firemaking: [[1, 74250, 200475, "burning logs"], [50, 233887, 300712, "mahogany and yew logs"], [70, 300712, 451143, "yew and magic logs"], [90, 519750, 519750, "redwood logs"]],
+  fishing: [[20, 13000, 34000, "fly fishing"], [50, 57500, 88550, "drift net fishing"], [70, 48000, 54000, "barbarian fishing"], [90, 54000, 57000, "barbarian fishing"]],
+  herblore: [[3, 62500, 281250, "making potions (costs money)"], [50, 281250, 393750, "making potions (costs money)"], [70, 275000, 563750, "making potions (costs money)"]],
+  mining: [[15, 45000, 55000, "iron ore"], [60, 70000, 80000, "iron ore in the Mining Guild"]],
+  prayer: [[30, 670000, 820000, "the libation bowl (costs money)"], [48, 923000, 1050000, "the libation bowl (costs money)"], [70, 1050000, 1118000, "the libation bowl (costs money)"]],
+  ranged: [[50, 360000, 470000, "chinchompas (costs money)"], [80, 140000, 230000, "the Venator bow on monkeys"]],
+  runecraft: [[1, 36300, 58000, "talisman tiaras (costs money)"], [50, 61300, 65700, "lava runes"], [75, 77600, 100800, "lava runes"], [90, 100800, 102100, "lava runes"]],
+  sailing: [[30, 19342, 24519, "Barracuda Trials"], [55, 64746, 88923, "Barracuda Trials"], [72, 113538, 184369, "Barracuda Trials"], [90, 184369, 200000, "Barracuda Trials"]],
+  smithing: [[1, 13900, 108500, "smithing at an anvil"], [48, 144000, 200000, "platebodies at an anvil (costs money)"], [88, 240000, 240000, "adamant platebodies (costs money)"]],
+  thieving: [[50, 103000, 236000, "blackjacking"], [70, 236000, 257000, "blackjacking"], [90, 257000, 265000, "blackjacking"]],
+  woodcutting: [[35, 34000, 46000, "teak trees"], [50, 46000, 65000, "teak trees"], [71, 86300, 97400, "sulliuscep"], [90, 97400, 101900, "sulliuscep"]],
+};

@@ -179,6 +179,23 @@ for (const [region, r] of Object.entries(KB.IRON_PRIORITIES?.diaries ?? {})) {
 }
 for (const p of KB.TEAM_PAGES ?? []) needPage("TEAM_PAGES", p);
 
+// ---- XP rates ---------------------------------------------------------------------------------
+needSkills("XP_RATES", KB.XP_RATES);
+for (const [skill, bands] of Object.entries(KB.XP_RATES ?? {})) {
+  let last = 0;
+  for (const band of bands) {
+    const [from, low, high, method] = band;
+    const where = `XP_RATES.${skill} [${from}]`;
+    if (band.length !== 4 || !Number.isInteger(from) || from < 1 || from > 99) err(where, "each band is [from level 1-99, low XP/h, high XP/h, method].");
+    if (from <= last) err(where, "bands must be in rising level order.");
+    if (!(low > 0) || !(high >= low)) err(where, "needs 0 < low <= high.");
+    // Nothing trains faster than ~1.2M XP/h without a lamp; a bigger figure is a typo (extra 0).
+    if (high > 1.2e6) err(where, `${high.toLocaleString()} XP/h looks like a typo.`);
+    if (typeof method !== "string" || !method) err(where, "needs the method's name (shown on the card).");
+    last = from;
+  }
+}
+
 // ---- Slayer ---------------------------------------------------------------------------------
 for (const [task, bosses] of Object.entries(KB.SLAYER_BOSSES)) {
   for (const b of bosses) { needMonster(`SLAYER_BOSSES "${task}"`, b.name); needSkills(`SLAYER_BOSSES "${task}"`, b.skills); }

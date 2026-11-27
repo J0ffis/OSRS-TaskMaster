@@ -20,7 +20,7 @@ import {
   WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS, SLAYER_BOSSES,
   SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
-  QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES,
+  QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES, XP_RATES,
 } from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
@@ -96,6 +96,47 @@ const XP = [0, 0];
   }
 }
 export const xpForLevel = (lvl) => XP[Math.max(1, Math.min(99, lvl))];
+
+/**
+ * Rough time from `xp` to `targetXp` in a skill, from the wiki guide rates in XP_RATES:
+ * { low, high, methods } in hours (low = at the top of each band's range), or null when the skill
+ * has no rates or `xp` is below its first band.
+ */
+export function levelHours(skill, xp, targetXp) {
+  const bands = XP_RATES[skill];
+  if (!bands || !(targetXp > xp) || xp < xpForLevel(bands[0][0])) return null;
+  let low = 0, high = 0;
+  const methods = [];
+  bands.forEach(([from, slow, fast, method], i) => {
+    const start = xpForLevel(from);
+    const end = i + 1 < bands.length ? xpForLevel(bands[i + 1][0]) : Infinity;
+    const gained = Math.min(targetXp, end) - Math.max(xp, start);
+    if (gained <= 0) return;
+    low += gained / fast;
+    high += gained / slow;
+    if (!methods.includes(method)) methods.push(method);
+  });
+  return { low, high, methods };
+}
+
+/** "under an hour", "about 3 hours", "about 12–18 hours". */
+export function hoursRangeText({ low, high }) {
+  const r = (h) => (h < 10 ? Math.round(h) : Math.round(h / 5) * 5);
+  if (high < 1) return "under an hour";
+  const a = Math.max(1, r(low)), b = Math.max(1, r(high));
+  return a === b ? `about ${a.toLocaleString()} hour${a === 1 ? "" : "s"}` : `about ${a.toLocaleString()}–${b.toLocaleString()} hours`;
+}
+
+/** What a level card adds from levelHours: { hours, detail, why }, or null. */
+function levelTime(skill, xp, targetXp) {
+  const t = levelHours(skill, xp, targetXp);
+  if (!t) return null;
+  return {
+    hours: t,
+    detail: ` ${cap(hoursRangeText(t))}.`,
+    why: `Time based on ${t.methods.join(", then ")}, at the OSRS Wiki training guide's rates`,
+  };
+}
 
 export const fmt = (n) => {
   if (n == null || n < 0) return "?";
@@ -185,17 +226,19 @@ function levelCandidates(snap, a) {
       if (!target) continue;
       const prev = [...XP_MILESTONES].reverse().find((m) => m <= xp) ?? xpForLevel(99);
       const allMaxed = levels.every((l) => l >= 99);
+      const time = levelTime(skill, xp, target);
       out.push({
         id: `xp:${skill}:${target}`,
         category: "levels",
         title: `Push ${cap(skill)} to ${fmt(target)} XP`,
-        detail: `${fmt(xp)} → ${fmt(target)}: ${fmt(target - xp)} XP to go.`,
+        detail: `${fmt(xp)} → ${fmt(target)}: ${fmt(target - xp)} XP to go.${time?.detail ?? ""}`,
         why: [allMaxed ? "You're maxed, so XP milestones are the next frontier" : "Already 99; keep the XP climbing",
-          target === 200e6 ? "200M is the hard cap" : null].filter(Boolean),
+          target === 200e6 ? "200M is the hard cap" : null, time?.why].filter(Boolean),
         progress: (xp - prev) / (target - prev),
-        effort: target - xp < 500e3 ? "Quick" : target - xp < 3e6 ? "Medium" : "Long",
+        effort: time ? hoursToEffort((time.hours.low + time.hours.high) / 2)
+          : target - xp < 500e3 ? "Quick" : target - xp < 3e6 ? "Medium" : "Long",
         base: allMaxed ? 30 - Math.log10(Math.max(1, xp)) : 5,
-        meta: { skill, xpTarget: target },
+        meta: { skill, xpTarget: target, hours: time?.hours ?? null },
       });
       continue;
     }
@@ -216,16 +259,22 @@ function levelCandidates(snap, a) {
     const progress = Math.max(0, Math.min(1, (xp - fromXp) / (xpForLevel(target) - fromXp || 1)));
     if (cur < avg - 10) why.push(`${cap(skill)} is well below your average level (${Math.round(avg)})`);
     if (target === 99) why.push("A skillcape is waiting at the end of this one");
-    const effort = xpGap < 150e3 ? "Quick" : xpGap < 1.5e6 ? "Medium" : "Long";
     const base = 30 + (blocks.length ? 25 : 0) + Math.max(0, avg - cur) * 0.8 + (target === 99 && progress > 0.6 ? 20 : 0);
+    const time = levelTime(skill, xp, xpForLevel(target));
+    // The time sets the tier when the skill has rates (1M Prayer XP is quicker than 1M Agility XP);
+    // otherwise the XP gap does.
+    const effort = time ? hoursToEffort((time.hours.low + time.hours.high) / 2)
+      : xpGap < 150e3 ? "Quick" : xpGap < 1.5e6 ? "Medium" : "Long";
+    if (!why.length) why.push("Steady progress toward your next milestone");
+    if (time) why.push(time.why);
     out.push({
       id: `lvl:${skill}:${target}`,
       category: "levels",
       title: `Train ${cap(skill)} to ${target}`,
-      detail: `${cur} → ${target}: ${fmt(xpGap)} XP to go.`,
-      why: why.length ? why : ["Steady progress toward your next milestone"],
+      detail: `${cur} → ${target}: ${fmt(xpGap)} XP to go.${time?.detail ?? ""}`,
+      why,
       progress, effort, base,
-      meta: { skill, target },
+      meta: { skill, target, hours: time?.hours ?? null },
     });
   }
   return out;
