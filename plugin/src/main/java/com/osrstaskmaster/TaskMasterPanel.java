@@ -123,6 +123,15 @@ class TaskMasterPanel extends PluginPanel
 	/** Which page of each tier is showing. */
 	private final int[] page = new int[Picks.TIERS.length];
 	private final JButton nextButton = new JButton("Refresh");
+
+	// "Your route": the route pinned with the website's route planner, above the suggestions.
+	private final JPanel routeSection = new JPanel();
+	private final JLabel routeCount = new JLabel();
+	private final JPanel routeList = new JPanel();
+	/** Route steps shown at a time; the website has the rest. */
+	private static final int ROUTE_SHOWN = 4;
+	private static final Color ROUTE_GOLD = new Color(0xE0B04A);
+	private static final Color ROUTE_GOAL = new Color(0x8BBF5A);
 	/** Suggestions finished since the website made the list (from the plugin's own profile). */
 	private java.util.function.Predicate<String> isDone = id -> false;
 	private Function<String, BufferedImage> skillIcons = skill -> null;
@@ -300,6 +309,8 @@ class TaskMasterPanel extends PluginPanel
 		picksNote.setForeground(Color.GRAY);
 		picksNote.setFont(FontManager.getRunescapeSmallFont());
 
+		buildRouteSection();
+		picksSection.add(routeSection);
 		for (JComponent c : new JComponent[]{head, tierBox, picksList, picksNote})
 		{
 			c.setAlignmentX(LEFT_ALIGNMENT);
@@ -339,8 +350,166 @@ class TaskMasterPanel extends PluginPanel
 		});
 	}
 
+	// ---- Your route ------------------------------------------------------------------------
+
+	private void buildRouteSection()
+	{
+		routeSection.setLayout(new BoxLayout(routeSection, BoxLayout.Y_AXIS));
+		routeSection.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		routeSection.setBorder(BorderFactory.createEmptyBorder(0, 0, 14, 0));
+
+		JPanel head = new JPanel(new BorderLayout(6, 0));
+		head.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		JLabel title = new JLabel("Your route");
+		title.setFont(FontManager.getRunescapeBoldFont());
+		title.setForeground(Color.WHITE);
+		routeCount.setFont(FontManager.getRunescapeSmallFont());
+		routeCount.setForeground(Color.GRAY);
+		head.add(title, BorderLayout.CENTER);
+		head.add(routeCount, BorderLayout.EAST);
+
+		routeList.setLayout(new BoxLayout(routeList, BoxLayout.Y_AXIS));
+		routeList.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+		for (JComponent c : new JComponent[]{head, routeList})
+		{
+			c.setAlignmentX(LEFT_ALIGNMENT);
+			if (c == head)
+			{
+				c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
+			}
+			routeSection.add(c);
+			routeSection.add(Box.createVerticalStrut(6));
+		}
+		routeSection.setAlignmentX(LEFT_ALIGNMENT);
+		routeSection.setVisible(false);
+	}
+
+	/** The pinned route's next steps, skipping any the plugin's own profile shows done. */
+	private void renderRoute()
+	{
+		routeList.removeAll();
+		Picks.Route r = picks == null ? null : picks.route;
+		if (r == null || r.steps().isEmpty())
+		{
+			routeSection.setVisible(false);
+			return;
+		}
+		List<Picks.Step> open = new java.util.ArrayList<>();
+		for (Picks.Step s : r.steps())
+		{
+			if (!isDone.test(s.key))
+			{
+				open.add(s);
+			}
+		}
+		int doneSince = r.steps().size() - open.size();
+		routeCount.setText((r.done + doneSince) + " of " + r.total + " done");
+		if (open.isEmpty())
+		{
+			routeList.add(note("Every step here is done. Open the website for the rest of your route."));
+		}
+		for (int i = 0; i < Math.min(ROUTE_SHOWN, open.size()); i++)
+		{
+			routeList.add(routeRow(open.get(i), i == 0, r.goals != null && r.goals.size() > 1));
+			routeList.add(Box.createVerticalStrut(4));
+		}
+		int more = Math.max(0, r.left - doneSince - Math.min(ROUTE_SHOWN, open.size()));
+		JLabel foot = new JLabel("<html><body style='width:145px'>"
+			+ (more > 0 ? more + " more step" + (more == 1 ? "" : "s") + " after these. " : "")
+			+ "Planned on the website: change or unpin it there.</body></html>");
+		foot.setFont(FontManager.getRunescapeSmallFont());
+		foot.setForeground(Color.GRAY);
+		foot.setAlignmentX(LEFT_ALIGNMENT);
+		routeList.add(foot);
+		routeSection.setVisible(true);
+		routeList.revalidate();
+		routeList.repaint();
+	}
+
+	/** The sub-line under a route step: its time, which goals it's for, anything else it needs. */
+	static String stepDetail(Picks.Step s, boolean showFor)
+	{
+		List<String> parts = new java.util.ArrayList<>();
+		if (s.goal)
+		{
+			parts.add("Finishes a goal");
+		}
+		if (s.hours != null && !s.hours.isEmpty())
+		{
+			parts.add(s.hours.substring(0, 1).toUpperCase() + s.hours.substring(1));
+		}
+		if (showFor && !s.goal && s.forGoals != null && !s.forGoals.isEmpty())
+		{
+			parts.add("For: " + String.join(", ", s.forGoals));
+		}
+		if (s.note != null && !s.note.isEmpty())
+		{
+			parts.add(s.note);
+		}
+		return parts.isEmpty() ? null : String.join(" · ", parts);
+	}
+
+	private JComponent routeRow(Picks.Step s, boolean next, boolean showFor)
+	{
+		JPanel row = new JPanel();
+		row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
+		row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		row.setBorder(BorderFactory.createCompoundBorder(
+			BorderFactory.createMatteBorder(0, 3, 0, 0, next ? ROUTE_GOLD : ColorScheme.MEDIUM_GRAY_COLOR),
+			BorderFactory.createEmptyBorder(5, 7, 5, 6)));
+		row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		row.setToolTipText("Open your route on the website");
+		if (next)
+		{
+			JLabel tag = new JLabel("NEXT");
+			tag.setFont(FontManager.getRunescapeSmallFont());
+			tag.setForeground(ROUTE_GOLD);
+			tag.setAlignmentX(LEFT_ALIGNMENT);
+			row.add(tag);
+		}
+		JLabel title = new JLabel("<html><body style='width:135px'>" + esc(s.title) + "</body></html>");
+		title.setForeground(s.goal ? ROUTE_GOAL : Color.WHITE);
+		title.setAlignmentX(LEFT_ALIGNMENT);
+		row.add(title);
+		String detail = stepDetail(s, showFor);
+		if (detail != null)
+		{
+			JLabel sub = new JLabel("<html><body style='width:135px'>" + esc(detail) + "</body></html>");
+			sub.setFont(FontManager.getRunescapeSmallFont());
+			sub.setForeground(new Color(0xA8A8A8));
+			sub.setAlignmentX(LEFT_ALIGNMENT);
+			row.add(Box.createVerticalStrut(2));
+			row.add(sub);
+		}
+		row.setAlignmentX(LEFT_ALIGNMENT);
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+		row.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mouseClicked(MouseEvent e)
+			{
+				actions.openWebsite();
+			}
+
+			@Override
+			public void mouseEntered(MouseEvent e)
+			{
+				row.setBackground(ColorScheme.DARK_GRAY_HOVER_COLOR);
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e)
+			{
+				row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+			}
+		});
+		return row;
+	}
+
 	private void renderPicks()
 	{
+		renderRoute();
 		picksList.removeAll();
 		int tier = Math.max(0, tierBox.getSelectedIndex());
 		nextButton.setVisible(false);

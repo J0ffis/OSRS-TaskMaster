@@ -159,6 +159,24 @@ test("picks: the owner's view is saved for visitors, cleaned", async () => {
   assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.view, null, "no view saved");
 });
 
+test("picks: the pinned route is saved for the panel, cleaned and capped", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  const step = (i) => ({ key: `quest:Q${i}`, title: `Do Q${i}`, hours: i ? null : "about 3–5 hours", for: ["Dragon Slayer II", 7], goal: i === 1, note: i === 2 ? "Also needs: 100 Kudos." : undefined, extra: "dropped" });
+  const route = { goals: ["Dragon Slayer II"], done: 3, total: 40, left: 37, time: "About 1 hour", steps: [...Array.from({ length: 40 }, (_, i) => step(i)), { title: "no key" }] };
+  const view = { style: "mix", route: { goals: ["g1", "g2", 3], keys: ["quest:Q0"] } };
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [pick("a")] }, route, view }, headers: { "X-Edit-Token": edit } });
+  const got = (await api("GET", `/v1/picks/${id}`)).data.picks;
+  assert.equal(got.route.steps.length, 30, "at most 30 steps");
+  assert.deepEqual(got.route.steps[0], { key: "quest:Q0", title: "Do Q0", hours: "about 3–5 hours", for: ["Dragon Slayer II"], goal: false, note: null });
+  assert.equal(got.route.steps[1].goal, true);
+  assert.equal(got.route.steps[2].note, "Also needs: 100 Kudos.");
+  assert.deepEqual([got.route.done, got.route.total, got.route.left, got.route.time], [3, 40, 37, "About 1 hour"]);
+  assert.deepEqual(got.view.route, { goals: ["g1", "g2"], keys: ["quest:Q0"] }, "visitors get the goal ids");
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: {}, route: "nonsense" }, headers: { "X-Edit-Token": edit } });
+  assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.route, null, "unpinned or bad: no route");
+});
+
 test("picks: a new upload keeps them", async () => {
   const key = newKey(), { id, edit } = await ids(key);
   await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });

@@ -1,5 +1,6 @@
 package com.osrstaskmaster;
 
+import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,8 @@ class Picks
 
 	Map<String, List<Pick>> tiers;
 	String filters;
+	/** The route pinned on the website (its route planner), or null when none is pinned. */
+	Route route;
 
 	List<Pick> tier(String name)
 	{
@@ -43,6 +46,41 @@ class Picks
 	{
 		Integer item;
 		String skill;
+	}
+
+	/**
+	 * A pinned route: the steps still to do, in order (at most 30), plus how many were done when
+	 * the website saved it. Step keys come from web/recommender.js planRoute
+	 * ("skill:slayer:3258594", "quest:Dream Mentor", "qp", "combat", "goal:g1").
+	 */
+	static class Route
+	{
+		List<String> goals;
+		int done;
+		int total;
+		int left;
+		String time;
+		List<Step> steps;
+
+		List<Step> steps()
+		{
+			return steps == null ? Collections.emptyList() : steps;
+		}
+	}
+
+	static class Step
+	{
+		String key;
+		String title;
+		/** "about 3-5 hours", or null when there's no estimate. */
+		String hours;
+		/** Which goals the step is on the way to. */
+		@SerializedName("for")
+		List<String> forGoals;
+		/** True when this step finishes one of the goals. */
+		boolean goal;
+		/** Anything else it needs ("Also needs: 100 Kudos."), or null. */
+		String note;
 	}
 
 	/** The service's reply: the picks plus when the website saved them. */

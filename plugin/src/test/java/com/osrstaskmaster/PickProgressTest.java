@@ -41,6 +41,10 @@ public class PickProgressTest
 		assertTrue(done("clog:13262"));
 		assertTrue(done("pet:4151"));
 		assertTrue(done("clogpage:Small page"));
+		// Route steps (the website's route planner).
+		assertTrue(done("skill:agility:737627"));
+		assertFalse(done("skill:agility:737628"));
+		assertFalse(done("qp"));
 	}
 
 	@Test

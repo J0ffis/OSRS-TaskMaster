@@ -2,6 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { candidates, compactProfile, sinceLast, accountKind } from "../web/recommender.js";
 import { loadDropRates, sampleAccount, fullAccount } from "./test-account.mjs";
 
@@ -117,4 +118,108 @@ test("missing sections: none for a current profile, named for one from an older 
   delete old.diaryStarted;
   assert.deepEqual(missingSections(old).map((m) => m.key), ["slayer", "diaryStarted"]);
   assert.deepEqual(missingSections(null), []);
+});
+
+// ---- Level time estimates -------------------------------------------------------------------
+
+test("level hours: sums each band at its own rate and names the methods", async () => {
+  const { levelHours, hoursRangeText, xpForLevel } = await import("../web/recommender.js");
+  // Cooking 50 -> 70 is all karambwans at 180k-218k XP/h.
+  const gap = xpForLevel(70) - xpForLevel(50);
+  const t = levelHours("cooking", xpForLevel(50), xpForLevel(70));
+  assert.ok(Math.abs(t.low - gap / 218000) < 1e-9 && Math.abs(t.high - gap / 180000) < 1e-9);
+  assert.deepEqual(t.methods, ["karambwans"]);
+  // Across bands: Woodcutting 60 -> 80 is teak until 71, then sulliuscep.
+  const wc = levelHours("woodcutting", xpForLevel(60), xpForLevel(80));
+  assert.deepEqual(wc.methods, ["teak trees", "sulliuscep"]);
+  const expectHigh = (xpForLevel(71) - xpForLevel(60)) / 46000 + (xpForLevel(80) - xpForLevel(71)) / 86300;
+  assert.ok(Math.abs(wc.high - expectHigh) < 1e-9);
+  // No rates, below the first band, or already there: no estimate.
+  assert.equal(levelHours("attack", 0, xpForLevel(50)), null);
+  assert.equal(levelHours("prayer", xpForLevel(10), xpForLevel(40)), null);
+  assert.equal(levelHours("cooking", xpForLevel(70), xpForLevel(60)), null);
+  assert.equal(hoursRangeText({ low: 0.2, high: 0.6 }), "under an hour");
+  assert.equal(hoursRangeText({ low: 3.2, high: 4.6 }), "about 3–5 hours");
+  assert.equal(hoursRangeText({ low: 41, high: 44 }), "about 40–45 hours");
+  assert.equal(hoursRangeText({ low: 1, high: 1.2 }), "about 1 hour");
+});
+
+test("level cards: time in the detail, method in the reasons, and the tier follows the time", () => {
+  const list = candidates(fullAccount(), [], { content: { minigames: true, wilderness: true, clues: true } });
+  const levels = list.filter((c) => c.category === "levels");
+  const timed = levels.filter((c) => c.meta.hours);
+  assert.ok(timed.length, "some skills on the test account have rates");
+  for (const c of timed) {
+    assert.match(c.detail, /XP to go\. (Under an hour|About [\d,]+(–[\d,]+)? hours?)\.$/, c.title);
+    assert.ok(c.why.some((w) => /^Time based on .+ OSRS Wiki/.test(w)), c.title);
+    const h = (c.meta.hours.low + c.meta.hours.high) / 2;
+    assert.equal(c.effort, h <= 3 ? "Quick" : h <= 20 ? "Medium" : "Long", `${c.title}: ${h.toFixed(1)} h`);
+  }
+  for (const c of levels.filter((c) => !c.meta.hours)) assert.doesNotMatch(c.detail, /hour/, c.title);
+});
+
+// ---- Route planner ----------------------------------------------------------------------------
+
+test("planner: shared requirements come once, before everything that needs them", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const snap = sampleAccount();
+  const goals = [
+    { id: "a", type: "quest", quest: "Dragon Slayer II" },
+    { id: "b", type: "clog", page: "Vorkath" },
+    { id: "c", type: "skill", skill: "agility", level: 80 },
+    { id: "d", type: "custom", text: "Fire cape" },
+  ];
+  const plan = planRoute(snap, goals);
+  const at = (key) => plan.steps.findIndex((s) => s.key === key);
+  const keys = plan.steps.map((s) => s.key);
+  assert.equal(new Set(keys).size, keys.length, "every step appears once");
+  // Vorkath is gated behind Dragon Slayer II, so the quest and its requirements serve both goals.
+  const ds2 = plan.steps[at("quest:Dragon Slayer II")];
+  assert.deepEqual(ds2.forGoals.sort(), ["Dragon Slayer II", "Vorkath collection log"]);
+  assert.ok(ds2.shared);
+  assert.ok(at("quest:Dragon Slayer II") < at("goal:b"), "the quest before the log it unlocks");
+  // Every step comes after the steps it depends on (prerequisite quests, lower skill targets).
+  for (const s of plan.steps.filter((s) => s.kind === "quest")) {
+    for (const pre of ["A Tail of Two Cats", "Dream Mentor"]) {
+      if (s.key === "quest:Dragon Slayer II" && at(`quest:${pre}`) >= 0) assert.ok(at(`quest:${pre}`) < at(s.key), `${pre} before ${s.title}`);
+    }
+  }
+  const agility = plan.steps.find((s) => s.key.startsWith("skill:agility:"));
+  assert.deepEqual(agility.completes, ["80 Agility"]);
+  assert.ok(agility.hours, "Agility has wiki rates");
+  assert.deepEqual(plan.skipped, ["Fire cape"]);
+  assert.ok(plan.total.timed >= 1 && plan.total.low <= plan.total.high);
+});
+
+test("planner: follows the whole quest chain from the wiki snapshot, with no gaps", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const plan = planRoute(fullAccount(), [{ id: "a", type: "quest", quest: "Dragon Slayer II" }]);
+  assert.deepEqual(plan.unknown, [], "every quest on the way has known requirements");
+  const at = (key) => plan.steps.findIndex((s) => s.key === key);
+  // Every quest step comes after the quests it needs that aren't finished yet.
+  const reqs = JSON.parse(readFileSync(new URL("../web/data/quest-reqs.json", import.meta.url), "utf8")).quests;
+  for (const s of plan.steps.filter((s) => s.key.startsWith("quest:"))) {
+    for (const p of reqs[s.key.slice(6)]?.quests ?? []) {
+      if (at(`quest:${p}`) >= 0) assert.ok(at(`quest:${p}`) < at(s.key), `${p} before ${s.title}`);
+    }
+  }
+  // Requirements that aren't a level or a quest are shown on the step.
+  const bone = plan.steps.find((s) => s.key === "quest:Bone Voyage");
+  if (bone) assert.match(bone.note, /100 Kudos/);
+});
+
+test("planner: finished goals and met requirements are left out", async () => {
+  const { planRoute, xpForLevel } = await import("../web/recommender.js");
+  const snap = clone(sampleAccount());
+  snap.skills.agility = { level: 99, xp: xpForLevel(99) };
+  const plan = planRoute(snap, [{ id: "a", type: "skill", skill: "agility", level: 80 }]);
+  assert.deepEqual(plan.steps, []);
+  assert.deepEqual(plan.done, ["80 Agility"]);
+  // Two targets in one skill: trained in order, the second timed from the first.
+  const two = planRoute(sampleAccount(), [
+    { id: "x", type: "skill", skill: "cooking", level: 95 },
+    { id: "y", type: "skill", skill: "cooking", level: 90 },
+  ]);
+  const cooking = two.steps.filter((s) => s.kind === "skill").map((s) => s.title);
+  assert.deepEqual(cooking, ["Train Cooking to 90", "Train Cooking to 95"]);
 });

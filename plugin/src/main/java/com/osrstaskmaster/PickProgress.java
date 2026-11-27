@@ -8,7 +8,8 @@ import com.google.gson.JsonObject;
  * Tells which of the website's suggestions the player has finished since the website made them,
  * from the plugin's own latest profile, so the panel can drop them without waiting for the
  * website. Suggestion ids come from web/recommender.js ("quest:Dragon Slayer II",
- * "lvl:slayer:85", "ca:123", "clog:4151", ...). Kinds it can't judge count as not done.
+ * "lvl:slayer:85", "ca:123", "clog:4151", ...), and so do route step keys ("skill:slayer:3258594",
+ * "quest:Dream Mentor"). Kinds it can't judge count as not done.
  */
 final class PickProgress
 {
@@ -40,6 +41,7 @@ final class PickProgress
 					JsonObject skill = obj(obj(profile, "skills"), p[0]);
 					return skill != null && skill.get("level").getAsInt() >= Integer.parseInt(p[1]);
 				}
+				case "skill": // a route step: "skill:<skill>:<target XP>"
 				case "xp":
 				{
 					String[] p = rest.split(":");

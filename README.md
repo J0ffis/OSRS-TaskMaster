@@ -58,6 +58,8 @@ up from chat messages as you play, and from a boss's collection log page when yo
   - `config.js` – where the Automatic upload service runs (local or live).
   - `sample-profile.json` – the made-up account behind **Load sample data**.
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
+  - `data/quest-reqs.json` – a snapshot of every quest's requirements from the OSRS Wiki (the
+    route planner and **Within reach** use it).
   - `icons/game/` and `game-icons.js` – game icons exported from the game cache (see
     [Game icons](#game-icons)).
 - `sync/` – the Automatic upload service (Cloudflare Worker + D1 database), with end-to-end tests.
@@ -73,7 +75,8 @@ up from chat messages as you play, and from a boss's collection log page when yo
   - `Start-LocalServer.ps1` – starts the optional local server.
   - `Update-DropRates.ps1` – adds new items' drop rates from the OSRS Wiki to `web/data/drop-rates.json`.
   - `Update-GameIcons.ps1` – exports the website's game icons from the game cache on this PC.
-  - `Update-GameData.ps1` – after a game update: game names, icons, drop rates and checks in one go.
+  - `update-quest-reqs.mjs` – refreshes `web/data/quest-reqs.json` from the OSRS Wiki (one request; Node.js).
+  - `Update-GameData.ps1` – after a game update: game names, icons, drop rates, quest requirements and checks in one go.
   - `Format-Json.ps1` – lays JSON files out one entry per line so they're easy to read.
 - `docs/` – reference notes: [how suggestions work](docs/how-suggestions-work.md) (start here
   to tune them), [what the plugin reads](docs/data-sources.md), and
@@ -164,10 +167,11 @@ One command brings the website's game data up to date:
 Log in once with the plugin first, so its saved profile and RuneLite's game cache are current.
 It then refreshes, in order: the game names in `tests/fixtures/game-names.json` (read from the
 newest profile the plugin saved in `%USERPROFILE%\.runelite\osrs-taskmaster`), the game icons
-(below), the drop rates for new items (below), and runs the checks and tests. At the end it says
+(below), the drop rates for new items (below), every quest's requirements (one wiki request), and
+runs the checks and tests. At the end it says
 **Nothing new** (nothing to commit) or lists what changed; review that, commit and push to `main`
-to republish the website. `-DryRun` contacts nothing for drop rates, `-SkipDropRates` and
-`-SkipIcons` leave those out. Each part can also be run on its own, as below.
+to republish the website. `-DryRun` contacts nothing for drop rates or quests; `-SkipDropRates`,
+`-SkipQuestReqs` and `-SkipIcons` leave those out. Each part can also be run on its own, as below.
 
 ### Drop rates
 

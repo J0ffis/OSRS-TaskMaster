@@ -40,8 +40,8 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 | `GET /v1/public/:name` | website | the same, for public profiles |
 | `PUT /v1/goals/:id` | website (`X-Edit-Token`) | replace the goals list; with `{ goals, known }`, goals added elsewhere since the page loaded are kept |
 | `POST /v1/goals/:id` | plugin (`X-Edit-Token`) | `{ pick }`: add the goal that saved pick carries (the panel's *Make it a goal*) |
-| `PUT /v1/picks/:id` | website (`X-Edit-Token`) | save its current top picks per tier |
-| `GET /v1/picks/:id` | plugin | those picks, for the panel's *Your next grinds* list |
+| `PUT /v1/picks/:id` | website (`X-Edit-Token`) | save its current top picks per tier, the pinned route and the owner's view |
+| `GET /v1/picks/:id` | plugin | those picks and the route, for the panel's *Your next grinds* and *Your route* |
 
 **Why picks come from the website:** the recommendation engine (`web/recommender.js`) needs about
 9–12 ms of CPU per run (≈ 30 ms cold), over the free Workers plan's 10 ms per request. So the
@@ -55,7 +55,12 @@ service adds exactly that website-made goal (never one the plugin built). The we
 `known` (every goal id it has seen) when saving, so a page left open can't wipe a goal the panel
 added meanwhile.
 
-Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows, plus each pick's goal up to 1.5 KB), uploads at most every 30 seconds per key, browsers
+**The pinned route:** when the owner pins a route in the website's route planner, the picks
+also carry `route` (its next 30 steps with titles, times, which goals they're for and other
+needs, plus steps done and total) for the panel, and `view.route` (the goal ids and step keys)
+so visitors of a share link see the same route, planned in their browser from the owner's goals.
+
+Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows, plus each pick's goal up to 1.5 KB), a route of up to 30 steps, picks 128 KB in all, uploads at most every 30 seconds per key, browsers
 only from the sites in `ALLOWED_ORIGINS` (`wrangler.toml`), and no wealth data.
 
 ## Try it on your PC (one click)

@@ -47,6 +47,10 @@ browser, with your goals.
   **Sync** uploads your progress now and fetches the website's latest list; anything you've
   finished in game drops off straight away. The list itself is made by the website, so opening
   the website gives you a fresh one.
+- **Your route** appears above it once you pin a route with the website's route planner: the
+  next 4 steps in order (the first marked **Next**), how many are done, and what each step is for.
+  Steps you finish in game (a level reached, a quest done) drop off at once; click a step to open
+  the route on the website, where you change or unpin it.
 - Your profile is **private** by default: only people with your link can see it.
   **Copy share link** (here or on the website) gives friends a view-only link: they see your
   suggestions and goals but can't change anything.

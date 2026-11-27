@@ -18,8 +18,9 @@
 //                                                               keeps goals added elsewhere meanwhile)
 //   POST   /v1/goals/:id          X-Edit-Token: <token>          { pick }: add the goal that saved pick
 //                                                               would make (the panel's Make it a goal)
-//   PUT    /v1/picks/:id          X-Edit-Token: <token>          the website's current suggestions
-//                                                               and the owner's view (for visitors)
+//   PUT    /v1/picks/:id          X-Edit-Token: <token>          the website's current suggestions,
+//                                                               the pinned route and the owner's
+//                                                               view (for visitors)
 //   GET    /v1/picks/:id                                        those suggestions (the RuneLite panel)
 //                                                               tiers: Quick, Medium, Long, Challenge
 //
@@ -29,7 +30,8 @@
 
 const MAX_PROFILE_BYTES = 1_500_000;
 const MAX_GOALS_BYTES = 64_000;
-const MAX_PICKS_BYTES = 96_000;  // 50 picks, each with the goal it would make
+const MAX_PICKS_BYTES = 128_000; // 50 picks, each with the goal it would make, plus a route
+const MAX_ROUTE_STEPS = 30;
 const MAX_GOALS = 200;
 const PICK_TIERS = ["Quick", "Medium", "Long", "Challenge"];
 // The Challenge tier used to be called "Bonus"; picks saved or sent under the old name still count.
@@ -260,7 +262,7 @@ async function savePicks(request, env, id) {
   }
   const now = Date.now();
   await env.DB.prepare("UPDATE profiles SET picks = ?, picks_at = ? WHERE id = ?")
-    .bind(JSON.stringify({ tiers: clean, filters: cleanText(body.filters, 200), view: cleanView(body.view) }), now, id).run();
+    .bind(JSON.stringify({ tiers: clean, filters: cleanText(body.filters, 200), view: cleanView(body.view), route: cleanRoute(body.route) }), now, id).run();
   return json({ ok: true, picksAt: now }, 200);
 }
 
@@ -274,8 +276,32 @@ function cleanView(v) {
   const content = {};
   if (v.content && typeof v.content === "object") for (const k of VIEW_CONTENT) if (v.content[k] === true) content[k] = true;
   const hidden = Array.isArray(v.hidden) ? v.hidden.filter((h) => typeof h === "string" && h.length <= 120).slice(0, 300) : [];
-  return { style: VIEW_STYLES.includes(v.style) ? v.style : "balanced", off, content, hidden };
+  // The pinned route, as goal ids (visitors plan it from the owner's goals) and the step keys it
+  // had when pinned (for "4 of 19 steps done").
+  const route = v.route && typeof v.route === "object" && Array.isArray(v.route.goals)
+    ? { goals: strings(v.route.goals, 50, 60), keys: strings(v.route.keys, 300, 160) } : null;
+  return { style: VIEW_STYLES.includes(v.style) ? v.style : "balanced", off, content, hidden, ...(route?.goals.length ? { route } : {}) };
 }
+
+/**
+ * The owner's pinned route from the website's route planner, for the panel's "Your route": the
+ * next steps in order (at most MAX_ROUTE_STEPS), how many are done, and the time left. Plain text
+ * only; the panel shows it as it is.
+ */
+function cleanRoute(r) {
+  if (!r || typeof r !== "object" || Array.isArray(r) || !Array.isArray(r.steps)) return null;
+  const count = (v) => (Number.isInteger(v) && v >= 0 && v <= 10_000 ? v : 0);
+  const steps = r.steps
+    .filter((s) => s && typeof s === "object" && typeof s.key === "string" && typeof s.title === "string")
+    .slice(0, MAX_ROUTE_STEPS)
+    .map((s) => ({
+      key: cleanText(s.key, 160), title: cleanText(s.title, 160), hours: cleanText(s.hours, 40) || null,
+      for: strings(s.for, 6, 120), goal: s.goal === true, note: cleanText(s.note, 300) || null,
+    }));
+  return { goals: strings(r.goals, 20, 120), done: count(r.done), total: count(r.total), left: count(r.left), time: cleanText(r.time, 200), steps };
+}
+
+const strings = (a, n, max) => (Array.isArray(a) ? a.filter((s) => typeof s === "string").slice(0, n).map((s) => s.slice(0, max)) : []);
 
 /** Keep only the fields the panel shows, with sane lengths, so nothing odd is stored or served. */
 function cleanPick(p, tier) {

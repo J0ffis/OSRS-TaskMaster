@@ -23,5 +23,27 @@ public class PicksTest
 		assertEquals("quest", first.goal.get("type"));
 		assertNull(reply.picks.tier("Quick").get(1).goal);
 		assertEquals(Long.valueOf(5), reply.picksAt);
+		assertNull("no route pinned", reply.picks.route);
+	}
+
+	@Test
+	public void readsThePinnedRoute()
+	{
+		String json = "{\"picks\": {\"tiers\": {}, \"route\": {\"goals\": [\"Dragon Slayer II\", \"85 Slayer\"],"
+			+ " \"done\": 2, \"total\": 9, \"left\": 7, \"time\": \"About 1 hour\", \"steps\": ["
+			+ "{\"key\": \"skill:crafting:368599\", \"title\": \"Train Crafting to 62\", \"hours\": \"under an hour\", \"for\": [\"Dragon Slayer II\"], \"goal\": false, \"note\": null},"
+			+ "{\"key\": \"quest:Bone Voyage\", \"title\": \"Do Bone Voyage\", \"hours\": null, \"for\": [\"Dragon Slayer II\"], \"goal\": false, \"note\": \"Also needs: 100 Kudos.\"},"
+			+ "{\"key\": \"quest:Dragon Slayer II\", \"title\": \"Do Dragon Slayer II\", \"for\": [\"Dragon Slayer II\"], \"goal\": true}]}}}";
+		Picks.Route route = new Gson().fromJson(json, Picks.Reply.class).picks.route;
+		assertNotNull(route);
+		assertEquals(3, route.steps().size());
+		assertEquals(9, route.total);
+		Picks.Step crafting = route.steps().get(0);
+		assertEquals("skill:crafting:368599", crafting.key);
+		assertEquals(java.util.Arrays.asList("Dragon Slayer II"), crafting.forGoals);
+		assertEquals("Under an hour · For: Dragon Slayer II", TaskMasterPanel.stepDetail(crafting, true));
+		assertEquals("Under an hour", TaskMasterPanel.stepDetail(crafting, false));
+		assertEquals("Also needs: 100 Kudos.", TaskMasterPanel.stepDetail(route.steps().get(1), false));
+		assertEquals("Finishes a goal", TaskMasterPanel.stepDetail(route.steps().get(2), true));
 	}
 }
