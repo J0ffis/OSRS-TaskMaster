@@ -53,6 +53,7 @@ test("profile issues: impossible values are named", () => {
   const skills = profileIssues(snap)[0].text;
   assert.match(skills, /Attack level 120/);
   assert.match(skills, /Mining \(level 50 with/);
+  for (const { text } of profileIssues(snap)) assert.doesNotMatch(text, /[:,][A-Za-z]/, `missing space after punctuation: ${text}`);
   // Short task lists: only "more ticked than possible" can be told.
   const short = clone(sampleAccount());
   for (const t of short.combatAchievements.tasks) t.done = true;

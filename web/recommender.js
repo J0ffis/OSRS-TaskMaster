@@ -1461,7 +1461,7 @@ export function profileIssues(snap, now = Date.now()) {
       bad.push(`${cap(skill)} (level ${level} with ${fmt(xp)} XP)`);
     }
   }
-  if (bad.length) out.push({ key: "skills", text: `Skill levels or XP that can't be right:${bad.slice(0, 4).join(", ")}${bad.length > 4 ? ` and ${bad.length - 4} more` : ""}` });
+  if (bad.length) out.push({ key: "skills", text: `Skill levels or XP that can't be right: ${bad.slice(0, 4).join(", ")}${bad.length > 4 ? ` and ${bad.length - 4} more` : ""}` });
 
   const ca = snap.combatAchievements;
   if (ca?.tasks?.length && ca.points != null) {
