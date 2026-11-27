@@ -95,6 +95,7 @@
           <div class="panelhead">
             <h3 id="goals-h">Goals</h3>
             <span class="muted small">Goals push matching suggestions to the top.</span>
+            <button id="planbtn" type="button" class="link small" hidden>Plan a route</button>
           </div>
           <ul id="goals" class="goals"></ul>
           <form id="goalform" class="goalform">
@@ -122,6 +123,15 @@
     </section>
   </main>
 
+  <dialog id="plandlg" class="dlg plandlg" aria-labelledby="plan-h">
+    <div class="dlghead">
+      <h3 id="plan-h">Route planner</h3>
+      <button type="button" class="x" data-close aria-label="Close">×</button>
+    </div>
+    <p class="muted small">Tick the goals to plan for. You get one list in a sensible order: requirements that several goals share come once, and each goal is finished as early as its steps allow.</p>
+    <div id="planpick" class="planpick"></div>
+    <div id="planbody"></div>
+  </dialog>
   <dialog id="importdlg" class="dlg" aria-labelledby="import-h">
     <div class="dlghead">
       <h3 id="import-h">Update your profile</h3>

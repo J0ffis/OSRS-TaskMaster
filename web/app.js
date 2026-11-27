@@ -8,6 +8,7 @@ import {
   candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
+  planRoute, hoursRangeText,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML } from "./game-icons.js";
@@ -727,6 +728,9 @@ const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask:
 
 function renderGoals() {
   const el = $("#goals");
+  // The planner only reads goals (so view-only pages can use it too).
+  $("#planbtn").hidden = !state.goals.some((g) => g.type !== "custom" && !goalProgress(g, state.snap).done);
+  if ($("#plandlg").open) renderPlan();
   if (!state.goals.length) {
     el.innerHTML = `<li class="muted small">No goals yet. Add one below, or press "Make it a goal" on a suggestion.</li>`;
     return;
@@ -1114,6 +1118,47 @@ $("#hiddendlg").addEventListener("click", (e) => {
 $("#lockeddlg").addEventListener("click", (e) => {
   // Close on the × button or a click on the backdrop.
   if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
+});
+
+// ---- Route planner ---------------------------------------------------------------------------
+// Goals left out of the plan (unticked), for this page visit only.
+const planOff = new Set();
+
+function renderPlan() {
+  const open = state.goals.filter((g) => g.type !== "custom" && !goalProgress(g, state.snap).done);
+  $("#planpick").innerHTML = open.map((g) => `<label><input type="checkbox" data-plan="${esc(g.id)}" ${planOff.has(g.id) ? "" : "checked"}> ${esc(goalTitle(g))}</label>`).join("");
+  const plan = planRoute(state.snap, open.filter((g) => !planOff.has(g.id)));
+  if (!plan.steps.length) {
+    $("#planbody").innerHTML = `<p class="muted small">${open.length ? "Tick at least one goal." : "No unfinished goals to plan."}</p>`;
+    return;
+  }
+  const t = plan.total;
+  const time = t.timed ? `${cap(hoursRangeText(t))} for the ${t.timed} training step${t.timed === 1 ? "" : "s"} with a time` : "";
+  const untimed = t.untimed ? `${t.untimed} step${t.untimed === 1 ? "" : "s"} without a time estimate (quests, unlisted skills)` : "";
+  const goalsIn = plan.steps.reduce((n, s) => n + s.completes.length, 0);
+  $("#planbody").innerHTML = `
+    <p class="plansum"><b>${plan.steps.length} steps</b> for ${goalsIn} goal${goalsIn === 1 ? "" : "s"}. ${esc([time, untimed].filter(Boolean).join("; "))}.</p>
+    <ol class="planlist">${plan.steps.map((s) => `
+      <li class="${s.completes.length ? "goalstep" : ""}">
+        <span class="pt">${esc(s.title)}</span>${s.completes.length ? " ✓ goal" : ""}${s.shared ? `<span class="shared" title="${esc(s.forGoals.join(", "))}">shared by ${s.forGoals.length}</span>` : ""}
+        ${s.hours ? `<span class="ph">· ${esc(hoursRangeText(s.hours))}</span>` : ""}
+        ${s.completes.length && s.forGoals.length === 1 ? "" : `<span class="pf">For: ${esc(s.forGoals.join(", "))}${s.note ? `. ${esc(s.note)}` : ""}</span>`}
+      </li>`).join("")}
+    </ol>
+    ${plan.unknown.length ? `<p class="plannote">Not in our requirement tables, so their own requirements aren't included (check the wiki): ${esc(plan.unknown.join(", "))}.</p>` : ""}
+    ${plan.skipped.length ? `<p class="plannote">Custom goals aren't planned: ${esc(plan.skipped.join(", "))}.</p>` : ""}
+    <p class="plannote">Times use the OSRS Wiki training guides' XP rates and assume you start each skill where you are now. Boosts, quest XP rewards and items you already own aren't counted.</p>`;
+}
+
+$("#planbtn").addEventListener("click", () => { renderPlan(); $("#plandlg").showModal(); });
+$("#plandlg").addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
+});
+$("#plandlg").addEventListener("change", (e) => {
+  const box = e.target.closest("[data-plan]");
+  if (!box) return;
+  if (box.checked) planOff.delete(box.dataset.plan); else planOff.add(box.dataset.plan);
+  renderPlan();
 });
 
 $("#gtype").addEventListener("change", renderGoalFields);

@@ -100,6 +100,27 @@ The page keeps a short history of compact profiles it has seen in `tm.history:*`
 (`compactProfile`): at most one every 30 minutes plus the newest, trimmed to the one 8 hours back.
 It compares synced profiles only, so progress marked by hand counts once a sync confirms it.
 
+## Route planner
+
+**Plan a route** (in the Goals panel, once you have an unfinished goal) turns the goals you tick
+into one ordered list of steps (`planRoute` in `recommender.js`):
+
+1. Each goal is expanded into what it needs, from the same tables as everything else: a quest's
+   skills (`QUESTS`) and prerequisite quests with their own needs in turn (`QUEST_PREREQS`), a
+   diary tier's skills, quests, quest points and combat level (`DIARY_REQS`), and the access
+   gates of collection log pages, pets, items and combat achievements (`CONTENT_REQS`).
+   Requirements you already meet are dropped.
+2. Shared requirements become one step ("shared by 2"), and one skill's targets are trained in
+   order (Cooking to 90, then to 95, each timed from the one before).
+3. Steps are ordered so every step comes after what it depends on, and among the steps that are
+   ready, the one on the way to the goal that's closest to done goes first. Goals therefore finish
+   one by one instead of all at the end.
+
+Training steps show a time when the skill has wiki rates (`XP_RATES`); quests and other steps
+don't, and the total says how many steps have no time. Quests whose own requirements aren't in
+the tables are listed below the route so they can be checked on the wiki; custom goals aren't
+planned. The planner only reads, so it's available on view-only pages too.
+
 ## Marking progress by hand
 
 **Mark progress by hand** (in the summary) adds *Mark done* buttons to quest, diary and combat
