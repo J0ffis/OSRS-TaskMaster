@@ -16,6 +16,9 @@ import { xpForLevel } from "../web/recommender.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const game = JSON.parse(readFileSync(join(root, "tests", "fixtures", "game-names.json"), "utf8"));
 const outDir = join(root, "web", "samples");
+const questReqs = JSON.parse(readFileSync(join(root, "web", "data", "quest-reqs.json"), "utf8")).quests;
+/** A quest's direct prerequisite quests that the game lists (the wiki has a few unreleased ones). */
+const prereqs = (q) => (questReqs[q]?.quests ?? QUEST_PREREQS[q]?.quests ?? []).filter((p) => game.quests.includes(p));
 
 // Combat achievement point thresholds per tier, as the plugin reports them.
 const CA_THRESHOLDS = { Easy: 41, Medium: 161, Hard: 416, Elite: 1064, Master: 1904, Grandmaster: 2630 };
@@ -190,25 +193,29 @@ function build(a) {
   }
   skills.overall = { level: total, xp: totalXp };
 
-  // Quests: named ones, their prerequisites, then a share of the rest.
+  // Quests: named ones, their prerequisites, then a share of the rest. Prerequisites come from the
+  // wiki snapshot (web/data/quest-reqs.json, whole chains), so a sample never has a quest done
+  // without what it needs; the hand table is the fallback.
   const state = {};
   const finish = (q) => {
     if (state[q] === "FINISHED") return;
     if (!game.quests.includes(q)) return problems.push(`${a.id}: no quest called "${q}"`);
     state[q] = "FINISHED";
-    for (const p of QUEST_PREREQS[q]?.quests ?? []) finish(p);
+    for (const p of prereqs(q)) finish(p);
   };
   a.finished.forEach(finish);
   for (const q of a.inProgress) {
     if (!game.quests.includes(q)) problems.push(`${a.id}: no quest called "${q}"`);
     else if (!state[q]) state[q] = "IN_PROGRESS";
-    for (const p of QUEST_PREREQS[q]?.quests ?? []) finish(p);
+    for (const p of prereqs(q)) finish(p);
   }
   const late = new Set(LATE_QUESTS);
-  const quests = game.quests.map((name, i) => ({
-    name,
-    state: state[name] ?? (late.has(name) ? "NOT_STARTED" : share(i, a.id + "q") < a.rest ? "FINISHED" : share(i, a.id + "p") < 0.15 ? "IN_PROGRESS" : "NOT_STARTED"),
-  }));
+  game.quests.forEach((name, i) => {
+    state[name] ??= late.has(name) ? "NOT_STARTED" : share(i, a.id + "q") < a.rest ? "FINISHED" : share(i, a.id + "p") < 0.15 ? "IN_PROGRESS" : "NOT_STARTED";
+  });
+  // The share of the rest can pick a quest whose prerequisites weren't picked: finish those too.
+  for (const name of game.quests) if (state[name] !== "NOT_STARTED") for (const p of prereqs(name)) finish(p);
+  const quests = game.quests.map((name) => ({ name, state: state[name] }));
 
   const tiers = ["easy", "medium", "hard", "elite"];
   const diaryOut = {};

@@ -20,7 +20,7 @@ import {
   WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS, SLAYER_BOSSES,
   SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
-  QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES,
+  QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES, XP_RATES,
 } from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
@@ -33,6 +33,29 @@ export function setDropRates(data) {
   // Keyed by lower-case name: the wiki and the game don't always capitalise the same way.
   DROP_RATES = {};
   for (const [name, rows] of Object.entries(data?.items ?? {})) DROP_RATES[name.toLowerCase()] = rows;
+}
+
+// ---- Quest requirements -----------------------------------------------------------------
+let QUEST_REQS = {};
+/** Load the wiki snapshot (web/data/quest-reqs.json) once at startup. */
+export function setQuestReqs(data) {
+  QUEST_REQS = data?.quests ?? {};
+}
+
+/**
+ * Everything a quest needs: { skills (incl. combat), quests, questPoints, other, known }.
+ * The wiki snapshot covers every quest and miniquest; the hand tables (QUESTS, QUEST_PREREQS) are
+ * the fallback when it isn't loaded. `known` is false when neither has the quest.
+ */
+export function questRequirements(name) {
+  const w = QUEST_REQS[name];
+  if (w) {
+    const skills = { ...(w.skills ?? {}) };
+    if (w.combat) skills.combat = w.combat;
+    return { skills, quests: w.quests ?? [], questPoints: w.questPoints ?? 0, other: w.other ?? [], known: true };
+  }
+  const known = !!(QUESTS[name] || QUEST_PREREQS[name]);
+  return { skills: { ...(QUESTS[name]?.reqs ?? {}) }, quests: QUEST_PREREQS[name]?.quests ?? [], questPoints: QUEST_PREREQS[name]?.questPoints ?? 0, other: [], known };
 }
 
 const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
@@ -96,6 +119,47 @@ const XP = [0, 0];
   }
 }
 export const xpForLevel = (lvl) => XP[Math.max(1, Math.min(99, lvl))];
+
+/**
+ * Rough time from `xp` to `targetXp` in a skill, from the wiki guide rates in XP_RATES:
+ * { low, high, methods } in hours (low = at the top of each band's range), or null when the skill
+ * has no rates or `xp` is below its first band.
+ */
+export function levelHours(skill, xp, targetXp) {
+  const bands = XP_RATES[skill];
+  if (!bands || !(targetXp > xp) || xp < xpForLevel(bands[0][0])) return null;
+  let low = 0, high = 0;
+  const methods = [];
+  bands.forEach(([from, slow, fast, method], i) => {
+    const start = xpForLevel(from);
+    const end = i + 1 < bands.length ? xpForLevel(bands[i + 1][0]) : Infinity;
+    const gained = Math.min(targetXp, end) - Math.max(xp, start);
+    if (gained <= 0) return;
+    low += gained / fast;
+    high += gained / slow;
+    if (!methods.includes(method)) methods.push(method);
+  });
+  return { low, high, methods };
+}
+
+/** "under an hour", "about 3 hours", "about 12–18 hours". */
+export function hoursRangeText({ low, high }) {
+  const r = (h) => (h < 10 ? Math.round(h) : Math.round(h / 5) * 5);
+  if (high < 1) return "under an hour";
+  const a = Math.max(1, r(low)), b = Math.max(1, r(high));
+  return a === b ? `about ${a.toLocaleString()} hour${a === 1 ? "" : "s"}` : `about ${a.toLocaleString()}–${b.toLocaleString()} hours`;
+}
+
+/** What a level card adds from levelHours: { hours, detail, why }, or null. */
+function levelTime(skill, xp, targetXp) {
+  const t = levelHours(skill, xp, targetXp);
+  if (!t) return null;
+  return {
+    hours: t,
+    detail: ` ${cap(hoursRangeText(t))}.`,
+    why: `Time based on ${t.methods.join(", then ")}, at the OSRS Wiki training guide's rates`,
+  };
+}
 
 export const fmt = (n) => {
   if (n == null || n < 0) return "?";
@@ -185,17 +249,19 @@ function levelCandidates(snap, a) {
       if (!target) continue;
       const prev = [...XP_MILESTONES].reverse().find((m) => m <= xp) ?? xpForLevel(99);
       const allMaxed = levels.every((l) => l >= 99);
+      const time = levelTime(skill, xp, target);
       out.push({
         id: `xp:${skill}:${target}`,
         category: "levels",
         title: `Push ${cap(skill)} to ${fmt(target)} XP`,
-        detail: `${fmt(xp)} → ${fmt(target)}: ${fmt(target - xp)} XP to go.`,
+        detail: `${fmt(xp)} → ${fmt(target)}: ${fmt(target - xp)} XP to go.${time?.detail ?? ""}`,
         why: [allMaxed ? "You're maxed, so XP milestones are the next frontier" : "Already 99; keep the XP climbing",
-          target === 200e6 ? "200M is the hard cap" : null].filter(Boolean),
+          target === 200e6 ? "200M is the hard cap" : null, time?.why].filter(Boolean),
         progress: (xp - prev) / (target - prev),
-        effort: target - xp < 500e3 ? "Quick" : target - xp < 3e6 ? "Medium" : "Long",
+        effort: time ? hoursToEffort((time.hours.low + time.hours.high) / 2)
+          : target - xp < 500e3 ? "Quick" : target - xp < 3e6 ? "Medium" : "Long",
         base: allMaxed ? 30 - Math.log10(Math.max(1, xp)) : 5,
-        meta: { skill, xpTarget: target },
+        meta: { skill, xpTarget: target, hours: time?.hours ?? null },
       });
       continue;
     }
@@ -216,16 +282,22 @@ function levelCandidates(snap, a) {
     const progress = Math.max(0, Math.min(1, (xp - fromXp) / (xpForLevel(target) - fromXp || 1)));
     if (cur < avg - 10) why.push(`${cap(skill)} is well below your average level (${Math.round(avg)})`);
     if (target === 99) why.push("A skillcape is waiting at the end of this one");
-    const effort = xpGap < 150e3 ? "Quick" : xpGap < 1.5e6 ? "Medium" : "Long";
     const base = 30 + (blocks.length ? 25 : 0) + Math.max(0, avg - cur) * 0.8 + (target === 99 && progress > 0.6 ? 20 : 0);
+    const time = levelTime(skill, xp, xpForLevel(target));
+    // The time sets the tier when the skill has rates (1M Prayer XP is quicker than 1M Agility XP);
+    // otherwise the XP gap does.
+    const effort = time ? hoursToEffort((time.hours.low + time.hours.high) / 2)
+      : xpGap < 150e3 ? "Quick" : xpGap < 1.5e6 ? "Medium" : "Long";
+    if (!why.length) why.push("Steady progress toward your next milestone");
+    if (time) why.push(time.why);
     out.push({
       id: `lvl:${skill}:${target}`,
       category: "levels",
       title: `Train ${cap(skill)} to ${target}`,
-      detail: `${cur} → ${target}: ${fmt(xpGap)} XP to go.`,
-      why: why.length ? why : ["Steady progress toward your next milestone"],
+      detail: `${cur} → ${target}: ${fmt(xpGap)} XP to go.${time?.detail ?? ""}`,
+      why,
       progress, effort, base,
-      meta: { skill, target },
+      meta: { skill, target, hours: time?.hours ?? null },
     });
   }
   return out;
@@ -1227,11 +1299,12 @@ export function withinReach(snap, { prev = null, marks = null, now = Date.now(),
   for (const [name, info] of Object.entries(QUESTS)) {
     const st = a.questState[name];
     if (st == null || st === "FINISHED") continue;
-    const pre = QUEST_PREREQS[name] ?? {};
+    const req = questRequirements(name);
     consider({
       id: `reach:quest:${name}`, kind: "quest", category: "quests", title: name,
       why: info.why, weight: info.weight, inProgress: st === "IN_PROGRESS",
-      reqs: requirementList(snap, a, { skills: info.reqs, quests: pre.quests, questPoints: pre.questPoints }),
+      // A quest's own parts (Recipe for Disaster's subquests) are doing the quest, not a requirement.
+      reqs: requirementList(snap, a, { ...req, quests: req.quests.filter((q) => !q.startsWith(`${name} - `)) }),
       effort: "Medium", meta: { quest: name },
     });
   }
@@ -1556,4 +1629,172 @@ function mulberry32(a) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+// ---- Route planner ----------------------------------------------------------------------------
+// Pick several goals and get one ordered list of steps: the skill levels, quests (with their
+// prerequisite chains), quest points and combat level they need, with requirements shared between
+// goals done once. Quests come from the wiki snapshot (web/data/quest-reqs.json, every quest and
+// miniquest, followed down the whole prerequisite chain); diaries from DIARY_REQS and other goals
+// from CONTENT_REQS. Anything none of these cover is listed as "not in our tables" rather than
+// guessed. Times come from XP_RATES (levels only).
+
+/** Rough internal cost (hours) for ordering steps that have no time estimate. Never shown. */
+const PLAN_ORDER_COST = { quest: 1.5, qp: 4, combat: 4, goal: 2, levelUnknown: 0.5 };
+
+/**
+ * planRoute(snap, goals) -> { steps, done, skipped, unknown, total }
+ *   steps:   [{ key, kind: "skill"|"quest"|"qp"|"combat"|"goal", title, forGoals: [title],
+ *              shared, completes: [title], hours: {low, high}|null, note }] in order
+ *   done:    titles of goals already complete
+ *   skipped: titles of goals the planner can't plan (custom goals)
+ *   unknown: quests whose requirements aren't in our tables (check the wiki)
+ *   unchecked: quests needed on the way that the profile doesn't list, so their state is unknown
+ *   total:   { low, high, timed, untimed } summed over the steps
+ */
+export function planRoute(snap, goals = []) {
+  const a = analyse(snap);
+  const nodes = new Map();
+  const unknown = new Set(), unchecked = new Set();
+  const node = (key, init) => {
+    if (!nodes.has(key)) nodes.set(key, { key, deps: new Set(), completes: [], ...init });
+    return nodes.get(key);
+  };
+  const xpOf = (s) => snap.skills?.[s]?.xp ?? xpForLevel(a.lvl(s));
+
+  // A skill target (level or XP); null when it's already reached.
+  const skillNode = (skill, targetXp, title) => {
+    if (!snap.skills?.[skill] || xpOf(skill) >= targetXp) return null;
+    return node(`skill:${skill}:${targetXp}`, { kind: "skill", skill, targetXp, title });
+  };
+  const levelNode = (skill, level) => skillNode(skill, xpForLevel(level), `Train ${cap(skill)} to ${level}`);
+
+  let qpNeed = 0, combatNeed = 0;
+  // Requirements { skills (incl. combat / questPoints), quests, questPoints } become deps of `n`.
+  const addReqs = (n, req, seen) => {
+    for (const [k, lvl] of Object.entries(req?.skills ?? {})) {
+      if (k === "combat") { if ((snap.player?.combatLevel ?? 0) < lvl) { combatNeed = Math.max(combatNeed, lvl); n.deps.add("combat"); } continue; }
+      if (k === "questPoints") { addQp(n, lvl); continue; }
+      const s = levelNode(k, lvl);
+      if (s) n.deps.add(s.key);
+    }
+    if (req?.questPoints) addQp(n, req.questPoints);
+    for (const q of req?.quests ?? []) {
+      const qn = questNode(q, seen);
+      if (qn) n.deps.add(qn.key);
+    }
+  };
+  const addQp = (n, need) => {
+    if ((snap.questPoints ?? 0) >= need) return;
+    qpNeed = Math.max(qpNeed, need);
+    n.deps.add("qp");
+  };
+  const questNode = (q, seen = new Set(), isGoal = false) => {
+    const st = a.questState[q];
+    if (st === "FINISHED" || seen.has(q)) return null;
+    // Not in the profile (a trimmed profile, or a quest newer than the plugin): can't tell if it's
+    // done, so it's named rather than planned. A goal is still planned.
+    if (st == null && !isGoal && snap.quests?.length) { unchecked.add(q); return null; }
+    const n = node(`quest:${q}`, { kind: "quest", quest: q, title: `${st === "IN_PROGRESS" ? "Finish" : "Do"} ${q}` });
+    if (n.expanded) return n;
+    n.expanded = true;
+    const req = questRequirements(q);
+    if (!req.known) unknown.add(q);
+    if (req.other.length) n.note = `Also needs: ${req.other.join("; ")}.`;
+    addReqs(n, req, new Set([...seen, q]));
+    return n;
+  };
+  const contentReqs = (name) => CONTENT_REQS.filter((r) => name && r.match.test(name));
+
+  const done = [], skipped = [], goalRoots = [];
+  for (const g of goals) {
+    const title = goalTitle(g);
+    if (goalProgress(g, snap).done) { done.push(title); continue; }
+    let root = null;
+    switch (g.type) {
+      case "skill": root = levelNode(g.skill, g.level); break;
+      case "xp": root = skillNode(g.skill, g.xp, `Push ${cap(g.skill)} to ${fmt(g.xp)} XP`); break;
+      case "quest": root = questNode(g.quest, new Set(), true); break;
+      case "diary": {
+        root = node(`goal:${g.id}`, { kind: "goal", title });
+        const req = DIARY_REQS[g.region]?.[g.tier];
+        if (req) addReqs(root, { skills: req.skills, quests: req.quests, questPoints: req.questPoints });
+        else unknown.add(title);
+        const questsLeft = (snap.quests ?? []).filter((q) => q.state !== "FINISHED").length;
+        if (req?.allQuests && questsLeft) {
+          node("allquests", { kind: "quest", title: `Finish every remaining quest (${questsLeft} left)`, note: "For the Quest point cape." });
+          root.deps.add("allquests");
+        }
+        break;
+      }
+      case "custom": skipped.push(title); continue;
+      default: {
+        // Collection log, pets, items and combat achievements: the access gates in CONTENT_REQS.
+        const page = g.page ?? (g.type === "item" || g.type === "pet" ? itemIndex(snap).get(String(g.item ?? g.pet).toLowerCase())?.page : null);
+        const monster = g.monster ?? (g.type === "catask" ? (snap.combatAchievements?.tasks ?? []).find((t) => t.id === g.task)?.monster : null);
+        root = node(`goal:${g.id}`, { kind: "goal", title });
+        for (const r of [...contentReqs(page), ...(monster !== page ? contentReqs(monster) : [])]) addReqs(root, r);
+      }
+    }
+    if (!root) { done.push(title); continue; }
+    root.completes.push(title);
+    goalRoots.push({ title, key: root.key });
+  }
+  if (qpNeed) node("qp", { kind: "qp", title: `Reach ${qpNeed} quest points`, note: `You have ${snap.questPoints ?? 0}; any quests count.` });
+  if (combatNeed) node("combat", { kind: "combat", title: `Reach combat level ${combatNeed}`, note: `You're level ${snap.player?.combatLevel ?? "?"}.` });
+
+  // A skill's targets are trained in order: each one after the one below it.
+  const bySkill = {};
+  for (const n of nodes.values()) if (n.kind === "skill") (bySkill[n.skill] ??= []).push(n);
+  for (const list of Object.values(bySkill)) {
+    list.sort((x, y) => x.targetXp - y.targetXp);
+    list.forEach((n, i) => {
+      const from = i ? list[i - 1].targetXp : xpOf(n.skill);
+      if (i) n.deps.add(list[i - 1].key);
+      n.hours = levelHours(n.skill, from, n.targetXp);
+      n.cost = n.hours ? (n.hours.low + n.hours.high) / 2 : PLAN_ORDER_COST.levelUnknown * Math.max(1, levelOf(n.targetXp) - levelOf(from));
+    });
+  }
+  for (const n of nodes.values()) n.cost ??= PLAN_ORDER_COST[n.kind] ?? 1;
+
+  // Which goals each step serves (everything a goal's root depends on, directly or not).
+  const closure = (key, out = new Set()) => {
+    if (out.has(key) || !nodes.has(key)) return out;
+    out.add(key);
+    for (const d of nodes.get(key).deps) closure(d, out);
+    return out;
+  };
+  const goalSets = goalRoots.map((g) => ({ ...g, keys: closure(g.key) }));
+  for (const n of nodes.values()) n.forGoals = goalSets.filter((g) => g.keys.has(n.key)).map((g) => g.title);
+
+  // Order: of the steps that are ready, take the one on the way to the goal that's closest to
+  // done (so goals finish early, one by one), preferring steps shared by more goals.
+  const left = new Set([...nodes.keys()].filter((k) => nodes.get(k).forGoals.length));
+  const steps = [];
+  const remaining = (g) => [...g.keys].reduce((s, k) => s + (left.has(k) ? nodes.get(k).cost : 0), 0);
+  while (left.size) {
+    const ready = [...left].map((k) => nodes.get(k)).filter((n) => [...n.deps].every((d) => !left.has(d)));
+    if (!ready.length) break; // a loop in the tables; the checker would catch it
+    const goalCost = new Map(goalSets.map((g) => [g.title, remaining(g)]));
+    const score = (n) => Math.min(...n.forGoals.map((t) => goalCost.get(t)));
+    ready.sort((x, y) => score(x) - score(y) || y.forGoals.length - x.forGoals.length || x.cost - y.cost || x.key.localeCompare(y.key));
+    const n = ready[0];
+    left.delete(n.key);
+    steps.push({
+      key: n.key, kind: n.kind, title: n.title, forGoals: n.forGoals, shared: n.forGoals.length > 1,
+      completes: n.completes, hours: n.hours ?? null, note: n.note ?? null,
+    });
+  }
+  const timed = steps.filter((s) => s.hours);
+  return {
+    steps, done, skipped, unknown: [...unknown], unchecked: [...unchecked].sort(),
+    total: { low: timed.reduce((t, s) => t + s.hours.low, 0), high: timed.reduce((t, s) => t + s.hours.high, 0), timed: timed.length, untimed: steps.length - timed.length },
+  };
+}
+
+/** The level a total XP amount is (1-99). */
+function levelOf(xp) {
+  let l = 1;
+  while (l < 99 && xpForLevel(l + 1) <= xp) l++;
+  return l;
 }

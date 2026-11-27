@@ -5,14 +5,15 @@
                                                        diaries, combat achievements
     2. Game icons    web/icons/game                    from the game cache on this PC
     3. Drop rates    web/data/drop-rates.json          new items only, from the OSRS Wiki
-    4. Checks        npm run check + npm test
+    4. Quest reqs    web/data/quest-reqs.json          every quest's requirements, from the OSRS Wiki
+    5. Checks        npm run check + npm test
 
   Then it lists what changed. "Nothing new" means there's nothing to commit; otherwise review
   the changes, commit them and push to main, which republishes the website.
 
     .\scripts\Update-GameData.ps1                    # everything
     .\scripts\Update-GameData.ps1 -DryRun            # drop rates: say what would be looked up, contact nothing
-    .\scripts\Update-GameData.ps1 -SkipDropRates     # names, icons and checks only (no wiki contact)
+    .\scripts\Update-GameData.ps1 -SkipDropRates -SkipQuestReqs   # names, icons and checks only (no wiki contact)
     .\scripts\Update-GameData.ps1 -Profile <file>    # read game names from this profile file
     .\scripts\Update-GameData.ps1 -Cache <dir>       # another copy of the game cache
 
@@ -25,6 +26,7 @@ param(
   [string]$Cache = (Join-Path $env:USERPROFILE '.runelite\jagexcache\oldschool\LIVE'),
   [switch]$SkipIcons,
   [switch]$SkipDropRates,
+  [switch]$SkipQuestReqs,
   [switch]$DryRun
 )
 $ErrorActionPreference = 'Stop'
@@ -73,16 +75,25 @@ if ($SkipDropRates) { Step 'Drop rates (skipped)' } else {
   & (Join-Path $PSScriptRoot 'Update-DropRates.ps1') -Profile $Profile -DryRun:$DryRun
 }
 
-# ---- 5. Checks ------------------------------------------------------------------------------
+# ---- 5. Quest requirements ------------------------------------------------------------------
+if ($SkipQuestReqs) { Step 'Quest requirements (skipped)' } else {
+  Step ($(if ($DryRun) { 'Quest requirements (dry run)' } else { 'Quest requirements' }))
+  $qargs = @((Join-Path $root 'scripts\update-quest-reqs.mjs'))
+  if ($DryRun) { $qargs += '--dry-run' }
+  & $node @qargs
+  if ($LASTEXITCODE -ne 0) { throw 'Updating quest requirements failed.' }
+}
+
+# ---- 6. Checks ------------------------------------------------------------------------------
 Step 'Checks'
 & $node (Join-Path $root 'tests\check-knowledge-base.mjs')
 $checkOk = $LASTEXITCODE -eq 0
 & $node --test --test-reporter=dot 'tests/*.test.mjs'
 $testsOk = $LASTEXITCODE -eq 0
 
-# ---- 6. What changed ------------------------------------------------------------------------
+# ---- 7. What changed ------------------------------------------------------------------------
 Step 'What changed'
-$paths = @('tests/fixtures/game-names.json', 'web/icons/game', 'web/data/drop-rates.json')
+$paths = @('tests/fixtures/game-names.json', 'web/icons/game', 'web/data/drop-rates.json', 'web/data/quest-reqs.json')
 if ($git) {
   $changes = @(& $git status --porcelain -- @paths)
   if (-not $changes) {

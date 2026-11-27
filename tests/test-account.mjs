@@ -4,15 +4,19 @@
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { setDropRates } from "../web/recommender.js";
+import { setDropRates, setQuestReqs } from "../web/recommender.js";
 import { CA_TIER_POINTS } from "../web/knowledge-base.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (...p) => JSON.parse(readFileSync(join(root, ...p), "utf8"));
 
-/** Loads the real drop-rate snapshot into the recommender, as the website does at startup. */
+/**
+ * Loads the real wiki snapshots (drop rates and quest requirements) into the recommender, as the
+ * website does at startup.
+ */
 export function loadDropRates() {
   setDropRates(readJson("web", "data", "drop-rates.json"));
+  setQuestReqs(readJson("web", "data", "quest-reqs.json"));
 }
 
 /** One of the website's sample profiles (web/samples/<id>.json), unchanged. "iron" is "Sample Iron". */

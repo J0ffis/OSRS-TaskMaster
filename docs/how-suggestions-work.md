@@ -74,6 +74,14 @@ harder of the task's own tier and that time. The hour limits are `EFFORT_HOURS`;
 in `PAGE_EFFORT`, `MONSTER_EFFORT` and `ITEM_EFFORT` win over the maths, for things like the Fire
 cape or team content.
 
+Level cards ("Train Cooking to 70") show a time range when the skill has rates in `XP_RATES`:
+XP/hour ranges for one mainstream method per level band, copied from the OSRS Wiki's training
+guides, e.g. "1.2M XP to go. About 5–7 hours." with "Time based on karambwans" in the reasons. A
+band's method keeps applying until the next band starts. The card's tier then follows the middle
+of that range instead of the XP gap. Skills whose guides gave no usable figure (the melee skills,
+Hitpoints, Magic, Slayer, Hunter, Construction, Farming, Fletching), and levels below a skill's
+first band, keep the XP-gap tier and show no time.
+
 ## Within reach
 
 The row under the summary lists notable quests and the next tier of each achievement diary that
@@ -98,6 +106,44 @@ up instead of resetting it. When this browser hasn't seen a profile that old yet
 The page keeps a short history of compact profiles it has seen in `tm.history:*`
 (`compactProfile`): at most one every 30 minutes plus the newest, trimmed to the one 8 hours back.
 It compares synced profiles only, so progress marked by hand counts once a sync confirms it.
+
+## Route planner
+
+**Plan a route** (in the Goals panel, once you have an unfinished goal) turns the goals you tick
+into one ordered list of steps (`planRoute` in `recommender.js`):
+
+1. Each goal is expanded into what it needs. Quests come from `web/data/quest-reqs.json`, a
+   snapshot of every quest's and miniquest's requirements from the OSRS Wiki: skills, quest
+   points, combat level and prerequisite quests, followed all the way down the chain (Recipe for
+   Disaster's parts included). Diary tiers use `DIARY_REQS` (skills, quests, quest points, combat
+   level), and collection log pages, pets, items and combat achievements their access gates
+   (`CONTENT_REQS`). Requirements you already meet are dropped. Anything else a quest needs that
+   isn't a level or a quest ("100 Kudos", "Access to Keldagrim") is shown on its step; what you
+   must be able to fight is kept in the file but not shown.
+2. Shared requirements become one step ("shared by 2"), and one skill's targets are trained in
+   order (Cooking to 90, then to 95, each timed from the one before).
+3. Steps are ordered so every step comes after what it depends on, and among the steps that are
+   ready, the one on the way to the goal that's closest to done goes first. Goals therefore finish
+   one by one instead of all at the end.
+
+Training steps show a time when the skill has wiki rates (`XP_RATES`); quests and other steps
+don't, and the total says how many steps have no time. A quest the profile doesn't list (a
+trimmed profile, or a quest newer than the plugin) isn't guessed at: it's named below the route
+instead. Quests the snapshot doesn't cover are listed too, to check on the wiki; custom goals
+aren't planned. The planner only reads, so it's available on view-only pages too.
+
+**Pin this route to the page** keeps it in a **Your route** panel above the Goals panel: the
+next few steps, how many are done and the time left, with **See all steps**, **Change goals** and
+**Unpin**. Only the chosen goals are saved (per profile, in this browser, `tm.route:*`); the steps
+are planned again on every load, so finished ones drop off and the count goes up as you sync.
+A step counts as done only when the profile shows it (a level reached, a quest finished), so
+removing a goal from the route doesn't count its steps as done.
+
+The quest snapshot is refreshed by `scripts/update-quest-reqs.mjs` (`npm run quest-reqs`, also
+run by `Update-GameData.ps1`): one request to the wiki, and the file only changes when the
+requirements did. `npm run check` warns when the hand tables (`QUESTS`, `QUEST_PREREQS`)
+disagree with it; the snapshot wins wherever it has the quest, and the hand tables are the
+fallback if it fails to load. The same snapshot drives the quest cards under **Within reach**.
 
 ## Marking progress by hand
 
@@ -161,4 +207,5 @@ players.
 
 The profile is written by the RuneLite plugin; [data-sources.md](data-sources.md) lists exactly
 what it reads. Drop rates are a saved snapshot from the OSRS Wiki in `web/data/drop-rates.json`,
-refreshed by hand with `scripts/Update-DropRates.ps1`.
+refreshed by hand with `scripts/Update-DropRates.ps1`. Quest requirements are another wiki
+snapshot, `web/data/quest-reqs.json`, refreshed with `scripts/update-quest-reqs.mjs`.
