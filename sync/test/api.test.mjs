@@ -145,6 +145,20 @@ test("picks: the old 'Bonus' tier name is read as Challenge", async () => {
   assert.equal(t.Bonus, undefined);
 });
 
+test("picks: the owner's view is saved for visitors, cleaned", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  const view = { style: "mix", off: ["pets", "BAD!", "goals"], content: { wilderness: true, clues: false, evil: true }, hidden: ["clog:4151", 5, "x".repeat(200)] };
+  assert.equal((await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [pick("a")] }, view } })).status, 403, "only the owner saves it");
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [pick("a")] }, view }, headers: { "X-Edit-Token": edit } });
+  const got = (await api("GET", `/v1/picks/${id}`)).data.picks.view;
+  assert.deepEqual(got, { style: "mix", off: ["pets", "goals"], content: { wilderness: true }, hidden: ["clog:4151"] });
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: {}, view: { style: "sideways" } }, headers: { "X-Edit-Token": edit } });
+  assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.view.style, "balanced", "unknown styles fall back");
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: {} }, headers: { "X-Edit-Token": edit } });
+  assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.view, null, "no view saved");
+});
+
 test("picks: a new upload keeps them", async () => {
   const key = newKey(), { id, edit } = await ids(key);
   await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });

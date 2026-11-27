@@ -16,6 +16,7 @@
 //   GET    /v1/public/:name                                     same, for profiles marked public
 //   PUT    /v1/goals/:id          X-Edit-Token: <token>          replace the goals list
 //   PUT    /v1/picks/:id          X-Edit-Token: <token>          the website's current suggestions
+//                                                               and the owner's view (for visitors)
 //   GET    /v1/picks/:id                                        those suggestions (the RuneLite panel)
 //                                                               tiers: Quick, Medium, Long, Challenge
 //
@@ -213,8 +214,21 @@ async function savePicks(request, env, id) {
   }
   const now = Date.now();
   await env.DB.prepare("UPDATE profiles SET picks = ?, picks_at = ? WHERE id = ?")
-    .bind(JSON.stringify({ tiers: clean, filters: cleanText(body.filters, 200) }), now, id).run();
+    .bind(JSON.stringify({ tiers: clean, filters: cleanText(body.filters, 200), view: cleanView(body.view) }), now, id).run();
   return json({ ok: true, picksAt: now }, 200);
+}
+
+// The owner's chosen view, which visitors of a share link or public profile see (read-only):
+// grind style, categories switched off, opt-in content, and suggestions hidden with Not for me.
+const VIEW_STYLES = ["quick", "balanced", "long", "mix"];
+const VIEW_CONTENT = ["minigames", "wilderness", "clues"];
+function cleanView(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const off = Array.isArray(v.off) ? v.off.filter((k) => typeof k === "string" && /^[a-z]{2,12}$/.test(k)).slice(0, 12) : [];
+  const content = {};
+  if (v.content && typeof v.content === "object") for (const k of VIEW_CONTENT) if (v.content[k] === true) content[k] = true;
+  const hidden = Array.isArray(v.hidden) ? v.hidden.filter((h) => typeof h === "string" && h.length <= 120).slice(0, 300) : [];
+  return { style: VIEW_STYLES.includes(v.style) ? v.style : "balanced", off, content, hidden };
 }
 
 /** Keep only the fields the panel shows, with sane lengths, so nothing odd is stored or served. */

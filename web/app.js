@@ -173,6 +173,13 @@ async function load(name, opts = {}) {
     if (e.status === 400) return showError("That doesn't look like an OSRS name (1–12 letters, numbers, spaces, - or _).");
     return showError(serverMode ? "Couldn't reach the OSRS TaskMaster server. Is Start-LocalServer.ps1 running?" : "Something went wrong loading that profile. Try again in a moment.");
   }
+  // Leaving a view-only profile: bring back this browser's own settings (its hidden list was just
+  // loaded for the new profile), then fetch the owner's view if this one is view-only too.
+  if (state.ownView) {
+    ({ style: state.style, cats: state.cats, content: state.content } = state.ownView);
+    state.ownView = null;
+  }
+  state.sharedView = source.kind === "sync" && !source.edit ? await loadSharedView(source.id) : null;
   state.name = name;
   state.source = source;
   state.viewAsVisitor = false;
@@ -228,7 +235,7 @@ function iconFor(c, snap) {
 }
 
 async function publishPicks() {
-  if (state.source?.kind !== "sync" || !state.source.edit || !listCache.all?.length) return;
+  if (state.source?.kind !== "sync" || !state.source.edit || state.viewAsVisitor || !listCache.all?.length) return;
   const snap = state.snap;
   const toPick = (c) => ({
     id: c.id, title: c.title, detail: c.detail, category: c.category,
@@ -243,7 +250,10 @@ async function publishPicks() {
   const off = Object.keys(CATEGORIES).filter((k) => !state.cats.has(k));
   const on = Object.entries(state.content).filter(([, v]) => v).map(([k]) => k);
   const filters = [off.length ? `hiding ${off.join(", ")}` : "", on.length ? `including ${on.join(", ")}` : ""].filter(Boolean).join("; ");
-  const body = JSON.stringify({ tiers, filters });
+  // The owner's view, which visitors of a share link or public profile see (read-only).
+  const hidden = Object.entries(state.hidden).filter(([, e]) => !e.until || e.until > Date.now()).map(([id]) => id).sort();
+  const view = { style: state.style, off, content: Object.fromEntries(on.map((k) => [k, true])), hidden };
+  const body = JSON.stringify({ tiers, filters, view });
   // Skip if nothing changed since the last save from this browser.
   const sentKey = `tm.picksSent:${state.source.id}`;
   const sig = `${body.length}:${[...body].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
@@ -443,29 +453,44 @@ function showToastError() { alert("Couldn't save goals: the server didn't respon
 // ---- Rendering ---------------------------------------------------------------------------
 
 // ---- View only ------------------------------------------------------------------------------
-// Share links, public profiles and the owner's "See it as others do" preview show one fixed view:
-// the Balanced tier, every category, no opt-in content, no shuffling. Visitors can't change it
-// (tiers, Shuffle, Swap, filters, goals); they can still open wiki links and the account tabs.
-// The owner's own settings are set aside while it shows and come back afterwards; nothing about
-// them is saved while viewing as a visitor.
+// Share links and public profiles show the owner's own view: their grind style, category filters,
+// opt-in content and the suggestions they hid with Not for me (saved with the panel's picks, see
+// publishPicks). Visitors can't change it (tiers, Shuffle, Swap, filters, goals); they can still
+// open wiki links and the account tabs. A visitor's own settings for their own profiles are set
+// aside while it shows and come back afterwards. The owner's "See it as others do" preview is the
+// same view, locked.
 
-const VISITOR_VIEW = { style: "balanced", content: {} };
+const DEFAULT_VIEW = { style: "balanced", off: [], content: {}, hidden: [] };
 
 function applyViewMode() {
   const ro = isReadOnly();
-  if (ro && !state.ownView) {
-    state.ownView = { style: state.style, cats: new Set(state.cats), content: { ...state.content }, seed: state.seed };
-    state.style = VISITOR_VIEW.style;
-    state.cats = new Set(Object.keys(CATEGORIES));
-    state.content = { ...VISITOR_VIEW.content };
+  const visitor = ro && !state.source?.edit;
+  if (visitor && !state.ownView) {
+    const v = state.sharedView ?? DEFAULT_VIEW;
+    state.ownView = { style: state.style, cats: new Set(state.cats), content: { ...state.content }, seed: state.seed, hidden: state.hidden };
+    state.style = v.style ?? "balanced";
+    state.cats = new Set(Object.keys(CATEGORIES).filter((k) => !(v.off ?? []).includes(k)));
+    if (!state.cats.size) state.cats = new Set(Object.keys(CATEGORIES));
+    state.content = { ...(v.content ?? {}) };
+    state.hidden = Object.fromEntries((v.hidden ?? []).map((id) => [id, { until: 0 }]));
     state.seed = 0;
     state.excluded.clear();
-  } else if (!ro && state.ownView) {
-    ({ style: state.style, cats: state.cats, content: state.content, seed: state.seed } = state.ownView);
+  } else if (!visitor && state.ownView) {
+    ({ style: state.style, cats: state.cats, content: state.content, seed: state.seed, hidden: state.hidden } = state.ownView);
     state.ownView = null;
     state.excluded.clear();
   }
   $("#app").classList.toggle("readonly", ro);
+}
+
+/** The owner's saved view for a profile opened view-only, or null (then a default view shows). */
+async function loadSharedView(id) {
+  try {
+    const r = await syncApi(`/v1/picks/${encodeURIComponent(id)}`);
+    return r?.picks?.view ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function renderAll() {
@@ -625,7 +650,7 @@ const isMix = () => state.style === "mix";
 function renderControls() {
   document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.style === state.style)));
   $("#tierhint").textContent = isReadOnly()
-    ? `View only: ${state.name ?? "this player"}'s Balanced suggestions. Only the owner can change goals or what's shown.`
+    ? `View only: ${state.name ?? "this player"}'s ${{ quick: "Quick wins", balanced: "Balanced", long: "Long haul", mix: "Mixed" }[state.style] ?? "Balanced"} suggestions, as they've set them up. Only they can change goals or what's shown.`
     : TIER_HINT[state.style] ?? "";
   $("#gridtitle").textContent = isMix() ? "Your next seven grinds" : "Your next three grinds";
   const { done } = completions(state.snap);
