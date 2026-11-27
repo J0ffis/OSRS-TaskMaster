@@ -386,6 +386,28 @@ class TaskMasterPanel extends PluginPanel
 		picksSection.revalidate();
 	}
 
+	/** Longest description shown on a row; the tooltip shows the whole text. */
+	private static final int DETAIL_MAX = 90;
+
+	/**
+	 * The description to show under a row's title (e.g. "Royal Titans: Kill the Royal Titans
+	 * while..."), or null when it adds nothing.
+	 */
+	static String shortDetail(Picks.Pick p)
+	{
+		String d = p.detail == null ? "" : p.detail.trim();
+		if (d.isEmpty() || d.equalsIgnoreCase(p.title))
+		{
+			return null;
+		}
+		if (d.length() > DETAIL_MAX)
+		{
+			int cut = d.lastIndexOf(' ', DETAIL_MAX - 1);
+			d = d.substring(0, cut > 40 ? cut : DETAIL_MAX - 1) + "…";
+		}
+		return d;
+	}
+
 	private JComponent row(Picks.Pick p, Color tierColor)
 	{
 		JPanel row = new JPanel(new BorderLayout(8, 0));
@@ -440,6 +462,18 @@ class TaskMasterPanel extends PluginPanel
 		title.setAlignmentX(LEFT_ALIGNMENT);
 		text.add(cat);
 		text.add(title);
+		// What the task actually asks (a CA's requirement, XP to go, where an item drops), so the
+		// row makes sense without opening the website. Long ones are cut; the tooltip has it all.
+		String detail = shortDetail(p);
+		if (detail != null)
+		{
+			JLabel desc = new JLabel("<html><body style='width:104px'>" + esc(detail) + "</body></html>");
+			desc.setFont(FontManager.getRunescapeSmallFont());
+			desc.setForeground(new Color(0xA8A8A8));
+			desc.setAlignmentX(LEFT_ALIGNMENT);
+			text.add(Box.createVerticalStrut(2));
+			text.add(desc);
+		}
 		if (p.progress != null && p.progress > 0)
 		{
 			JProgressBar bar = new JProgressBar(0, 1000);

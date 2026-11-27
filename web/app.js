@@ -109,7 +109,8 @@ async function syncApi(path, opts) {
   return data;
 }
 
-const isReadOnly = () => state.source?.kind === "sync" && !state.source.edit;
+// View only: opened without the edit token, or the owner previewing what visitors see.
+const isReadOnly = () => state.source?.kind === "sync" && (!state.source.edit || state.viewAsVisitor);
 
 /**
  * Open a profile. `name` is looked up in this order: a profile linked in this browser, one
@@ -132,7 +133,9 @@ async function load(name, opts = {}) {
     } else if (link) {
       const r = await syncApi(`/v1/profile/${encodeURIComponent(link.id)}`);
       state.snap = r.profile; state.goals = r.goals;
-      source = { kind: "sync", id: link.id, edit: link.edit ?? null, public: r.public };
+      // A share link (no edit token) opened in the owner's own browser still opens as the owner,
+      // since this browser has their edit token; the page says so and offers the visitor view.
+      source = { kind: "sync", id: link.id, edit: link.edit ?? null, public: r.public, ownerViaShare: !!(opts.id && !opts.edit && link.edit) };
     } else if (!serverMode && local.get(name)) {
       state.snap = local.get(name);
       state.goals = local.goals(name);
@@ -172,6 +175,7 @@ async function load(name, opts = {}) {
   }
   state.name = name;
   state.source = source;
+  state.viewAsVisitor = false;
   state.loadedAt = Date.now();
   state.seed = 0;
   state.excluded.clear();
@@ -464,7 +468,7 @@ function renderSummary() {
   $("#summary").innerHTML = `
     <div class="who">
       <h2>${esc(p.name)}</h2>
-      <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `${state.source.kind === "sync" ? "Uploaded" : "Synced"} <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}${isReadOnly() ? ` · <span class="viewonly" title="Opened from a share link or public profile: you can see the suggestions but not change the goals">View only</span>` : ""}</div>
+      <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `${state.source.kind === "sync" ? "Uploaded" : "Synced"} <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}${isReadOnly() ? ` · <span class="viewonly" title="Opened from a share link or public profile: you can see the suggestions but not change the goals">View only</span>` : ""}${ownerToggleHTML()}</div>
       ${isReadOnly() ? "" : `<div class="manualrow">
         <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't ${state.source.kind === "sync" ? "uploaded" : "synced"} since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until your profile shows them done.">Mark progress by hand</button>
         ${markCount() ? `<span class="muted small">${markCount()} marked by hand, waiting for a sync</span>` : ""}
@@ -484,6 +488,24 @@ function renderSummary() {
       `<span class="badge" title="${esc(b.detail)}"><span aria-hidden="true">✦</span> ${esc(b.label)}</span>`).join("")}</div>` : ""}`;
 }
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+
+/**
+ * For the owner of an uploaded profile: a switch to the view-only page visitors get. Opening
+ * your own share link in your own browser shows your owner view (this browser has your edit
+ * token), so the page says so here rather than looking like the link didn't work.
+ */
+function ownerToggleHTML() {
+  const s = state.source;
+  if (s?.kind !== "sync" || !s.edit) return "";
+  if (state.viewAsVisitor) {
+    return ` · <button type="button" id="visitorbtn" class="link small" title="Back to your own view, where you can change goals">Back to owner view</button>`;
+  }
+  const why = s.ownerViaShare
+    ? "You opened your share link in your own browser, so it shows your owner view. Anyone else with the link sees a view-only page."
+    : "Your own profile: only this browser (and Open website in RuneLite) can change it.";
+  return ` · <span class="ownerpill" title="${esc(why)}">${s.ownerViaShare ? "Your profile (owner view)" : "Owner"}</span>
+    <button type="button" id="visitorbtn" class="link small" title="Preview the view-only page your share link shows other people">See it as others do</button>`;
+}
 
 // "Since last time": progress over the last 8 hours of syncs (see trackPrevious), from the raw profile
 // (progress marked by hand isn't counted until a sync confirms it). Hover a part for details.
@@ -1339,6 +1361,12 @@ $("#tabs").addEventListener("click", (e) => {
 
 // Marking by hand: the toggle in the summary, and every "Mark done" control on cards and tabs.
 $("#summary").addEventListener("click", async (e) => {
+  // The owner previewing the visitor view, or back again. Nothing is saved while previewing.
+  if (e.target.closest("#visitorbtn") && state.source?.edit) {
+    state.viewAsVisitor = !state.viewAsVisitor;
+    renderAll();
+    return;
+  }
   // Owners share a view-only link (the id only), never their own link with the edit token.
   const share = e.target.closest("#sharebtn");
   if (share && state.source?.kind === "sync") {

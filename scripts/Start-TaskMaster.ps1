@@ -9,7 +9,9 @@
 # Keep this file ASCII-only: Windows PowerShell 5.1 misreads other characters in scripts without a BOM.
 
 param(
-	[switch]$NoBrowser
+	[switch]$NoBrowser,
+	# Started by Start-AutoUploadTest.ps1: profiles upload, so skip the copy-and-paste hint.
+	[switch]$AutoUploadTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -132,8 +134,12 @@ if (-not $NoBrowser) {
 
 Write-Step "Starting RuneLite with OSRS TaskMaster"
 Write-Info "The first start downloads RuneLite and can take a few minutes. Later starts are quicker."
-Write-Info "When you're in game: open the OSRS TaskMaster panel on the right-hand sidebar,"
-Write-Info "click 'Copy my profile', then paste it on the website (Ctrl+V)."
+if ($AutoUploadTest) {
+	Write-Info "When you're in game: open the OSRS TaskMaster panel, click Upload now, then Open website."
+} else {
+	Write-Info "When you're in game: open the OSRS TaskMaster panel on the right-hand sidebar,"
+	Write-Info "click 'Copy my profile', then paste it on the website (Ctrl+V)."
+}
 Write-Info "Close RuneLite when you're done; this window closes with it."
 Write-Host ""
 

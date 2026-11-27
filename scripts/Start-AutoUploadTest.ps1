@@ -89,9 +89,11 @@ Write-Step "Starting the upload service and the website"
 foreach ($p in @($ServicePort, $WebPort)) {
 	if (Test-Port $p) { Stop-Launcher "Port $p is already in use. Close the other test windows (or whatever uses it) and start this again." }
 }
-$service = Start-Process -PassThru -WorkingDirectory $Sync -FilePath $node `
+# Minimized, so they aren't closed by accident: closing either window stops it, and links to
+# 127.0.0.1 then stop working until the next start.
+$service = Start-Process -PassThru -WindowStyle Minimized -WorkingDirectory $Sync -FilePath $node `
 	-ArgumentList @("`"$wrangler`"", "dev", "--port", $ServicePort, "--local", "--persist-to", "`"$State`"")
-$website = Start-Process -PassThru -WorkingDirectory $Root -FilePath $node `
+$website = Start-Process -PassThru -WindowStyle Minimized -WorkingDirectory $Root -FilePath $node `
 	-ArgumentList @("`"$(Join-Path $PSScriptRoot 'serve-website.mjs')`"", $WebPort)
 
 $up = $false
@@ -105,6 +107,9 @@ if (-not $up) {
 }
 Write-Ok "Upload service: $ServiceUrl"
 Write-Ok "Website:        $WebUrl"
+Write-Info "Both run in minimized windows on the taskbar: leave them open while you test."
+Write-Info "Links only work on this PC (127.0.0.1). To check a share link as a visitor, open it in"
+Write-Info "a private window, or use 'See it as others do' on your own page."
 
 function Stop-TestServers {
 	foreach ($proc in @($service, $website)) {
@@ -138,7 +143,7 @@ if ($NoRuneLite) {
 }
 
 try {
-	& (Join-Path $PSScriptRoot "Start-TaskMaster.ps1") -NoBrowser
+	& (Join-Path $PSScriptRoot "Start-TaskMaster.ps1") -NoBrowser -AutoUploadTest
 } finally {
 	Write-Step "RuneLite closed: stopping the upload service and the website"
 	Stop-TestServers
