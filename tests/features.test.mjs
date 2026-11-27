@@ -317,3 +317,56 @@ test("CA tier planner: a reached tier needs nothing, and a boss goal is done whe
   for (const x of ca.tasks) if (x.monster === t.monster) x.done = true;
   assert.equal(goalProgress(g, snap).done, true);
 });
+
+// A fresh-ish account: no quests, diaries or quest points, skills capped at 40, no Herblore.
+function freshAccount() {
+  const snap = clone(sampleAccount());
+  for (const q of snap.quests) q.state = "NOT_STARTED";
+  for (const s of Object.values(snap.skills)) { s.level = Math.min(s.level, 40); s.xp = Math.min(s.xp, 37224); }
+  snap.skills.herblore = { level: 1, xp: 0 };
+  snap.questPoints = 0;
+  for (const d of Object.values(snap.diaries)) for (const t in d) d[t] = false;
+  return snap;
+}
+
+test("planner: each step says what needs it, down to the quest that asks for a level", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const plan = planRoute(freshAccount(), [{ id: "d", type: "diary", region: "Ardougne", tier: "medium" }]);
+  const step = (title) => plan.steps.find((s) => s.title === title);
+  // The diary needs The Hand in the Sand, which needs 49 Crafting: the step names the quest.
+  assert.deepEqual(step("Train Crafting to 49").neededBy, ["The Hand in the Sand"]);
+  assert.ok(step("Do Plague City").neededBy.includes("Biohazard"));
+  for (const s of plan.steps) if (!s.completes.length) assert.ok(s.neededBy.length, `${s.title} says what needs it`);
+});
+
+test("planner: a skill a quest unlocks gets that quest first (Herblore: Druidic Ritual)", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const snap = freshAccount();
+  const plan = planRoute(snap, [{ id: "h", type: "skill", skill: "herblore", level: 30 }]);
+  const keys = plan.steps.map((s) => s.key);
+  assert.ok(keys.indexOf("quest:Druidic Ritual") >= 0, "Druidic Ritual is planned");
+  assert.ok(keys.indexOf("quest:Druidic Ritual") < keys.findIndex((k) => k.startsWith("skill:herblore")));
+  assert.ok(plan.steps[0].neededBy.includes("training Herblore"));
+  // Done already: nothing extra. (A new copy: the analysis is cached per profile object.)
+  const done = clone(snap);
+  done.quests.find((q) => q.name === "Druidic Ritual").state = "FINISHED";
+  assert.ok(!planRoute(done, [{ id: "h", type: "skill", skill: "herblore", level: 30 }]).steps.some((s) => s.key === "quest:Druidic Ritual"));
+});
+
+test("planner: quest points are made up with quests on the route, then the quickest ones you can do", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const quests = JSON.parse(readFileSync(new URL("../web/data/quest-reqs.json", import.meta.url), "utf8")).quests;
+  const plan = planRoute(freshAccount(), [{ id: "q", type: "quest", quest: "Heroes' Quest" }]);
+  const qpAt = plan.steps.findIndex((s) => s.kind === "qp");
+  assert.ok(qpAt > 0, "there's a quest point step");
+  assert.equal(plan.steps[qpAt].title, "Reach 55 quest points");
+  // Every quest before the step adds up to at least 55, and the ones picked for points are named.
+  const before = plan.steps.slice(0, qpAt).filter((s) => s.kind === "quest").map((s) => s.key.slice(6));
+  assert.ok(before.reduce((t, q) => t + (quests[q]?.points ?? 0), 0) >= 55);
+  const picked = plan.steps.filter((s) => s.neededBy.includes("quest points"));
+  assert.ok(picked.length, "quick quests were added");
+  for (const s of picked) assert.match(s.note, /quest points?, picked/);
+  assert.doesNotMatch(plan.steps[qpAt].note, /short/, "nothing left over");
+  // The quest that needs the points comes after them.
+  assert.ok(plan.steps.findIndex((s) => s.key === "quest:Heroes' Quest") > qpAt);
+});

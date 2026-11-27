@@ -23,6 +23,7 @@ import {
   SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
   QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES, XP_RATES,
+  SKILL_UNLOCK_QUESTS,
 } from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
@@ -1778,11 +1779,17 @@ function mulberry32(a) {
 
 /** Rough internal cost (hours) for ordering steps that have no time estimate. Never shown. */
 const PLAN_ORDER_COST = { quest: 1.5, qp: 4, combat: 4, goal: 2, levelUnknown: 0.5 };
+/** The same for a quest by its wiki length, and the order lengths go in (shortest first). */
+const QUEST_LENGTH_COST = { "Very Short": 0.5, Short: 1, Medium: 2, Long: 4, "Very Long": 6 };
+const questLength = (q) => QUEST_REQS[q]?.length ?? null;
+const questPointsOf = (q) => QUEST_REQS[q]?.points ?? 0;
 
 /**
  * planRoute(snap, goals) -> { steps, done, skipped, unknown, unchecked, total }
  *   steps:   [{ key, kind: "skill"|"quest"|"qp"|"combat"|"goal", title, forGoals: [title],
- *              shared, completes: [title], hours: {low, high}|null, note }] in order
+ *              shared, completes: [title], neededBy: [name], hours: {low, high}|null, note }] in order
+ *            `neededBy` names what asks for the step directly: a quest, a skill it unlocks, or a
+ *            goal (so "Train Crafting to 49" says it's for The Hand in the Sand).
  *   done:    titles of goals already complete
  *   skipped: titles of goals the planner can't plan (custom goals)
  *   unknown: quests whose requirements aren't in our tables (check the wiki)
@@ -1794,15 +1801,32 @@ export function planRoute(snap, goals = []) {
   const nodes = new Map();
   const unknown = new Set(), unchecked = new Set();
   const node = (key, init) => {
-    if (!nodes.has(key)) nodes.set(key, { key, deps: new Set(), completes: [], ...init });
+    if (!nodes.has(key)) nodes.set(key, { key, deps: new Set(), completes: [], neededBy: new Set(), ...init });
     return nodes.get(key);
+  };
+  // `n` needs step `d`: the dependency, plus the name shown on `d` ("for The Hand in the Sand").
+  const need = (n, d) => {
+    n.deps.add(d.key);
+    if (n.label) d.neededBy.add(n.label);
   };
   const xpOf = (s) => snap.skills?.[s]?.xp ?? xpForLevel(a.lvl(s));
 
   // A skill target (level or XP); null when it's already reached.
+  // A skill that a quest unlocks (Herblore: Druidic Ritual) gets that quest first.
   const skillNode = (skill, targetXp, title) => {
     if (!snap.skills?.[skill] || xpOf(skill) >= targetXp) return null;
-    return node(`skill:${skill}:${targetXp}`, { kind: "skill", skill, targetXp, title });
+    const n = node(`skill:${skill}:${targetXp}`, { kind: "skill", skill, targetXp, title });
+    const unlock = SKILL_UNLOCK_QUESTS[skill];
+    if (unlock && !n.unlockChecked) {
+      n.unlockChecked = true;
+      const qn = questNode(unlock);
+      if (qn) {
+        n.deps.add(qn.key);
+        qn.neededBy.add(`training ${cap(skill)}`);
+        qn.note ??= `Unlocks ${cap(skill)}.`;
+      }
+    }
+    return n;
   };
   const levelNode = (skill, level) => skillNode(skill, xpForLevel(level), `Train ${cap(skill)} to ${level}`);
 
@@ -1810,21 +1834,24 @@ export function planRoute(snap, goals = []) {
   // Requirements { skills (incl. combat / questPoints), quests, questPoints } become deps of `n`.
   const addReqs = (n, req, seen) => {
     for (const [k, lvl] of Object.entries(req?.skills ?? {})) {
-      if (k === "combat") { if ((snap.player?.combatLevel ?? 0) < lvl) { combatNeed = Math.max(combatNeed, lvl); n.deps.add("combat"); } continue; }
+      if (k === "combat") {
+        if ((snap.player?.combatLevel ?? 0) < lvl) { combatNeed = Math.max(combatNeed, lvl); need(n, node("combat", { kind: "combat" })); }
+        continue;
+      }
       if (k === "questPoints") { addQp(n, lvl); continue; }
       const s = levelNode(k, lvl);
-      if (s) n.deps.add(s.key);
+      if (s) need(n, s);
     }
     if (req?.questPoints) addQp(n, req.questPoints);
     for (const q of req?.quests ?? []) {
       const qn = questNode(q, seen);
-      if (qn) n.deps.add(qn.key);
+      if (qn) need(n, qn);
     }
   };
-  const addQp = (n, need) => {
-    if ((snap.questPoints ?? 0) >= need) return;
-    qpNeed = Math.max(qpNeed, need);
-    n.deps.add("qp");
+  const addQp = (n, pts) => {
+    if ((snap.questPoints ?? 0) >= pts) return;
+    qpNeed = Math.max(qpNeed, pts);
+    need(n, node("qp", { kind: "qp" }));
   };
   const questNode = (q, seen = new Set(), isGoal = false) => {
     const st = a.questState[q];
@@ -1832,16 +1859,60 @@ export function planRoute(snap, goals = []) {
     // Not in the profile (a trimmed profile, or a quest newer than the plugin): can't tell if it's
     // done, so it's named rather than planned. A goal is still planned.
     if (st == null && !isGoal && snap.quests?.length) { unchecked.add(q); return null; }
-    const n = node(`quest:${q}`, { kind: "quest", quest: q, title: `${st === "IN_PROGRESS" ? "Finish" : "Do"} ${q}` });
+    const n = node(`quest:${q}`, { kind: "quest", quest: q, label: q, title: `${st === "IN_PROGRESS" ? "Finish" : "Do"} ${q}` });
     if (n.expanded) return n;
     n.expanded = true;
     const req = questRequirements(q);
     if (!req.known) unknown.add(q);
-    if (req.other.length) n.note = `Also needs: ${req.other.join("; ")}.`;
+    if (req.other.length) n.note = `Also needs: ${req.other.join("; ").replace(/\.$/, "")}.`;
     addReqs(n, req, new Set([...seen, q]));
     return n;
   };
   const contentReqs = (name) => CONTENT_REQS.filter((r) => name && r.match.test(name));
+
+  // Can quest `q` be started now (every requirement already met)?
+  const questReady = (q) => {
+    const req = questRequirements(q);
+    if (!req.known) return false;
+    return Object.entries(req.skills).every(([k, lvl]) => (k === "combat" ? (snap.player?.combatLevel ?? 0) : a.lvl(k)) >= lvl)
+      && (req.questPoints ?? 0) <= (snap.questPoints ?? 0)
+      && req.quests.every((x) => a.questState[x] === "FINISHED");
+  };
+  // "Reach N quest points": quests already on the route count (those that don't wait for the
+  // quest points themselves), and the quickest quests you can start now make up the rest.
+  const planQuestPoints = (target) => {
+    const qp = nodes.get("qp");
+    const have = snap.questPoints ?? 0;
+    const waits = (key, seen = new Set()) => {
+      if (key === "qp") return true;
+      if (seen.has(key) || !nodes.has(key)) return false;
+      seen.add(key);
+      return [...nodes.get(key).deps].some((d) => waits(d, seen));
+    };
+    const counted = [...nodes.values()].filter((n) => n.quest && questPointsOf(n.quest) && !waits(n.key));
+    const onRoute = counted.reduce((t, n) => t + questPointsOf(n.quest), 0);
+    let short = target - have - onRoute;
+    const picked = [];
+    const value = (q) => (QUEST_LENGTH_COST[questLength(q)] ?? 3) / questPointsOf(q);
+    const ready = (snap.quests ?? []).map((q) => q.name)
+      .filter((q) => a.questState[q] !== "FINISHED" && !nodes.has(`quest:${q}`) && questPointsOf(q) > 0 && questReady(q))
+      .sort((x, y) => value(x) - value(y) || questPointsOf(y) - questPointsOf(x) || x.localeCompare(y));
+    for (const q of ready) {
+      if (short <= 0) break;
+      const qn = questNode(q);
+      if (!qn) continue;
+      qn.neededBy.add("quest points");
+      qn.note ??= `${questLength(q) ?? "A"} quest worth ${questPointsOf(q)} quest point${questPointsOf(q) === 1 ? "" : "s"}, picked to make up the total.`;
+      picked.push(qn);
+      short -= questPointsOf(q);
+    }
+    for (const n of [...counted, ...picked]) qp.deps.add(n.key);
+    const parts = [`You have ${have}`];
+    if (onRoute) parts.push(`quests earlier on this route give ${onRoute}`);
+    if (picked.length) parts.push(`${picked.length} quick quest${picked.length === 1 ? "" : "s"} added for the rest`);
+    const tail = short > 0 ? ` Still ${short} short: any other quests count.` : "";
+    Object.assign(qp, { title: `Reach ${target} quest points`, note: `${parts.join("; ")}.${tail}` });
+  };
 
   const done = [], skipped = [], goalRoots = [];
   for (const g of goals) {
@@ -1853,14 +1924,13 @@ export function planRoute(snap, goals = []) {
       case "xp": root = skillNode(g.skill, g.xp, `Push ${cap(g.skill)} to ${fmt(g.xp)} XP`); break;
       case "quest": root = questNode(g.quest, new Set(), true); break;
       case "diary": {
-        root = node(`goal:${g.id}`, { kind: "goal", title });
+        root = node(`goal:${g.id}`, { kind: "goal", title, label: title });
         const req = DIARY_REQS[g.region]?.[g.tier];
         if (req) addReqs(root, { skills: req.skills, quests: req.quests, questPoints: req.questPoints });
         else unknown.add(title);
         const questsLeft = (snap.quests ?? []).filter((q) => q.state !== "FINISHED").length;
         if (req?.allQuests && questsLeft) {
-          node("allquests", { kind: "quest", title: `Finish every remaining quest (${questsLeft} left)`, note: "For the Quest point cape." });
-          root.deps.add("allquests");
+          need(root, node("allquests", { kind: "quest", title: `Finish every remaining quest (${questsLeft} left)`, note: "For the Quest point cape." }));
         }
         break;
       }
@@ -1869,7 +1939,7 @@ export function planRoute(snap, goals = []) {
         // Collection log, pets, items and combat achievements: the access gates in CONTENT_REQS.
         const page = g.page ?? (g.type === "item" || g.type === "pet" ? itemIndex(snap).get(String(g.item ?? g.pet).toLowerCase())?.page : null);
         const monster = g.monster ?? (g.type === "catask" ? (snap.combatAchievements?.tasks ?? []).find((t) => t.id === g.task)?.monster : null);
-        root = node(`goal:${g.id}`, { kind: "goal", title });
+        root = node(`goal:${g.id}`, { kind: "goal", title, label: title });
         for (const r of [...contentReqs(page), ...(monster !== page ? contentReqs(monster) : [])]) addReqs(root, r);
       }
     }
@@ -1883,8 +1953,8 @@ export function planRoute(snap, goals = []) {
     if (r.goal.type !== "ca") continue;
     for (const b of goalRoots) if (b.goal.type === "caboss" && b.goal.forTier === r.goal.tier) nodes.get(r.key).deps.add(b.key);
   }
-  if (qpNeed) node("qp", { kind: "qp", title: `Reach ${qpNeed} quest points`, note: `You have ${snap.questPoints ?? 0}; any quests count.` });
-  if (combatNeed) node("combat", { kind: "combat", title: `Reach combat level ${combatNeed}`, note: `You're level ${snap.player?.combatLevel ?? "?"}.` });
+  if (qpNeed) planQuestPoints(qpNeed);
+  if (combatNeed) Object.assign(nodes.get("combat"), { title: `Reach combat level ${combatNeed}`, note: `You're level ${snap.player?.combatLevel ?? "?"}.` });
 
   // A skill's targets are trained in order: each one after the one below it.
   const bySkill = {};
@@ -1898,7 +1968,7 @@ export function planRoute(snap, goals = []) {
       n.cost = n.hours ? (n.hours.low + n.hours.high) / 2 : PLAN_ORDER_COST.levelUnknown * Math.max(1, levelOf(n.targetXp) - levelOf(from));
     });
   }
-  for (const n of nodes.values()) n.cost ??= PLAN_ORDER_COST[n.kind] ?? 1;
+  for (const n of nodes.values()) n.cost ??= (n.quest && QUEST_LENGTH_COST[questLength(n.quest)]) || (PLAN_ORDER_COST[n.kind] ?? 1);
 
   // Which goals each step serves (everything a goal's root depends on, directly or not).
   // A CA tier goal waits for its bosses but doesn't share their steps: they're for the boss goals.
@@ -1927,7 +1997,7 @@ export function planRoute(snap, goals = []) {
     left.delete(n.key);
     steps.push({
       key: n.key, kind: n.kind, title: n.title, forGoals: n.forGoals, shared: n.forGoals.length > 1,
-      completes: n.completes, hours: n.hours ?? null, note: n.note ?? null,
+      completes: n.completes, neededBy: [...n.neededBy], hours: n.hours ?? null, note: n.note ?? null,
     });
   }
   const timed = steps.filter((s) => s.hours);

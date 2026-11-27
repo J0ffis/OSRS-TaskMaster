@@ -221,6 +221,13 @@ export const WILDERNESS_MONSTERS = new Set([
   "Chaos Fanatic", "Crazy Archaeologist", "Scorpia", "King Black Dragon", "Revenants",
 ]);
 
+// Skills you can't train at all until a quest is done (OSRS Wiki, November 2026). The route
+// planner puts the quest before any training step for the skill.
+export const SKILL_UNLOCK_QUESTS = {
+  herblore: "Druidic Ritual",
+  sailing: "Pandemonium",
+};
+
 // ---- Access requirements ---------------------------------------------------------------
 // Content that is hidden until you meet its requirement. `match` is tested against collection
 // log page names and combat achievement boss names. Only well-known gates are listed.

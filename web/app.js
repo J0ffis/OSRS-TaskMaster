@@ -1288,8 +1288,12 @@ const openGoals = () => state.goals.filter((g) => g.type !== "custom" && !goalPr
 function stepHTML(s, { showFor = true } = {}) {
   const quest = s.key.startsWith("quest:") ? s.key.slice(6) : null;
   const title = quest ? `<a href="${esc(wikiPage(quest))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(quest)} on the OSRS Wiki">${esc(s.title)}</a>` : esc(s.title);
-  const forText = showFor && !(s.completes.length && s.forGoals.length === 1) ? `For: ${s.forGoals.join(", ")}` : "";
-  const sub = [forText, s.note].filter(Boolean).join(". ");
+  // What asks for this step directly ("Needed for The Hand in the Sand"), then the goals it's on
+  // the way to when that doesn't already say so.
+  const needed = (s.neededBy ?? []).filter((n) => !s.completes.includes(n));
+  const neededText = needed.length && !needed.every((n) => s.forGoals.includes(n)) ? `Needed for ${needed.join(", ")}` : "";
+  const forText = showFor && !(s.completes.length && s.forGoals.length === 1) && !(neededText && s.forGoals.every((g) => needed.includes(g))) ? `For: ${s.forGoals.join(", ")}` : "";
+  const sub = [neededText, forText, s.note].filter(Boolean).join(". ");
   return `<span class="pt">${title}</span>${s.completes.length ? " ✓ goal" : ""}${s.shared ? `<span class="shared" title="${esc(s.forGoals.join(", "))}">shared by ${s.forGoals.length}</span>` : ""}
     ${s.hours ? `<span class="ph">· ${esc(hoursRangeText(s.hours))}</span>` : ""}
     ${sub ? `<span class="pf">${esc(sub)}</span>` : ""}`;
