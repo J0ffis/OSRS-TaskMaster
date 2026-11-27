@@ -67,16 +67,20 @@ only from the sites in `ALLOWED_ORIGINS` (`wrangler.toml`), and no wealth data.
 
 Double-click **`Test Auto-Upload.bat`** in the project folder. It starts this service
 (http://127.0.0.1:8789, local database in `sync/.wrangler`), this branch's website
-(http://127.0.0.1:8790, served like GitHub Pages) and RuneLite with this branch's plugin, then
-shows what to set in the plugin (Website, Upload server, Automatic upload). Closing RuneLite
-stops everything. Nothing leaves your PC and no Cloudflare account is needed. The first run
-installs the service's tools with npm.
+(http://127.0.0.1:8790, served like GitHub Pages) and RuneLite with this branch's plugin, set
+for that run only to upload to this service and open this website, with Automatic upload on.
+There's nothing to set in RuneLite. Closing RuneLite stops everything. Nothing leaves your PC and
+no Cloudflare account is needed. The first run offers to download a private copy of Node.js if
+there isn't one (into `%LOCALAPPDATA%\Programs\node`) and installs the service's tools with npm.
 
 - `Test Auto-Upload.bat -Reset` starts with an empty local database.
 - `Test Auto-Upload.bat -NoRuneLite` starts only the service and the website.
 
-The plugin settings it asks you to change are shared with `Start TaskMaster.bat`: reset
-**Website** and **Upload server** (right-click > Reset) or switch Automatic upload off afterwards.
+The run-only settings are `-PuploadServer` and `-Pwebsite` on `gradlew run`, which the plugin
+reads as the `osrstaskmaster.uploadServer` and `osrstaskmaster.website` system properties. Saved
+settings aren't changed, so `Start TaskMaster.bat` and everyday RuneLite never upload to the test
+service, and a test run never uploads to the live one. Switching Automatic upload in the settings
+during a test run (or *Delete my uploaded data*) turns the run's upload off as usual.
 
 ## Run it locally (by hand)
 

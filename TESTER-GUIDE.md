@@ -46,6 +46,31 @@ and nothing is uploaded anywhere.
 **For a complete collection log:** open the collection log in game and click **Search** once.
 Then click **Copy my profile** again and use **Update profile** on the website.
 
+## Trying Automatic upload (no copy and paste)
+
+If you were asked to test **Automatic upload**, start it this way instead. Your progress then
+goes to the website by itself, and the RuneLite panel shows your next grinds. Everything runs on
+your PC only; nothing is sent anywhere else.
+
+1. Close RuneLite if it's open. Double-click **Test Auto-Upload.bat** in the extracted folder.
+2. The first time, it asks to download **Node.js**: type **Y** and press Enter. Like Java, it's a
+   private copy (about 35 MB) that doesn't install anything system-wide. It then installs a few
+   more tools, which takes a minute or two. Java and the Jagex login step work as in step 2 above.
+3. Two small windows open minimized on the taskbar. Leave them open while you test; closing
+   RuneLite closes them.
+4. Log in to the game. Open the **OSRS TaskMaster** panel and click **Open website**. There's
+   nothing to set up in RuneLite's settings.
+5. Just play. Your progress uploads by itself, at most every 5 minutes as it changes, and the
+   website picks it up when you switch back to it. **Your next grinds** in the panel fills in once
+   you've opened the website; click **Sync** there to update it.
+
+**Worth trying:** add and finish goals, **Not for me**, **Make it a goal** from the panel,
+**Copy share link** (open it in another browser: it's view only), **Reset my links** (your old
+link should stop working) and **Delete my uploaded data**. Note anything that seems wrong, slow or
+confusing, and roughly when it happened.
+
+Your normal **Start TaskMaster.bat** isn't affected: it still uses copy and paste.
+
 ## Using it again later
 
 - Double-click **Start TaskMaster.bat**. Setup is skipped from now on.

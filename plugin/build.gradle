@@ -41,4 +41,9 @@ tasks.register('run', JavaExec) {
     mainClass = 'com.osrstaskmaster.TaskMasterPluginTest'
     jvmArgs '-ea'
     args '--developer-mode'
+    // Test Auto-Upload.bat passes -PuploadServer=... -Pwebsite=... so this run uploads to the local
+    // test service with Automatic upload on. Saved plugin settings aren't changed.
+    ['uploadServer', 'website'].each { key ->
+        if (project.hasProperty(key)) systemProperty "osrstaskmaster.${key}", project.property(key)
+    }
 }

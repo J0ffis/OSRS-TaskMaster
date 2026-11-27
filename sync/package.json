@@ -8,7 +8,7 @@
     "db:local": "wrangler d1 execute taskmaster --local --file=schema.sql",
     "db:remote": "wrangler d1 execute taskmaster --remote --file=schema.sql",
     "deploy": "wrangler deploy",
-    "test": "node --test test/"
+    "test": "node --test \"test/*.test.mjs\""
   },
   "devDependencies": {
     "wrangler": "^4"

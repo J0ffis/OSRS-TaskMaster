@@ -117,6 +117,15 @@ public class TaskMasterPlugin extends Plugin
 	private long lastSyncAt;
 	private volatile boolean inFlight;
 
+	// Set by "Test Auto-Upload.bat" for that run of RuneLite only (see build.gradle's run task): the
+	// local test service and website, with Automatic upload on, without changing saved settings, so
+	// Start TaskMaster.bat and a normal RuneLite never upload to the test service, or the test to
+	// the live one.
+	private static final String LAUNCH_UPLOAD_SERVER = System.getProperty("osrstaskmaster.uploadServer", "").trim();
+	private static final String LAUNCH_WEBSITE = System.getProperty("osrstaskmaster.website", "").trim();
+	/** On for a test run until the tester switches Automatic upload off or deletes their data. */
+	private volatile boolean launchUpload = !LAUNCH_UPLOAD_SERVER.isEmpty();
+
 	@Provides
 	TaskMasterConfig provideConfig(ConfigManager configManager)
 	{
@@ -144,7 +153,7 @@ public class TaskMasterPlugin extends Plugin
 		// Item icons load in the background and appear in the label when ready (safe from any thread).
 		panel.setIconSources(this::skillIcon, (itemId, label) -> itemManager.getImage(itemId).addTo(label), gameSprites::get);
 		loadGameSprites();
-		panel.setUploadEnabled(config.autoUpload());
+		panel.setUploadEnabled(autoUpload());
 		navButton = NavigationButton.builder()
 			.tooltip("OSRS TaskMaster")
 			.icon(icon())
@@ -196,7 +205,7 @@ public class TaskMasterPlugin extends Plugin
 			{
 				sync(false);
 			}
-			if (config.autoUpload())
+			if (autoUpload())
 			{
 				fetchPicks();
 			}
@@ -548,7 +557,7 @@ public class TaskMasterPlugin extends Plugin
 		// The panel drops suggestions this profile shows finished, without waiting for the website.
 		com.google.gson.JsonObject profile = gson.toJsonTree(snap).getAsJsonObject();
 		panel.setDoneCheck(id -> PickProgress.isDone(id, profile));
-		if (config.autoUpload())
+		if (autoUpload())
 		{
 			upload(snap, manual);
 		}
@@ -606,7 +615,19 @@ public class TaskMasterPlugin extends Plugin
 
 	private String serverUrl()
 	{
-		return config.uploadServer().trim().replaceAll("/+$", "");
+		String server = LAUNCH_UPLOAD_SERVER.isEmpty() ? config.uploadServer() : LAUNCH_UPLOAD_SERVER;
+		return server.trim().replaceAll("/+$", "");
+	}
+
+	/** Automatic upload: switched on in settings, or for this run by Test Auto-Upload.bat. */
+	private boolean autoUpload()
+	{
+		return config.autoUpload() || launchUpload;
+	}
+
+	private String websiteUrl()
+	{
+		return LAUNCH_WEBSITE.isEmpty() ? config.websiteUrl().trim() : LAUNCH_WEBSITE;
 	}
 
 	private void upload(Map<String, Object> snap, boolean manual)
@@ -707,8 +728,8 @@ public class TaskMasterPlugin extends Plugin
 	/** Open the website, on one suggestion if given (a row in the panel's list). */
 	private void openWebsiteOn(String pickId)
 	{
-		String site = config.websiteUrl().trim();
-		String key = config.autoUpload() ? uploadKey(false) : null;
+		String site = websiteUrl();
+		String key = autoUpload() ? uploadKey(false) : null;
 		if (key == null)
 		{
 			LinkBrowser.browse(site);
@@ -738,7 +759,7 @@ public class TaskMasterPlugin extends Plugin
 	 */
 	private void syncPicks()
 	{
-		if (client.getGameState() == GameState.LOGGED_IN && config.autoUpload())
+		if (client.getGameState() == GameState.LOGGED_IN && autoUpload())
 		{
 			sync(true);
 		}
@@ -751,7 +772,7 @@ public class TaskMasterPlugin extends Plugin
 	/** Fetch the suggestions the website last saved for this account. Client thread. */
 	private void fetchPicks()
 	{
-		String key = config.autoUpload() ? uploadKey(false) : null;
+		String key = autoUpload() ? uploadKey(false) : null;
 		if (key == null)
 		{
 			return;
@@ -848,7 +869,7 @@ public class TaskMasterPlugin extends Plugin
 	 */
 	private void makeGoal(Picks.Pick pick)
 	{
-		String key = config.autoUpload() ? uploadKey(false) : null;
+		String key = autoUpload() ? uploadKey(false) : null;
 		if (key == null)
 		{
 			panel.setStatus("Turn on Automatic upload in the plugin settings and log in first.", false);
@@ -910,12 +931,12 @@ public class TaskMasterPlugin extends Plugin
 	private void copyShareLink()
 	{
 		String key = uploadKey(false);
-		if (!config.autoUpload() || key == null)
+		if (!autoUpload() || key == null)
 		{
 			panel.setStatus("Turn on Automatic upload in the plugin settings and log in first.", false);
 			return;
 		}
-		String link = config.websiteUrl().trim() + "#id=" + deriveId(key);
+		String link = websiteUrl() + "#id=" + deriveId(key);
 		SwingUtilities.invokeLater(() ->
 		{
 			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(link), null);
@@ -931,7 +952,7 @@ public class TaskMasterPlugin extends Plugin
 	private void resetLinks()
 	{
 		String oldKey = uploadKey(false);
-		if (!config.autoUpload() || oldKey == null)
+		if (!autoUpload() || oldKey == null)
 		{
 			panel.setStatus("Nothing has been uploaded for this account, so there are no links to reset.", true);
 			return;
@@ -1033,6 +1054,7 @@ public class TaskMasterPlugin extends Plugin
 					return;
 				}
 				// A new key next time means old links stop working, even if uploads are switched back on.
+				launchUpload = false;
 				configManager.setConfiguration(TaskMasterConfig.GROUP, "autoUpload", false);
 				configManager.unsetRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD);
 				panel.setStatus("Your uploaded profile and goals were deleted, and Automatic upload is off.", true);
@@ -1049,9 +1071,14 @@ public class TaskMasterPlugin extends Plugin
 		}
 		if ("autoUpload".equals(e.getKey()) || "publicProfile".equals(e.getKey()))
 		{
-			panel.setUploadEnabled(config.autoUpload());
+			if ("autoUpload".equals(e.getKey()))
+			{
+				// Switching it in settings during a test run: the tester's choice wins from now on.
+				launchUpload = false;
+			}
+			panel.setUploadEnabled(autoUpload());
 			// Upload straight away so the website reflects the change.
-			if (config.autoUpload())
+			if (autoUpload())
 			{
 				clientThread.invokeLater(() -> sync(true));
 			}

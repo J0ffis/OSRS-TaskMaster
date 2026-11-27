@@ -143,7 +143,8 @@ npm run dev        # http://127.0.0.1:8789
 npm test           # end-to-end tests, in a second terminal
 ```
 
-Set the plugin's **Upload server** setting to `http://127.0.0.1:8789` to test against it.
+Set the plugin's **Upload server** setting to `http://127.0.0.1:8789` to test against it (the
+one-click test sets it for that run only, without changing your settings).
 Deploying it to Cloudflare is covered in [sync/README.md](sync/README.md).
 
 ### Running the local server (optional)

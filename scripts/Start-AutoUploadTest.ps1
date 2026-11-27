@@ -4,11 +4,14 @@
 # Run it by double-clicking "Test Auto-Upload.bat" in the project folder.
 #
 # What it does, in order:
-#   1. Finds Node.js and, the first time, installs the upload service's tools (npm, about 50 MB).
+#   1. Finds Node.js (or offers to download a private copy, like Java: no admin rights, nothing
+#      installed system-wide) and, the first time, installs the upload service's tools (about 50 MB).
 #   2. Prepares the local database (safe to repeat; existing test data is kept).
 #   3. Starts the upload service on http://127.0.0.1:8789 and the website on http://127.0.0.1:8790,
 #      each in its own window.
-#   4. Starts RuneLite with the plugin (same steps as Start TaskMaster.bat: Java, Jagex login).
+#   4. Starts RuneLite with the plugin (same steps as Start TaskMaster.bat: Java, Jagex login),
+#      set for this run only to upload to the local service and open the local website. Your saved
+#      RuneLite settings aren't changed, so Start TaskMaster.bat works as before.
 #   5. When RuneLite closes, stops the service and the website.
 #
 #   -Reset      start with an empty local database (deletes the test uploads)
@@ -39,6 +42,10 @@ function Stop-Launcher($text) {
 	Read-Host "Press Enter to close"
 	exit 1
 }
+function Read-YesNo($question) {
+	$a = Read-Host "   $question [Y/n]"
+	return ($a -eq "" -or $a -match "^(y|yes)$")
+}
 function Test-Port($port) {
 	try { $c = New-Object Net.Sockets.TcpClient; $c.Connect("127.0.0.1", $port); $c.Close(); return $true } catch { return $false }
 }
@@ -50,12 +57,50 @@ Write-Host "  --------------------------------------------------------" -Foregro
 # ---- 1. Node.js and the service's tools ------------------------------------------------------
 
 Write-Step "Checking for Node.js"
-$node = (Get-Command node -ErrorAction SilentlyContinue).Source
-if (-not $node) {
-	$portable = Join-Path $env:LOCALAPPDATA "Programs\node\node.exe"
-	if (Test-Path $portable) { $node = $portable }
+# The upload service's tools (wrangler 4) need Node.js 20 or newer.
+function Test-Node($exe) {
+	if (-not $exe -or -not (Test-Path $exe)) { return $false }
+	$v = (& $exe --version 2>$null) -join ""
+	return ($v -match '^v(\d+)\.' -and [int]$Matches[1] -ge 20)
 }
-if (-not $node) { Stop-Launcher "Node.js is needed for the local upload service. Install it from https://nodejs.org/ and start this again." }
+$NodeDir = Join-Path $env:LOCALAPPDATA "Programs\node"
+$node = $null
+foreach ($candidate in @((Join-Path $NodeDir "node.exe"), (Get-Command node -ErrorAction SilentlyContinue).Source)) {
+	if (Test-Node $candidate) { $node = $candidate; break }
+}
+if (-not $node) {
+	Write-Info "The local upload service needs Node.js, which isn't set up yet."
+	Write-Info "It can download a private copy (the current LTS release, about 35 MB) into:"
+	Write-Info "  $NodeDir"
+	Write-Info "Nothing is installed system-wide and no admin rights are needed."
+	if (-not (Read-YesNo "Download Node.js now?")) { Stop-Launcher "Automatic upload testing needs Node.js. Start this again when you're ready." }
+	$zip = Join-Path $env:TEMP "osrs-taskmaster-node.zip"
+	$unpack = Join-Path $env:TEMP "osrs-taskmaster-node"
+	try {
+		[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+		$ProgressPreference = "SilentlyContinue" # the progress bar makes downloads much slower
+		$release = (Invoke-RestMethod -UseBasicParsing -Uri "https://nodejs.org/dist/index.json") |
+			Where-Object { $_.lts -and $_.files -contains "win-x64-zip" } | Select-Object -First 1
+		if (-not $release) { throw "couldn't find the current Node.js LTS release" }
+		$ver = $release.version
+		Write-Info "Downloading Node.js $ver..."
+		Invoke-WebRequest -UseBasicParsing -Uri "https://nodejs.org/dist/$ver/node-$ver-win-x64.zip" -OutFile $zip
+		Write-Info "Unpacking..."
+		if (Test-Path $unpack) { Remove-Item $unpack -Recurse -Force }
+		Expand-Archive -Path $zip -DestinationPath $unpack -Force
+		$inner = Get-ChildItem $unpack -Directory | Select-Object -First 1
+		New-Item -ItemType Directory -Force (Split-Path -Parent $NodeDir) | Out-Null
+		if (Test-Path $NodeDir) { Remove-Item $NodeDir -Recurse -Force }
+		Move-Item $inner.FullName $NodeDir
+	} catch {
+		Stop-Launcher "Couldn't download Node.js: $($_.Exception.Message)"
+	} finally {
+		Remove-Item $zip -Force -ErrorAction SilentlyContinue
+		Remove-Item $unpack -Recurse -Force -ErrorAction SilentlyContinue
+	}
+	$node = Join-Path $NodeDir "node.exe"
+	if (-not (Test-Node $node)) { Stop-Launcher "Node.js was downloaded but doesn't run. Delete $NodeDir and try again." }
+}
 $npm = Join-Path (Split-Path $node) "npm.cmd"
 $env:PATH = "$(Split-Path $node);$env:PATH"
 Write-Ok "Using Node.js from $node"
@@ -90,7 +135,7 @@ Write-Ok "Local database: $State"
 
 Write-Step "Starting the upload service and the website"
 foreach ($p in @($ServicePort, $WebPort)) {
-	if (Test-Port $p) { Stop-Launcher "Port $p is already in use. Close the other test windows (or whatever uses it) and start this again." }
+	if (Test-Port $p) { Stop-Launcher "Port $p is already in use. Close the other test windows (the minimized 'node' windows on the taskbar, or whatever uses it) and start this again." }
 }
 # Minimized, so they aren't closed by accident: closing either window stops it, and links to
 # 127.0.0.1 then stop working until the next start.
@@ -120,21 +165,18 @@ function Stop-TestServers {
 	}
 }
 
-# ---- 4. What to set in RuneLite --------------------------------------------------------------------
+# ---- 4. What to do in RuneLite --------------------------------------------------------------------
 
 Write-Step "In RuneLite, once you're logged in"
-Write-Info "Open Configuration (the wrench), search for OSRS TaskMaster, and set:"
-Write-Host "     Website            $WebUrl" -ForegroundColor White
-Write-Host "     Upload server      $ServiceUrl" -ForegroundColor White
-Write-Host "     Automatic upload   on" -ForegroundColor White
-Write-Info "Then open the OSRS TaskMaster panel and click Upload now, then Open website."
-Write-Info "Visiting the website fills 'Your next grinds' in the panel (click Sync; Refresh shows more)."
+Write-Info "Nothing to set up: for this run the plugin uploads to the local service with Automatic"
+Write-Info "upload on. (Your saved RuneLite settings aren't changed.)"
+Write-Info "Open the OSRS TaskMaster panel on the sidebar and click Open website. Your progress then"
+Write-Info "uploads by itself as you play; 'Your next grinds' fills in once the website has been opened"
+Write-Info "(click Sync in the panel to update it; Refresh shows more)."
 Write-Host ""
 Write-Info "Worth trying: Copy share link (open it in another browser: view only), goals, Not for me,"
-Write-Info "Reset my links (your old link stops working), Delete my uploaded data."
-Write-Host ""
-Write-Info "When you're done testing, set Website and Upload server back (right-click > Reset)"
-Write-Info "or switch Automatic upload off: these settings are shared with Start TaskMaster.bat."
+Write-Info "Make it a goal from the panel, Reset my links (your old link stops working), and"
+Write-Info "Delete my uploaded data."
 
 # ---- 5. RuneLite --------------------------------------------------------------------------------------
 
@@ -146,7 +188,9 @@ if ($NoRuneLite) {
 }
 
 try {
-	& (Join-Path $PSScriptRoot "Start-TaskMaster.ps1") -NoBrowser -AutoUploadTest
+	# Only for this run of RuneLite: upload to the local service and open the local website.
+	& (Join-Path $PSScriptRoot "Start-TaskMaster.ps1") -NoBrowser -AutoUploadTest `
+		-GradleArgs @("-PuploadServer=$ServiceUrl", "-Pwebsite=$WebUrl")
 } finally {
 	Write-Step "RuneLite closed: stopping the upload service and the website"
 	Stop-TestServers
