@@ -58,8 +58,9 @@ your PC only; nothing is sent anywhere else.
 2. The first time, it asks to download **Node.js**: type **Y** and press Enter. Like Java, it's a
    private copy (about 35 MB) that doesn't install anything system-wide. It then installs a few
    more tools, which takes a minute or two. Java and the Jagex login step work as in step 2 above.
-3. Two small windows open minimized on the taskbar. Leave them open while you test; closing
-   RuneLite closes them.
+3. It starts a small test server in the background (up to a minute the first time). Leave the
+   black window open while you test; closing RuneLite stops everything. If it can't start, the
+   black window shows why: send a screenshot of it.
 4. Log in to the game. Open the **OSRS TaskMaster** panel and click **Open website**. There's
    nothing to set up in RuneLite's settings.
 5. Just play. Your progress uploads by itself, at most every 5 minutes as it changes, and the

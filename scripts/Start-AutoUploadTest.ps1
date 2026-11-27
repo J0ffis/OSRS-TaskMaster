@@ -7,8 +7,8 @@
 #   1. Finds Node.js (or offers to download a private copy, like Java: no admin rights, nothing
 #      installed system-wide) and, the first time, installs the upload service's tools (about 50 MB).
 #   2. Prepares the local database (safe to repeat; existing test data is kept).
-#   3. Starts the upload service on http://127.0.0.1:8789 and the website on http://127.0.0.1:8790,
-#      each in its own window.
+#   3. Starts the upload service on http://127.0.0.1:8789 and the website on http://127.0.0.1:8790
+#      in the background (their output goes to sync\.wrangler\logs; closing this window stops them).
 #   4. Starts RuneLite with the plugin (same steps as Start TaskMaster.bat: Java, Jagex login),
 #      set for this run only to upload to the local service and open the local website. Your saved
 #      RuneLite settings aren't changed, so Start TaskMaster.bat works as before.
@@ -113,7 +113,7 @@ if (-not (Test-Path $wrangler)) {
   # Errors only: npm's notices here (a deprecated sub-dependency of wrangler, install-script
   # approvals) aren't actionable. esbuild and workerd's setup scripts are approved, pinned to
   # their exact versions, in sync\package.json ("allowScripts").
-  try { & $npm ci --no-audit --no-fund --loglevel=error } finally { Pop-Location }
+  try { & $npm ci --no-audit --no-fund --no-update-notifier --loglevel=error } finally { Pop-Location }
   if (-not (Test-Path $wrangler)) { Stop-Launcher "Installing the upload service's tools failed. Scroll up for details." }
 }
 Write-Ok "Upload service tools are ready."
@@ -136,27 +136,54 @@ Write-Ok "Local database: $State"
 
 Write-Step "Starting the upload service and the website"
 foreach ($p in @($ServicePort, $WebPort)) {
-  if (Test-Port $p) { Stop-Launcher "Port $p is already in use. Close the other test windows (the minimized 'node' windows on the taskbar, or whatever uses it) and start this again." }
+  if (Test-Port $p) { Stop-Launcher "Port $p is already in use. Close any other OSRS TaskMaster test window (or whatever uses that port) and start this again." }
 }
-# Minimized, so they aren't closed by accident: closing either window stops it, and links to
-# 127.0.0.1 then stop working until the next start.
-$service = Start-Process -PassThru -WindowStyle Minimized -WorkingDirectory $Sync -FilePath $node `
-  -ArgumentList @("`"$wrangler`"", "dev", "--port", $ServicePort, "--local", "--persist-to", "`"$State`"")
-$website = Start-Process -PassThru -WindowStyle Minimized -WorkingDirectory $Root -FilePath $node `
-  -ArgumentList @("`"$(Join-Path $PSScriptRoot 'serve-website.mjs')`"", $WebPort)
+# In the background, sharing this window (so closing it stops them too), with their output in log
+# files: if either fails, the end of its log is shown here. Their input is an empty file, so
+# neither can take keys typed into this window (wrangler reads keys for shortcuts otherwise).
+$Logs = Join-Path $Sync ".wrangler\logs"
+New-Item -ItemType Directory -Force $Logs | Out-Null
+$NoInput = Join-Path $Logs "no-input.txt"
+Set-Content -Path $NoInput -Value "" -Encoding Ascii
+function Start-Background($name, $dir, $arguments) {
+  Start-Process -PassThru -NoNewWindow -WorkingDirectory $dir -FilePath $node -ArgumentList $arguments `
+    -RedirectStandardInput $NoInput `
+    -RedirectStandardOutput (Join-Path $Logs "$name.log") -RedirectStandardError (Join-Path $Logs "$name-errors.log")
+}
+# --ip 127.0.0.1: on Windows "localhost" can mean the IPv6 address only, and the plugin, the
+# website and the checks below all use 127.0.0.1.
+$service = Start-Background "upload-service" $Sync @("`"$wrangler`"", "dev", "--ip", "127.0.0.1", "--port", $ServicePort,
+  "--local", "--persist-to", "`"$State`"", "--show-interactive-dev-session=false")
+$website = Start-Background "website" $Root @("`"$(Join-Path $PSScriptRoot 'serve-website.mjs')`"", $WebPort)
 
+function Show-Log($name) {
+  foreach ($f in @("$name.log", "$name-errors.log")) {
+    $path = Join-Path $Logs $f
+    $lines = Get-Content $path -Tail 15 -ErrorAction SilentlyContinue
+    if ($lines) {
+      Write-Host ""
+      Write-Host "   --- end of $path ---" -ForegroundColor DarkYellow
+      $lines | ForEach-Object { Write-Host "   $_" }
+    }
+  }
+}
+
+Write-Info "Starting... (the first time can take a minute)"
 $up = $false
-for ($i = 0; $i -lt 60; $i++) {
+for ($i = 0; $i -lt 120; $i++) {
   Start-Sleep -Seconds 1
   if ((Test-Port $ServicePort) -and (Test-Port $WebPort)) { $up = $true; break }
+  if ($service.HasExited -or $website.HasExited) { break }
 }
 if (-not $up) {
-  foreach ($proc in @($service, $website)) { if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force } }
-  Stop-Launcher "The upload service or the website didn't start. Check their windows for errors."
+  foreach ($proc in @($service, $website)) { if ($proc -and -not $proc.HasExited) { & taskkill /PID $proc.Id /T /F | Out-Null } }
+  if (-not (Test-Port $ServicePort)) { Write-Host ""; Write-Host "   The upload service didn't start." -ForegroundColor Red; Show-Log "upload-service" }
+  if (-not (Test-Port $WebPort)) { Write-Host ""; Write-Host "   The website didn't start." -ForegroundColor Red; Show-Log "website" }
+  Stop-Launcher "Couldn't start the test servers (details above). Take a screenshot of this window and send it to whoever shared OSRS TaskMaster with you."
 }
 Write-Ok "Upload service: $ServiceUrl"
 Write-Ok "Website:        $WebUrl"
-Write-Info "Both run in minimized windows on the taskbar: leave them open while you test."
+Write-Info "Both run in the background while this window is open. Their logs: $Logs"
 Write-Info "Links only work on this PC (127.0.0.1). To check a share link as a visitor, open it in"
 Write-Info "a private window, or use 'See it as others do' on your own page."
 

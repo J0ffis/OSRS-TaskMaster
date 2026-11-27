@@ -4,7 +4,7 @@
   "description": "OSRS TaskMaster auto-upload service (Cloudflare Worker + D1).",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --port 8789 --local",
+    "dev": "wrangler dev --ip 127.0.0.1 --port 8789 --local",
     "db:local": "wrangler d1 execute taskmaster --local --file=schema.sql",
     "db:remote": "wrangler d1 execute taskmaster --remote --file=schema.sql",
     "deploy": "wrangler deploy",
