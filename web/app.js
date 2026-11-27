@@ -209,7 +209,7 @@ async function load(name, opts = {}) {
   // Leaving a view-only profile: bring back this browser's own settings (its hidden list was just
   // loaded for the new profile), then fetch the owner's view if this one is view-only too.
   if (state.ownView) {
-    ({ style: state.style, cats: state.cats, content: state.content } = state.ownView);
+    ({ style: state.style, cats: state.cats, content: state.content, fastest: state.fastest } = state.ownView);
     state.ownView = null;
   }
   state.sharedView = source.kind === "sync" && !source.edit ? await loadSharedView(source.id) : null;
@@ -283,19 +283,23 @@ async function publishPicks() {
       progress: typeof c.progress === "number" ? c.progress : null,
       wilderness: !!c.wilderness, icon: iconFor(c, snap),
       goal: goal.type ? goal : null,
+      // Under "Fastest logs first", the rough time the panel shows on log and pet rows ("~12 h").
+      est: estText(c),
     };
   };
   const tiers = {};
   for (const [tier, n] of Object.entries(PANEL_TIERS)) {
     // Suggestions hidden with "Not for me" stay out of the panel too.
-    tiers[tier] = pickThree(visibleAll().filter((c) => c.effort === tier), { seed: 0, n }).map(toPick);
+    // "Fastest logs first" orders the panel's log and pet rows the same way as the cards here.
+    tiers[tier] = pickThree(visibleAll().filter((c) => c.effort === tier), { seed: 0, n, fastest: state.fastest }).map(toPick);
   }
   const off = Object.keys(CATEGORIES).filter((k) => !state.cats.has(k));
   const on = Object.entries(state.content).filter(([, v]) => v).map(([k]) => k);
-  const filters = [off.length ? `hiding ${off.join(", ")}` : "", on.length ? `including ${on.join(", ")}` : ""].filter(Boolean).join("; ");
+  const filters = [off.length ? `hiding ${off.join(", ")}` : "", on.length ? `including ${on.join(", ")}` : "",
+    state.fastest ? "fastest logs first" : ""].filter(Boolean).join("; ");
   // The owner's view, which visitors of a share link or public profile see (read-only).
   const hidden = Object.entries(state.hidden).filter(([, e]) => !e.until || e.until > Date.now()).map(([id]) => id).sort();
-  const view = { style: state.style, off, content: Object.fromEntries(on.map((k) => [k, true])), hidden };
+  const view = { style: state.style, off, content: Object.fromEntries(on.map((k) => [k, true])), hidden, fastest: state.fastest };
   // The pinned route: its next steps for the panel, and its goals for visitors (who plan it from
   // the owner's goals themselves).
   if (state.route) view.route = { goals: state.route.goals, keys: state.route.keys ?? [] };
@@ -518,15 +522,16 @@ function showToastError() { alert("Couldn't save goals: the server didn't respon
 // aside while it shows and come back afterwards. The owner's "See it as others do" preview is the
 // same view, locked.
 
-const DEFAULT_VIEW = { style: "balanced", off: [], content: {}, hidden: [] };
+const DEFAULT_VIEW = { style: "balanced", off: [], content: {}, hidden: [], fastest: false };
 
 function applyViewMode() {
   const ro = isReadOnly();
   const visitor = ro && !state.source?.edit;
   if (visitor && !state.ownView) {
     const v = state.sharedView ?? DEFAULT_VIEW;
-    state.ownView = { style: state.style, cats: new Set(state.cats), content: { ...state.content }, seed: state.seed, hidden: state.hidden };
+    state.ownView = { style: state.style, cats: new Set(state.cats), content: { ...state.content }, seed: state.seed, hidden: state.hidden, fastest: state.fastest };
     state.style = v.style ?? "balanced";
+    state.fastest = v.fastest === true;
     state.cats = new Set(Object.keys(CATEGORIES).filter((k) => !(v.off ?? []).includes(k)));
     if (!state.cats.size) state.cats = new Set(Object.keys(CATEGORIES));
     state.content = { ...(v.content ?? {}) };
@@ -534,7 +539,7 @@ function applyViewMode() {
     state.seed = 0;
     state.excluded.clear();
   } else if (!visitor && state.ownView) {
-    ({ style: state.style, cats: state.cats, content: state.content, seed: state.seed, hidden: state.hidden } = state.ownView);
+    ({ style: state.style, cats: state.cats, content: state.content, seed: state.seed, hidden: state.hidden, fastest: state.fastest } = state.ownView);
     state.ownView = null;
     state.excluded.clear();
   }
@@ -1093,11 +1098,15 @@ function cardHTML(c, i) {
 
 /** Under "Fastest logs first", the rough time a log or pet card takes, so the order makes sense. */
 function estHTML(c) {
-  if (!state.fastest || c.hours == null || !HUNT_CATEGORIES.has(c.category)) return "";
+  const text = estText(c);
+  return text ? `<span class="est" title="Rough time on average, from drop rates where known: what Fastest logs first orders by">${esc(text)}</span>` : "";
+}
+/** "~12 h", "20+ h" or "under 1 h" for a log or pet suggestion under Fastest logs first, else null. */
+function estText(c) {
+  if (!state.fastest || c.hours == null || !HUNT_CATEGORIES.has(c.category)) return null;
   const h = c.hours;
   // At its tier's floor (the drop rates alone say quicker): "20+ h" rather than a precise-looking number.
-  const text = c.hoursRaw < h ? `${fmtHours(h)}+ h` : h < 1 ? "under 1 h" : `~${fmtHours(h)} h`;
-  return `<span class="est" title="Rough time on average, from drop rates where known: what Fastest logs first orders by">${esc(text)}</span>`;
+  return c.hoursRaw < h ? `${fmtHours(h)}+ h` : h < 1 ? "under 1 h" : `~${fmtHours(h)} h`;
 }
 const fmtHours = (h) => Math.round(h).toLocaleString();
 

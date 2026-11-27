@@ -581,6 +581,12 @@ class TaskMasterPanel extends PluginPanel
 		return d;
 	}
 
+	/** " · ~12 h" for a row the website timed under "Fastest logs first", else "". */
+	static String estLabel(Picks.Pick p)
+	{
+		return p.est == null || p.est.trim().isEmpty() ? "" : " · " + p.est.trim();
+	}
+
 	private JComponent row(Picks.Pick p, Color tierColor)
 	{
 		JPanel row = new JPanel(new BorderLayout(8, 0));
@@ -624,7 +630,7 @@ class TaskMasterPanel extends PluginPanel
 		// Wilderness rows: the game's PvP skull (the ☠ character until the sprite has loaded).
 		ImageIcon skull = p.wilderness ? spriteIcon("skull", 12) : null;
 		JLabel cat = new JLabel((p.wilderness ? (skull != null ? "" : "☠ ") + "Wilderness · " : "") + CATEGORY_LABELS.getOrDefault(p.category, "")
-			+ (isGoal ? " · Goal ✓" : ""));
+			+ estLabel(p) + (isGoal ? " · Goal ✓" : ""));
 		if (skull != null)
 		{
 			cat.setIcon(skull);

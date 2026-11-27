@@ -40,6 +40,11 @@ class Picks
 		 * service adds this goal.
 		 */
 		Map<String, Object> goal;
+		/**
+		 * Rough time for a collection log or pet row when the website's "Fastest logs first" is on
+		 * ("~12 h", "20+ h", "under 1 h"); null otherwise. The rows already come quickest first.
+		 */
+		String est;
 	}
 
 	static class Icon

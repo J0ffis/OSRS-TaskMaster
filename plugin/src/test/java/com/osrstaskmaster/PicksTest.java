@@ -46,4 +46,16 @@ public class PicksTest
 		assertEquals("Also needs: 100 Kudos.", TaskMasterPanel.stepDetail(route.steps().get(1), false));
 		assertEquals("Finishes a goal", TaskMasterPanel.stepDetail(route.steps().get(2), true));
 	}
+
+	@Test
+	public void readsTheTimeEstimateForFastestLogsFirst()
+	{
+		// With "Fastest logs first" on, log and pet picks carry a rough time; others don't.
+		String json = "{\"picks\": {\"tiers\": {\"Medium\": ["
+			+ "{\"id\": \"clog:1\", \"title\": \"Get Frozen tear\", \"category\": \"clog\", \"est\": \"~3 h\"},"
+			+ "{\"id\": \"quest:x\", \"title\": \"Do X\", \"category\": \"quests\", \"est\": null}]}}}";
+		Picks picks = new Gson().fromJson(json, Picks.Reply.class).picks;
+		assertEquals(" · ~3 h", TaskMasterPanel.estLabel(picks.tier("Medium").get(0)));
+		assertEquals("", TaskMasterPanel.estLabel(picks.tier("Medium").get(1)));
+	}
 }

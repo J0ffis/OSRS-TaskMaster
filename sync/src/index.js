@@ -267,7 +267,8 @@ async function savePicks(request, env, id) {
 }
 
 // The owner's chosen view, which visitors of a share link or public profile see (read-only):
-// grind style, categories switched off, opt-in content, and suggestions hidden with Not for me.
+// grind style, categories switched off, opt-in content, suggestions hidden with Not for me, and
+// whether log cards come fastest first.
 const VIEW_STYLES = ["quick", "balanced", "long", "mix"];
 const VIEW_CONTENT = ["minigames", "wilderness", "clues"];
 function cleanView(v) {
@@ -280,7 +281,12 @@ function cleanView(v) {
   // had when pinned (for "4 of 19 steps done").
   const route = v.route && typeof v.route === "object" && Array.isArray(v.route.goals)
     ? { goals: strings(v.route.goals, 50, 60), keys: strings(v.route.keys, 300, 160) } : null;
-  return { style: VIEW_STYLES.includes(v.style) ? v.style : "balanced", off, content, hidden, ...(route?.goals.length ? { route } : {}) };
+  return {
+    style: VIEW_STYLES.includes(v.style) ? v.style : "balanced", off, content, hidden,
+    // "Fastest logs first": log and pet suggestions in time order, quickest first.
+    ...(v.fastest === true ? { fastest: true } : {}),
+    ...(route?.goals.length ? { route } : {}),
+  };
 }
 
 /**
@@ -322,6 +328,8 @@ function cleanPick(p, tier) {
     wilderness: p.wilderness === true,
     icon,
     goal: cleanGoal(p.goal),
+    // Rough time for a log or pet row under "Fastest logs first" ("~12 h", "20+ h"), or null.
+    est: cleanText(p.est, 20) || null,
   };
 }
 

@@ -155,6 +155,10 @@ test("picks: the owner's view is saved for visitors, cleaned", async () => {
   assert.deepEqual(got, { style: "mix", off: ["pets", "goals"], content: { wilderness: true }, hidden: ["clog:4151"] });
   await api("PUT", `/v1/picks/${id}`, { body: { tiers: {}, view: { style: "sideways" } }, headers: { "X-Edit-Token": edit } });
   assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.view.style, "balanced", "unknown styles fall back");
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: {}, view: { style: "long", fastest: true } }, headers: { "X-Edit-Token": edit } });
+  assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.view.fastest, true, "Fastest logs first is kept for visitors");
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: {}, view: { style: "long", fastest: "yes" } }, headers: { "X-Edit-Token": edit } });
+  assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.view.fastest, undefined, "only true switches it on");
   await api("PUT", `/v1/picks/${id}`, { body: { tiers: {} }, headers: { "X-Edit-Token": edit } });
   assert.equal((await api("GET", `/v1/picks/${id}`)).data.picks.view, null, "no view saved");
 });
@@ -282,4 +286,14 @@ test("CORS: only the listed websites get access", async () => {
   const pre = await fetch(BASE + "/v1/goals/AAAAAAAAAAAAAAAAAAAAAA", { method: "OPTIONS", headers: { Origin: SITE } });
   assert.equal(pre.status, 204);
   assert.match(pre.headers.get("Access-Control-Allow-Headers"), /X-Edit-Token/);
+});
+
+test("picks: a log row's time estimate (Fastest logs first) reaches the panel, trimmed", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  const body = { tiers: { Medium: [pick("a", { est: "~12 h" }), pick("b"), pick("c", { est: 12 }), pick("d", { est: "x".repeat(50) })] } };
+  await api("PUT", `/v1/picks/${id}`, { body, headers: { "X-Edit-Token": edit } });
+  const got = (await api("GET", `/v1/picks/${id}`)).data.picks.tiers.Medium;
+  assert.deepEqual(got.map((p) => p.est), ["~12 h", null, null, "x".repeat(20)]);
+  assert.deepEqual(got.map((p) => p.id), ["a", "b", "c", "d"], "order is kept: the panel shows them as the website sent them");
 });

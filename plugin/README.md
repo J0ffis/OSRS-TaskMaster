@@ -47,6 +47,9 @@ browser, with your goals.
   **Sync** uploads your progress now and fetches the website's latest list; anything you've
   finished in game drops off straight away. The list itself is made by the website, so opening
   the website gives you a fresh one.
+  With **Fastest logs first** switched on on the website, collection log and pet rows come
+  quickest first and show a rough time ("Collection log · ~12 h"); Refresh steps on to the next
+  quickest.
 - **Your route** appears above it once you pin a route with the website's route planner: the
   next 4 steps in order (the first marked **Next**), how many are done, and what each step is for.
   Steps you finish in game (a level reached, a quest done) drop off at once; click a step to open

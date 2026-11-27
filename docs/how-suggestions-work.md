@@ -47,6 +47,10 @@ adds up its missing items, and "any missing piece" takes the quickest one. An es
 shown below its tier's lower limit in `EFFORT_HOURS` ("20+ h" on a Long haul): ties there are
 ordered by the raw drop-rate time.
 
+With Automatic upload, the setting travels with your picks: the RuneLite panel lists log and pet
+rows in the same order with their estimate (each pick's `est`), and visitors of a share link or
+public profile see your view with it on or off (`view.fastest`).
+
 ## Account types
 
 The plugin records the account type, and suggestions follow it (`applyAccountType` in
