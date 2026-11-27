@@ -160,6 +160,42 @@ test("delete removes the profile", async () => {
   assert.equal((await api("GET", `/v1/profile/${id}`)).status, 404);
 });
 
+test("reset links: everything moves to the new key and old links stop working", async () => {
+  const oldKey = newKey(), next = newKey();
+  const before = await ids(oldKey), after = await ids(next);
+  const name = uniq();
+  await api("PUT", "/v1/profile", { key: oldKey, body: { profile: profile(name) } });
+  const goals = [{ id: "g1", type: "quest", quest: "Dragon Slayer II" }];
+  await api("PUT", `/v1/goals/${before.id}`, { body: goals, headers: { "X-Edit-Token": before.edit } });
+  await api("PUT", `/v1/picks/${before.id}`, { body: { tiers: { Quick: [pick("p")] } }, headers: { "X-Edit-Token": before.edit } });
+
+  const r = await api("POST", "/v1/profile/rotate", { key: oldKey, body: { newKey: next } });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.id, after.id);
+
+  assert.equal((await api("GET", `/v1/profile/${before.id}`)).status, 404, "old share link is gone");
+  assert.equal((await api("PUT", `/v1/goals/${before.id}`, { body: [], headers: { "X-Edit-Token": before.edit } })).status, 404, "old owner link can't edit");
+  const got = await api("GET", `/v1/profile/${after.id}`);
+  assert.equal(got.data.profile.player.name, name, "profile moved");
+  assert.deepEqual(got.data.goals, goals, "goals moved");
+  assert.equal((await api("GET", `/v1/picks/${after.id}`)).data.picks.tiers.Quick[0].id, "p", "picks moved");
+  assert.equal((await api("PUT", `/v1/goals/${after.id}`, { body: goals, headers: { "X-Edit-Token": before.edit } })).status, 403, "old edit token doesn't work on the new id");
+  assert.equal((await api("PUT", `/v1/goals/${after.id}`, { body: goals, headers: { "X-Edit-Token": after.edit } })).status, 200, "new owner link works");
+  assert.equal((await api("PUT", "/v1/profile", { key: oldKey, body: { profile: profile(name) } })).data.id, before.id, "the old key would start a new, empty profile");
+});
+
+test("reset links: refused without the current key or with a bad new key", async () => {
+  const key = newKey();
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  assert.equal((await api("POST", "/v1/profile/rotate", { body: { newKey: newKey() } })).status, 401, "no key");
+  assert.equal((await api("POST", "/v1/profile/rotate", { key: newKey(), body: { newKey: newKey() } })).status, 404, "a key with nothing uploaded");
+  assert.equal((await api("POST", "/v1/profile/rotate", { key, body: { newKey: "short" } })).status, 400, "malformed new key");
+  assert.equal((await api("POST", "/v1/profile/rotate", { key, body: { newKey: key } })).status, 400, "same key");
+  const taken = newKey();
+  await api("PUT", "/v1/profile", { key: taken, body: { profile: profile(uniq()) } });
+  assert.equal((await api("POST", "/v1/profile/rotate", { key, body: { newKey: taken } })).status, 409, "a key someone already uses");
+});
+
 test("unknown ids and paths are 404", async () => {
   assert.equal((await api("GET", "/v1/profile/AAAAAAAAAAAAAAAAAAAAAA")).status, 404);
   assert.equal((await api("GET", "/v1/profile/../../etc")).status, 404);

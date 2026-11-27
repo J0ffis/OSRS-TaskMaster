@@ -44,6 +44,7 @@ const state = {
   content: JSON.parse(localStorage.getItem("tm.content") || "{}"),
   seed: 0, // bumped by Shuffle; the same seed gives the same picks
   excluded: new Set(), // suggestion ids the player swapped away
+  hidden: {}, // suggestions marked "Not for me": { id: { until (time, or 0 for good), title, effort } }
   picks: [], // the cards on screen now
   tab: "skills", // open tab in the Account panel
   // Where the open profile came from: sample | local (pasted) | server (Start-LocalServer.ps1) | sync (uploaded)
@@ -74,7 +75,7 @@ const local = {
     localStorage.setItem("tm.profileNames", JSON.stringify([name, ...names]));
   },
   forget(name) {
-    for (const k of ["profile", "goals", "marks", "seen", "prev"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
+    for (const k of ["profile", "goals", "marks", "hidden", "seen", "prev"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
     localStorage.setItem("tm.profileNames", JSON.stringify(local.names().filter((n) => keyOf(n) !== keyOf(name))));
   },
   goals: (name) => JSON.parse(localStorage.getItem(`tm.goals:${keyOf(name)}`) || "[]"),
@@ -117,9 +118,9 @@ const isReadOnly = () => state.source?.kind === "sync" && !state.source.edit;
 async function load(name, opts = {}) {
   showError(null);
   let source;
+  const link = opts.id ? { id: opts.id, edit: opts.edit ?? links.byId(opts.id)?.edit ?? null }
+    : name !== SAMPLE && !opts.local ? links.byName(name) : null;
   try {
-    const link = opts.id ? { id: opts.id, edit: opts.edit ?? links.byId(opts.id)?.edit ?? null }
-      : name !== SAMPLE && !opts.local ? links.byName(name) : null;
     if (name === SAMPLE) {
       state.snap = await api("sample-profile.json");
       state.goals = JSON.parse(localStorage.getItem("tm.sampleGoals") || "null") ?? [
@@ -151,12 +152,19 @@ async function load(name, opts = {}) {
     state.prev = trackPrevious(name, state.raw);
     state.marks = loadMarks(name, state.raw);
     state.snap = applyManual(state.raw, state.marks);
+    state.hidden = loadHidden(name);
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
     // A name lookup that can't reach the upload service reads like "not found": pasting still works.
-    if (e.sync && e.status === 0 && opts.id) return showError("Couldn't reach the OSRS TaskMaster upload service. Check your connection and try again.");
+    if (e.sync && e.status === 0 && (opts.id || link)) return showError("Couldn't reach the OSRS TaskMaster upload service. Check your connection and try again.");
     if (e.sync && e.status === 0) e.status = 404;
-    if (e.sync && e.status === 404 && opts.id) return showError("That link doesn't point to a profile any more. Its owner may have deleted their uploaded data.");
+    // Only a real "not found" from the service: being offline never forgets a link.
+    if (e.sync && e.status === 404 && link) {
+      // A dead link stays dead (deleted data or reset links): stop offering it by name.
+      links.remove(link.id);
+      refreshKnown();
+      return showError("That link doesn't work any more: its owner reset their links or deleted their uploaded data. If it's yours, click Open website in the RuneLite panel for your current link.");
+    }
     if (e.status === 404) return showError(`No profile for "${name}" yet. If it's yours: in RuneLite, open the OSRS TaskMaster panel and either click Copy my profile and paste it here, or switch on Automatic upload and click Open website.`);
     if (e.status === 400) return showError("That doesn't look like an OSRS name (1–12 letters, numbers, spaces, - or _).");
     return showError(serverMode ? "Couldn't reach the OSRS TaskMaster server. Is Start-LocalServer.ps1 running?" : "Something went wrong loading that profile. Try again in a moment.");
@@ -222,7 +230,8 @@ async function publishPicks() {
   });
   const tiers = {};
   for (const [tier, n] of Object.entries(PANEL_TIERS)) {
-    tiers[tier] = pickThree(listCache.all.filter((c) => c.effort === tier), { seed: 0, n }).map(toPick);
+    // Suggestions hidden with "Not for me" stay out of the panel too.
+    tiers[tier] = pickThree(visibleAll().filter((c) => c.effort === tier), { seed: 0, n }).map(toPick);
   }
   const off = Object.keys(CATEGORIES).filter((k) => !state.cats.has(k));
   const on = Object.entries(state.content).filter(([, v]) => v).map(([k]) => k);
@@ -307,6 +316,38 @@ function loadMarks(name, raw) {
 }
 
 const markCount = () => Object.values(state.marks).reduce((n, b) => n + Object.keys(b).length, 0);
+
+// ---- Suggestions hidden by the player ("Not for me") -----------------------------------------
+// Hidden for a week or for good, per player, in this browser. Week-long ones come back by
+// themselves; the "hidden by you" list in the filters row brings any of them back sooner.
+
+const hiddenKey = (name) => `tm.hidden:${keyOf(name)}`;
+const WEEK = 7 * 864e5;
+
+function loadHidden(name) {
+  const h = JSON.parse(localStorage.getItem(hiddenKey(name)) || "{}");
+  for (const [id, e] of Object.entries(h)) if (e.until && e.until <= Date.now()) delete h[id];
+  localStorage.setItem(hiddenKey(name), JSON.stringify(h));
+  return h;
+}
+function saveHidden() {
+  localStorage.setItem(hiddenKey(state.name), JSON.stringify(state.hidden));
+}
+const isHidden = (c) => {
+  const e = state.hidden[c.id];
+  return !!e && (!e.until || e.until > Date.now());
+};
+/** Hide a suggestion for `days` days, or for good when `days` is 0. */
+function hideSuggestion(c, days) {
+  state.hidden[c.id] = { until: days ? Date.now() + days * 864e5 : 0, title: c.title, effort: c.effort };
+  saveHidden();
+}
+function unhide(ids) {
+  for (const id of ids) delete state.hidden[id];
+  saveHidden();
+  renderOptIns();
+  renderCards(true);
+}
 
 /** Mark something done (or undo a mark), then redraw everything from the updated profile. */
 function setMark(bucket, key, on) {
@@ -401,6 +442,7 @@ function renderSummary() {
       ${isReadOnly() ? "" : `<div class="manualrow">
         <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't ${state.source.kind === "sync" ? "uploaded" : "synced"} since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until your profile shows them done.">Mark progress by hand</button>
         ${markCount() ? `<span class="muted small">${markCount()} marked by hand, waiting for a sync</span>` : ""}
+        ${state.source.kind === "sync" ? `<button type="button" id="sharebtn" class="link small" title="Copies a link that shows your suggestions and goals but can't change anything. Your own link (with editing) never leaves this browser.">Copy share link</button>` : ""}
       </div>`}
     </div>
     <div class="stats">
@@ -509,8 +551,11 @@ function currentList() {
     listCache = { key, snap: state.snap, all: candidates(state.snap, state.goals, { categories: state.cats, content: state.content }) };
   }
   const effort = STYLE_EFFORT[state.style];
-  return effort ? listCache.all.filter((c) => c.effort === effort) : listCache.all;
+  const all = visibleAll();
+  return effort ? all.filter((c) => c.effort === effort) : all;
 }
+/** Every tier's suggestions minus the ones hidden with "Not for me" (call currentList first). */
+const visibleAll = () => listCache.all.filter((c) => !isHidden(c));
 
 function renderOptIns() {
   $("#optins").innerHTML = Object.entries(CONTENT_TOGGLES).map(([k, label]) =>
@@ -522,6 +567,22 @@ function renderOptIns() {
   btn.textContent = `${locked.length} hidden until unlocked`;
   $("#lockedbody").innerHTML = `<table class="list"><thead><tr><th>Content</th><th>Needs</th></tr></thead><tbody>${locked.map((l) =>
     `<tr><td>${esc(l.content)}</td><td>${l.needs.map(esc).join(", ")}</td></tr>`).join("")}</tbody></table>`;
+  renderHiddenList();
+}
+
+// "N hidden by you": the suggestions marked "Not for me", each with a way to bring it back.
+function renderHiddenList() {
+  const rows = Object.entries(state.hidden).filter(([, e]) => !e.until || e.until > Date.now())
+    .sort(([, a], [, b]) => (a.until || Infinity) - (b.until || Infinity));
+  const btn = $("#hiddenbtn");
+  btn.hidden = !rows.length;
+  btn.textContent = `${rows.length} hidden by you`;
+  if (!rows.length && $("#hiddendlg").open) $("#hiddendlg").close();
+  const when = (e) => (e.until ? `Until ${new Date(e.until).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "For good");
+  $("#hiddenbody").innerHTML = `<table class="list"><thead><tr><th>Suggestion</th><th>Tier</th><th>Hidden</th><th></th></tr></thead><tbody>${rows.map(([id, e]) =>
+    `<tr><td>${esc(e.title)}</td><td>${esc(TIER_LABEL[e.effort] ?? e.effort ?? "")}</td><td class="muted">${when(e)}</td>
+      <td><button type="button" class="link small" data-unhide="${esc(id)}">Show again</button></td></tr>`).join("")}</tbody></table>
+    ${rows.length > 1 ? `<p class="small"><button type="button" class="link small" data-unhide-all>Show them all again</button></p>` : ""}`;
 }
 
 function renderCards(fresh = false, keep = null) {
@@ -530,7 +591,7 @@ function renderCards(fresh = false, keep = null) {
     ? pickMix(list, { seed: state.seed, exclude: state.excluded })
     : pickThree(list, { seed: state.seed, exclude: state.excluded });
   else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep });
-  if (fresh) state.challenge = pickChallenge(listCache.all, { seed: state.seed, exclude: state.excluded });
+  if (fresh) state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.excluded });
   renderChallenge();
   schedulePicks();
   const el = $("#cards");
@@ -596,6 +657,7 @@ function renderChallenge() {
       <div class="actions">
         <button class="btn tiny" data-challenge-swap type="button">Another challenge</button>
         ${!isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-challenge-goal type="button">Take on this challenge</button>` : ""}
+        ${!isReadOnly() ? `<button class="btn tiny ghost" data-challenge-notforme type="button" title="Hide this challenge for a week or for good">Not for me</button>` : ""}
         ${wikiLink(c)}
       </div>
     </article>`;
@@ -692,13 +754,25 @@ function cardHTML(c, i) {
       <p class="detail">${esc(c.detail)}</p>
       ${barHTML(c)}
       <ul>${c.why.slice(0, 3).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
-      <div class="actions">
+      <div class="actions">${actionsHTML(c, i)}</div>
+    </article>`;
+}
+
+function actionsHTML(c, i) {
+  return `
         <button class="btn tiny" data-swap="${i}" type="button">Swap</button>
         ${c.category !== "goals" && !isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
         ${markButton(c)}
-        ${wikiLink(c)}
-      </div>
-    </article>`;
+        ${c.category !== "goals" && !isReadOnly() ? `<button class="btn tiny ghost" data-notforme="${i}" type="button" title="Hide this suggestion for a week or for good">Not for me</button>` : ""}
+        ${wikiLink(c)}`;
+}
+
+/** Shown in place of a card's buttons after "Not for me": how long to hide it. */
+function hideChoicesHTML(i) {
+  return `<span class="hideask small">Hide it:</span>
+        <button class="btn tiny" data-hide="${i}" data-days="7" type="button">For a week</button>
+        <button class="btn tiny" data-hide="${i}" data-days="0" type="button">For good</button>
+        <button class="btn tiny ghost" data-hide-cancel="${i}" type="button">Cancel</button>`;
 }
 
 function toGoal(c) {
@@ -972,30 +1046,46 @@ $("#chips").addEventListener("click", (e) => {
   renderCards(true);
 });
 
-$("#cards").addEventListener("click", (e) => {
-  const swap = e.target.closest("[data-swap]");
-  if (swap) {
-    const i = +swap.dataset.swap;
-    state.excluded.add(state.picks[i].id);
-    if (isMix()) {
-      // Replace with another pick from the same tier, so the carousel keeps its spread.
-      const old = state.picks[i];
-      const shown = new Set(state.picks.map((c) => c.id));
-      const tierList = currentList().filter((c) => c.effort === old.effort && !shown.has(c.id));
-      const [next] = pickThree(tierList, { seed: state.seed, exclude: state.excluded, keep: state.picks.filter((_, j) => j !== i), n: 7 })
-        .filter((c) => !shown.has(c.id));
-      if (next) state.picks = state.picks.map((c, j) => (j === i ? next : c));
-      spin = i;
-      renderCards();
-      return;
-    }
-    const keep = state.picks.filter((_, j) => j !== i);
-    // Put the replacement back in the same slot.
-    const next = pickThree(currentList(), { seed: state.seed, exclude: state.excluded, keep });
-    const added = next.find((c) => !keep.includes(c));
-    state.picks = added ? [...keep.slice(0, i), added, ...keep.slice(i)] : keep;
+/** Replace the card in slot `i` with another suggestion (Swap, and after "Not for me"). */
+function swapAt(i) {
+  state.excluded.add(state.picks[i].id);
+  if (isMix()) {
+    // Replace with another pick from the same tier, so the carousel keeps its spread.
+    const old = state.picks[i];
+    const shown = new Set(state.picks.map((c) => c.id));
+    const tierList = currentList().filter((c) => c.effort === old.effort && !shown.has(c.id));
+    const [next] = pickThree(tierList, { seed: state.seed, exclude: state.excluded, keep: state.picks.filter((_, j) => j !== i), n: 7 })
+      .filter((c) => !shown.has(c.id));
+    // A hidden card must go even when nothing can replace it.
+    if (next) state.picks = state.picks.map((c, j) => (j === i ? next : c));
+    else if (isHidden(old)) state.picks = state.picks.filter((_, j) => j !== i);
     spin = i;
     renderCards();
+    return;
+  }
+  const keep = state.picks.filter((_, j) => j !== i);
+  // Put the replacement back in the same slot.
+  const next = pickThree(currentList(), { seed: state.seed, exclude: state.excluded, keep });
+  const added = next.find((c) => !keep.includes(c));
+  state.picks = added ? [...keep.slice(0, i), added, ...keep.slice(i)] : keep;
+  spin = i;
+  renderCards();
+}
+
+$("#cards").addEventListener("click", (e) => {
+  const swap = e.target.closest("[data-swap]");
+  if (swap) { swapAt(+swap.dataset.swap); return; }
+  // "Not for me": ask how long, then hide it and fill the slot like Swap does.
+  const nfm = e.target.closest("[data-notforme]");
+  if (nfm) { nfm.closest(".actions").innerHTML = hideChoicesHTML(+nfm.dataset.notforme); return; }
+  const cancel = e.target.closest("[data-hide-cancel]");
+  if (cancel) { const i = +cancel.dataset.hideCancel; cancel.closest(".actions").innerHTML = actionsHTML(state.picks[i], i); return; }
+  const hide = e.target.closest("[data-hide]");
+  if (hide) {
+    const i = +hide.dataset.hide;
+    hideSuggestion(state.picks[i], +hide.dataset.days);
+    renderOptIns();
+    swapAt(i);
     return;
   }
   const nav = e.target.closest("[data-scroll]");
@@ -1023,8 +1113,22 @@ $("#challenge").addEventListener("click", (e) => {
     // Cycle through the challenges; when they've all been seen, start over.
     const old = state.challenge.id;
     (state.challengeSeen ??= new Set()).add(old);
-    state.challenge = pickChallenge(listCache.all, { seed: ++state.seed, exclude: state.challengeSeen });
-    if (!state.challenge) { state.challengeSeen = new Set([old]); state.challenge = pickChallenge(listCache.all, { seed: state.seed, exclude: state.challengeSeen }); }
+    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen });
+    if (!state.challenge) { state.challengeSeen = new Set([old]); state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.challengeSeen }); }
+    renderChallenge();
+    $("#challenge .card")?.classList.add("spin");
+    return;
+  }
+  const actions = $("#challenge .actions");
+  if (e.target.closest("[data-challenge-notforme]")) { actions.innerHTML = hideChoicesHTML("challenge"); return; }
+  if (e.target.closest("[data-hide-cancel]")) { renderChallenge(); return; }
+  const hide = e.target.closest("[data-hide]");
+  if (hide) {
+    hideSuggestion(state.challenge, +hide.dataset.days);
+    currentList();
+    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen ?? new Set() })
+      ?? pickChallenge(visibleAll(), { seed: state.seed });
+    renderOptIns();
     renderChallenge();
     $("#challenge .card")?.classList.add("spin");
     return;
@@ -1050,6 +1154,13 @@ $("#optins").addEventListener("click", (e) => {
   renderCards(true);
 });
 $("#lockedbtn").addEventListener("click", () => $("#lockeddlg").showModal());
+$("#hiddenbtn").addEventListener("click", () => $("#hiddendlg").showModal());
+$("#hiddendlg").addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
+  const one = e.target.closest("[data-unhide]");
+  if (one) return unhide([one.dataset.unhide]);
+  if (e.target.closest("[data-unhide-all]")) return unhide(Object.keys(state.hidden));
+});
 $("#lockeddlg").addEventListener("click", (e) => {
   // Close on the × button or a click on the backdrop.
   if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
@@ -1124,7 +1235,20 @@ $("#tabs").addEventListener("click", (e) => {
 });
 
 // Marking by hand: the toggle in the summary, and every "Mark done" control on cards and tabs.
-$("#summary").addEventListener("click", (e) => {
+$("#summary").addEventListener("click", async (e) => {
+  // Owners share a view-only link (the id only), never their own link with the edit token.
+  const share = e.target.closest("#sharebtn");
+  if (share && state.source?.kind === "sync") {
+    const link = `${location.origin}${location.pathname}#id=${state.source.id}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      share.textContent = "Copied: view-only link";
+    } catch {
+      prompt("Copy this view-only link:", link);
+    }
+    setTimeout(() => { share.textContent = "Copy share link"; }, 2500);
+    return;
+  }
   if (!e.target.closest("#manualbtn")) return;
   state.manualMode = !state.manualMode;
   localStorage.setItem("tm.manualMode", state.manualMode ? "1" : "0");

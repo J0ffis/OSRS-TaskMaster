@@ -1,0 +1,12 @@
+{
+  "name": "osrs-taskmaster",
+  "private": true,
+  "description": "Checks and tests for the OSRS TaskMaster website (no dependencies: plain Node.js).",
+  "type": "module",
+  "scripts": {
+    "check": "node tests/check-knowledge-base.mjs",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "test:update": "node --test --test-update-snapshots \"tests/*.test.mjs\"",
+    "game-names": "node tests/make-game-names.mjs"
+  }
+}

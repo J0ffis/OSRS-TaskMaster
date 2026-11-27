@@ -2,26 +2,47 @@
 # One-time setup on GitHub: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 # The site is plain static files: no build step, no server. Profiles are pasted in by each
 # player and kept in their own browser.
+#
+# Before publishing, the checks job runs the knowledge-base checker and the suggestion tests
+# (tests/). If either fails, the site isn't published and the live site stays as it was.
 name: Publish website
 
 on:
   push:
     branches: [main]
-    paths: ["web/**", ".github/workflows/pages.yml"]
+    paths: ["web/**", "tests/**", "package.json", ".github/workflows/pages.yml"]
+  pull_request:
+    paths: ["web/**", "tests/**", "package.json", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  checks:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check knowledge-base.js
+        run: node tests/check-knowledge-base.mjs
+      - name: Suggestion tests
+        run: node --test "tests/*.test.mjs"
+
+  deploy:
+    needs: checks
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

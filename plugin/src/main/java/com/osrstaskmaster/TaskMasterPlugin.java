@@ -134,6 +134,7 @@ public class TaskMasterPlugin extends Plugin
 			@Override public void uploadNow() { clientThread.invokeLater(() -> sync(true)); }
 			@Override public void copyShareLink() { clientThread.invokeLater(TaskMasterPlugin.this::copyShareLink); }
 			@Override public void deleteUploaded() { clientThread.invokeLater(TaskMasterPlugin.this::deleteUploadedData); }
+			@Override public void resetLinks() { clientThread.invokeLater(TaskMasterPlugin.this::resetLinks); }
 			@Override public void refreshPicks() { clientThread.invokeLater(TaskMasterPlugin.this::fetchPicks); }
 			@Override public void openPick(String pickId) { clientThread.invokeLater(() -> openWebsiteOn(pickId)); }
 		});
@@ -282,8 +283,35 @@ public class TaskMasterPlugin extends Plugin
 			}
 		}
 		store.clogPages.put(title, page);
+		readClogKillCounts(header, title);
 		store.save();
 		dirty = true;
+	}
+
+	/**
+	 * The page header's kill count lines ("Zulrah kills: 87"), so bosses killed before the plugin
+	 * was installed get a count without waiting for the next kill message.
+	 */
+	private void readClogKillCounts(Widget header, String title)
+	{
+		Widget[] lines = header.getDynamicChildren();
+		if (lines == null)
+		{
+			return;
+		}
+		for (Widget w : lines)
+		{
+			String text = w.getText() == null ? "" : Text.removeTags(w.getText()).trim();
+			if (text.isEmpty() || text.equals(title))
+			{
+				continue;
+			}
+			Map.Entry<String, Integer> kc = ClogKillCounts.parse(text);
+			if (kc != null)
+			{
+				ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue());
+			}
+		}
 	}
 
 	// ---- Kill counts --------------------------------------------------------------------
@@ -299,7 +327,10 @@ public class TaskMasterPlugin extends Plugin
 		Matcher m = KC_PATTERN.matcher(msg);
 		if (m.find())
 		{
-			store.killCounts.put(m.group(1), Integer.parseInt(m.group(2).replace(",", "")));
+			// The chat message is always the latest count; merge only keeps one entry per boss
+			// whatever the capitalisation (a collection log page may have added it first).
+			int count = Integer.parseInt(m.group(2).replace(",", ""));
+			ClogKillCounts.merge(store.killCounts, m.group(1), count);
 			store.save();
 			dirty = true;
 		}
@@ -772,6 +803,79 @@ public class TaskMasterPlugin extends Plugin
 		{
 			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(link), null);
 			panel.setStatus("Share link copied. Anyone with it can view your suggestions, but not change your goals.", true);
+		});
+	}
+
+	/**
+	 * Reset my links: the server moves the profile, goals and picks to a new key, so every old
+	 * link stops working (how a leaked owner link is revoked). The new key is only kept once the
+	 * server has confirmed. Uploads wait meanwhile, so none can recreate the old profile.
+	 */
+	private void resetLinks()
+	{
+		String oldKey = uploadKey(false);
+		if (!config.autoUpload() || oldKey == null)
+		{
+			panel.setStatus("Nothing has been uploaded for this account, so there are no links to reset.", true);
+			return;
+		}
+		if (inFlight)
+		{
+			panel.setStatus("An upload is in progress. Try Reset my links again in a moment.", false);
+			return;
+		}
+		byte[] bytes = new byte[32];
+		new SecureRandom().nextBytes(bytes);
+		String newKey = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("newKey", newKey);
+		Request request;
+		try
+		{
+			request = new Request.Builder()
+				.url(serverUrl() + "/v1/profile/rotate")
+				.header("Authorization", "Bearer " + oldKey)
+				.post(RequestBody.create(JSON, gson.toJson(body)))
+				.build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
+			return;
+		}
+		inFlight = true;
+		panel.setStatus("Resetting your links...", true);
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				inFlight = false;
+				panel.setStatus("Couldn't reach the upload server, so your links weren't changed. Try again later.", false);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				try (Response r = response)
+				{
+					if (r.isSuccessful() || r.code() == 404)
+					{
+						// 404: nothing on the server yet, so a new key alone gives new links.
+						configManager.setRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD, newKey);
+						panel.setStatus("Your links were reset. Old links no longer work; use Open website and Copy share link for the new ones.", true);
+						fetchPicks();
+					}
+					else
+					{
+						panel.setStatus("The server couldn't reset your links (error " + r.code() + "). Nothing was changed.", false);
+					}
+				}
+				finally
+				{
+					inFlight = false;
+				}
+			}
 		});
 	}
 

@@ -9,6 +9,9 @@
 //
 //   PUT    /v1/profile            Authorization: Bearer <key>   upload { profile, public, account }
 //   DELETE /v1/profile            Authorization: Bearer <key>   delete everything for this key
+//   POST   /v1/profile/rotate     Authorization: Bearer <old key>  { newKey }: move the profile,
+//                                                               goals and picks to a new key, so
+//                                                               every old link stops working
 //   GET    /v1/profile/:id                                      profile + goals (anyone with the id)
 //   GET    /v1/public/:name                                     same, for profiles marked public
 //   PUT    /v1/goals/:id          X-Edit-Token: <token>          replace the goals list
@@ -58,6 +61,7 @@ async function route(request, env) {
 
   if (path === "/v1/profile" && m === "PUT") return upload(request, env);
   if (path === "/v1/profile" && m === "DELETE") return remove(request, env);
+  if (path === "/v1/profile/rotate" && m === "POST") return rotate(request, env);
   let p;
   if ((p = path.match(/^\/v1\/profile\/([^/]+)$/)) && m === "GET") return readById(env, p[1]);
   if ((p = path.match(/^\/v1\/public\/([^/]+)$/)) && m === "GET") return readPublic(env, decodeURIComponent(p[1]));
@@ -131,6 +135,29 @@ async function remove(request, env) {
   const { id } = await deriveIds(bearer(request));
   const r = await env.DB.prepare("DELETE FROM profiles WHERE id = ?").bind(id).run();
   return json({ ok: true, deleted: (r.meta?.changes ?? 0) > 0 }, 200);
+}
+
+/**
+ * Reset links: the plugin makes a new upload key and the profile, goals and picks move to the id
+ * and edit token derived from it. Every old link (owner's and shared) stops working, which is how
+ * a leaked owner link is revoked. Only the holder of the current key can do this.
+ */
+async function rotate(request, env) {
+  const oldKey = bearer(request);
+  const raw = await readBody(request, 1_000);
+  let body;
+  try { body = JSON.parse(raw); } catch { throw new HttpError(400, "Body isn't JSON"); }
+  const newKey = body?.newKey;
+  if (typeof newKey !== "string" || !KEY_RE.test(newKey)) throw new HttpError(400, "newKey must be a valid upload key");
+  if (newKey === oldKey) throw new HttpError(400, "newKey must differ from the current key");
+  const from = await deriveIds(oldKey);
+  const to = await deriveIds(newKey);
+  const row = await env.DB.prepare("SELECT id FROM profiles WHERE id = ?").bind(from.id).first();
+  if (!row) throw new HttpError(404, "Nothing uploaded with this key");
+  const taken = await env.DB.prepare("SELECT id FROM profiles WHERE id = ?").bind(to.id).first();
+  if (taken) throw new HttpError(409, "That new key is already in use");
+  await env.DB.prepare("UPDATE profiles SET id = ?, edit_hash = ? WHERE id = ?").bind(to.id, to.editHash, from.id).run();
+  return json({ ok: true, id: to.id }, 200);
 }
 
 async function readById(env, id) {
@@ -281,6 +308,7 @@ function corsHeaders(request, env) {
   // The plugin doesn't send an Origin header, so CORS only governs browsers.
   if (origin && allowed.includes(origin)) {
     h["Access-Control-Allow-Origin"] = origin;
+    // Browsers only read and save goals/picks; uploads, deletes and link resets come from the plugin.
     h["Access-Control-Allow-Methods"] = "GET, PUT, OPTIONS";
     h["Access-Control-Allow-Headers"] = "Content-Type, X-Edit-Token";
     h["Access-Control-Max-Age"] = "86400";

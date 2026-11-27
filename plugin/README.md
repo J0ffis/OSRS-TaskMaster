@@ -26,7 +26,7 @@ uploaded.
 | Combat achievements | Points, reward tiers and completed tasks |
 | Collection log | Totals, the page layout from the game cache, and obtained items when you click Search |
 | Pets | The collection log's "All Pets" page |
-| Kill counts | "Your X kill count is: N" chat messages |
+| Kill counts | "Your X kill count is: N" chat messages, and the kill count shown at the top of a boss's collection log page when you open it |
 
 **Never read:** your bank, inventory, equipment or anything about your wealth.
 
@@ -43,7 +43,10 @@ browser, with your goals.
   Long haul, Challenge), with item and skill icons. Click one to open it on the website. The list
   comes from the website, so it refreshes whenever you open the website.
 - Your profile is **private** by default: only people with your link can see it.
-  **Copy share link** gives friends a view-only link.
+  **Copy share link** (here or on the website) gives friends a view-only link: they see your
+  suggestions and goals but can't change anything.
+- **Open website** uses your own link, which can change your goals. If you shared it by mistake,
+  **Reset my links** gives you new links and stops every old one working; your goals are kept.
 - Switch on **Show my profile publicly** to let anyone look you up by name on the website.
 - **Delete my uploaded data** removes your profile and goals from the server and switches
   uploads off.

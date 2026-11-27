@@ -43,7 +43,7 @@ reads your client                          keeps your profile in this browser
    optional public lookup by name. Details in [sync/README.md](sync/README.md).
 
 For a complete collection log, open it in game and click **Search** once. Kill counts are picked
-up from chat messages as you play. The full list of what the plugin reads is in
+up from chat messages as you play, and from a boss's collection log page when you open it. The full list of what the plugin reads is in
 [docs/data-sources.md](docs/data-sources.md).
 
 ## Project structure
@@ -60,6 +60,9 @@ up from chat messages as you play. The full list of what the plugin reads is in
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
 - `sync/` – the Automatic upload service (Cloudflare Worker + D1 database), with end-to-end tests.
   How it works, running it locally and deploying it: [sync/README.md](sync/README.md).
+- `tests/` – checks for the website, run with Node.js (`npm run check`, `npm test`): the
+  knowledge-base checker, suggestion snapshots, and `fixtures/game-names.json` (the game's own
+  page, item, quest and task names, no player progress).
 - `server/` – an optional, dependency-free local server (`Server.java`) for development.
 - `scripts/` – PowerShell scripts:
   - `Start-TaskMaster.ps1` – the tester launcher behind `Start TaskMaster.bat`.
@@ -96,8 +99,21 @@ described in the [tester guide](TESTER-GUIDE.md#2-start-it).
 
 The hosted site is published to GitHub Pages from `web/` by
 [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main` that touches
-`web/`. Locally, any static file server works, or use the local server below. Pages opened from
-this PC (`localhost` / `127.0.0.1`) talk to the local sync service, not the live one.
+`web/` or `tests/`. Locally, any static file server works, or use the local server below. Pages
+opened from this PC (`localhost` / `127.0.0.1`) talk to the local sync service, not the live one.
+
+### Checks and tests
+
+With [Node.js](https://nodejs.org/) installed (no packages needed):
+
+```powershell
+npm run check         # web/knowledge-base.js: misspelt names, tiers that don't exist
+npm test              # the checker's tests and the suggestion snapshots
+npm run test:update   # accept intended changes to the suggestions, then review the snapshot diff
+```
+
+The publish workflow runs the same checks first and doesn't publish if they fail.
+[How suggestions work](docs/how-suggestions-work.md#checking-an-edit) explains them.
 
 ### Running the Automatic upload service
 

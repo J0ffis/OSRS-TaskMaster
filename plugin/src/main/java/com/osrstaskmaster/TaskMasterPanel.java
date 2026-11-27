@@ -45,6 +45,8 @@ class TaskMasterPanel extends PluginPanel
 		void uploadNow();
 		void copyShareLink();
 		void deleteUploaded();
+		/** New links for this account: every old link (yours and shared ones) stops working. */
+		void resetLinks();
 		void refreshPicks();
 		/** Open the website on one suggestion. */
 		void openPick(String pickId);
@@ -79,7 +81,7 @@ class TaskMasterPanel extends PluginPanel
 		+ "Your suggestions then show up right here too.<br><br>"
 		+ "<b>For a complete profile</b><br>"
 		+ "&bull; Open the <b>collection log</b> and click <b>Search</b> once to record every obtained item.<br>"
-		+ "&bull; Kill counts are picked up from chat as you play.<br><br>"
+		+ "&bull; Kill counts are picked up from chat as you play, and from a boss's collection log page when you open it.<br><br>"
 		+ "Your bank, inventory and gear are never read. Your profile stays on this PC until you "
 		+ "paste it somewhere; the website keeps it in your browser only."
 		+ "</body></html>";
@@ -92,7 +94,7 @@ class TaskMasterPanel extends PluginPanel
 		+ "if <b>Show my profile publicly</b> is on.<br><br>"
 		+ "<b>For a complete profile</b><br>"
 		+ "&bull; Open the <b>collection log</b> and click <b>Search</b> once.<br>"
-		+ "&bull; Kill counts are picked up from chat as you play.<br><br>"
+		+ "&bull; Kill counts are picked up from chat as you play, and from a boss's collection log page when you open it.<br><br>"
 		+ "Uploads contain your levels, quests, diaries, combat achievements and collection log. "
 		+ "Your bank, inventory and gear are never read."
 		+ "</body></html>";
@@ -102,6 +104,7 @@ class TaskMasterPanel extends PluginPanel
 	private final JLabel help = new JLabel(HELP_MANUAL);
 	private final JPanel uploadButtons = new JPanel(new GridLayout(0, 1, 0, 8));
 	private final JButton deleteButton = new JButton("Delete my uploaded data");
+	private final JButton resetButton = new JButton("Reset my links");
 
 	// "Your next grinds": the website's picks.
 	private final JPanel picksSection = new JPanel();
@@ -175,9 +178,24 @@ class TaskMasterPanel extends PluginPanel
 				actions.deleteUploaded();
 			}
 		});
+		resetButton.setToolTipText("Give your profile new links. Use this if your own link (the one Open website uses) was shared by mistake");
+		resetButton.addActionListener(e ->
+		{
+			int answer = JOptionPane.showConfirmDialog(this,
+				"Give your uploaded profile new links?\n"
+					+ "Your goals and suggestions are kept, but every old link stops working:\n"
+					+ "your own link and any share links you've given out.\n"
+					+ "Use Open website and Copy share link again afterwards.",
+				"Reset my links", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+			if (answer == JOptionPane.OK_OPTION)
+			{
+				actions.resetLinks();
+			}
+		});
 		JPanel bottomButtons = new JPanel(new GridLayout(0, 1, 0, 8));
 		bottomButtons.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		bottomButtons.add(folder);
+		bottomButtons.add(resetButton);
 		bottomButtons.add(deleteButton);
 
 		for (JComponent c : new JComponent[]{top, picksSection, help, bottomButtons})
@@ -397,6 +415,7 @@ class TaskMasterPanel extends PluginPanel
 		{
 			uploadButtons.setVisible(on);
 			picksSection.setVisible(on);
+			resetButton.setVisible(on);
 			help.setText(on ? HELP_UPLOAD : HELP_MANUAL);
 			if (on)
 			{

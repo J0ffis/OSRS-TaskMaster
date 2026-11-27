@@ -17,6 +17,14 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
   It never stores the upload key, and the service doesn't log IP addresses.
 - **Public profiles** (the plugin's *Show my profile publicly*) can be looked up by name. A name
   stays with the account that holds it until that account hasn't uploaded for 30 days.
+- **Who can change what:** only a request with the edit token can change goals or picks; anyone
+  else gets 403, and the website shows such visitors a *View only* page. The owner's
+  *Copy share link* (in the plugin and on the website) only ever contains the id.
+- **Reset my links** in the plugin revokes a leaked owner link: the plugin makes a new key and
+  `POST /v1/profile/rotate` moves the profile, goals and picks to the id and edit token derived
+  from it. Every old link (the owner's and shared ones) then returns 404. Only the holder of the
+  current key can do this, and the plugin pauses uploads meanwhile so the old id can't be
+  recreated.
 - **Delete my uploaded data** in the plugin deletes the row, switches uploads off and retires
   the key, so old links stop working.
 
@@ -24,6 +32,7 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 |---|---|---|
 | `PUT /v1/profile` | plugin (`Authorization: Bearer <key>`) | upload `{ profile, public, account }` |
 | `DELETE /v1/profile` | plugin (`Authorization: Bearer <key>`) | delete everything for this key |
+| `POST /v1/profile/rotate` | plugin (`Authorization: Bearer <old key>`) | `{ newKey }`: move everything to the new key; old links stop working |
 | `GET /v1/profile/:id` | website | profile + goals |
 | `GET /v1/public/:name` | website | the same, for public profiles |
 | `PUT /v1/goals/:id` | website (`X-Edit-Token`) | replace the goals list |

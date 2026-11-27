@@ -9,6 +9,9 @@
 # The Gradle wrapper script runs on Linux/macOS (e.g. the Plugin Hub's build) and needs LF.
 gradlew text eol=lf
 
+# Saved suggestion snapshots are compared as text on every OS: keep them LF everywhere.
+*.snapshot text eol=lf
+
 # Binary files: never touch their bytes.
 *.png binary
 *.jpg binary
