@@ -106,3 +106,15 @@ test("kill-count tasks say how long the kills left take, and are never a lower t
     else if (hours > 3) assert.notEqual(c.effort, "Quick", `${c.title}: ${hours} h isn't a quick win`);
   }
 });
+
+// ---- Sections missing from a profile --------------------------------------------------------
+
+test("missing sections: none for a current profile, named for one from an older plugin", async () => {
+  const { missingSections } = await import("../web/recommender.js");
+  assert.deepEqual(missingSections(fullAccount()), []);
+  const old = clone(fullAccount());
+  delete old.slayer;
+  delete old.diaryStarted;
+  assert.deepEqual(missingSections(old).map((m) => m.key), ["slayer", "diaryStarted"]);
+  assert.deepEqual(missingSections(null), []);
+});

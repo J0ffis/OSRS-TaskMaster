@@ -1430,6 +1430,20 @@ function evaluate(snap, goals, opts) {
   return { list: list.sort((x, y) => y.score - x.score), locked };
 }
 
+// ---- Sections missing from a profile -------------------------------------------------------
+// Profiles come from different plugin versions, pasted by hand or uploaded automatically, so a
+// section the site knows about can be absent. List each section a newer plugin added here, and the
+// site says what's missing instead of leaving that part blank.
+export const PROFILE_SECTIONS = [
+  { key: "slayer", label: "Slayer task", detail: "your current Slayer task and any task in storage" },
+  { key: "diaryStarted", label: "Diaries in progress", detail: "which diaries you've started (yellow on the Diaries tab)" },
+];
+
+/** The PROFILE_SECTIONS this profile doesn't have. */
+export function missingSections(snap) {
+  return snap ? PROFILE_SECTIONS.filter((s) => snap[s.key] == null) : [];
+}
+
 /**
  * The account type from the profile ("Hardcore Group Ironman" etc.) as flags. Unknown or missing
  * types count as a normal account.
