@@ -6,7 +6,7 @@
 
 import {
   CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, setQuestReqs,
-  candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
+  candidates, lockedContent, pickThree, pickMix, pickChallenge, fastestFirst, HUNT_CATEGORIES, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
   planRoute, hoursRangeText,
@@ -65,6 +65,8 @@ const state = {
   cats: new Set(Object.keys(CATEGORIES).filter((k) => !JSON.parse(localStorage.getItem("tm.off") || "[]").includes(k))),
   // Opt-in content (minigames, Wilderness, clues): off until the player switches it on.
   content: JSON.parse(localStorage.getItem("tm.content") || "{}"),
+  // "Fastest logs first": collection log and pet cards come quickest first (for clog hunters).
+  fastest: localStorage.getItem("tm.fastest") === "1",
   seed: 0, // bumped by Shuffle; the same seed gives the same picks
   excluded: new Set(), // suggestion ids the player swapped away
   hidden: {}, // suggestions marked "Not for me": { id: { until (time, or 0 for good), title, effort } }
@@ -764,6 +766,7 @@ function currentList() {
 const visibleAll = () => listCache.all.filter((c) => !isHidden(c));
 
 function renderOptIns() {
+  renderFastest();
   $("#optins").innerHTML = Object.entries(CONTENT_TOGGLES).map(([k, label]) =>
     `<button type="button" class="toggle" data-content="${k}" aria-pressed="${!!state.content[k]}"${k === "wilderness" ? ` title="${esc(wildTip())}"` : ""}>${k === "wilderness" ? `${skullHTML()} ` : ""}${esc(label)}</button>`).join("");
   // Count across every tier, so the number doesn't jump when switching tiers.
@@ -774,6 +777,14 @@ function renderOptIns() {
   state.locked = locked;
   renderLockedList();
   renderHiddenList();
+}
+
+// "Fastest logs first": only offered while the collection log or pets are switched on.
+function renderFastest() {
+  const btn = $("#fastest");
+  const relevant = [...HUNT_CATEGORIES].some((k) => state.cats.has(k));
+  btn.closest(".optin").hidden = !relevant;
+  btn.setAttribute("aria-pressed", String(state.fastest));
 }
 
 // ---- "Hidden until unlocked": make what unlocks a row a goal, then offer to plan a route --------
@@ -868,10 +879,10 @@ function renderHiddenList() {
 function renderCards(fresh = false, keep = null) {
   const list = currentList();
   if (fresh) state.picks = isMix()
-    ? pickMix(list, { seed: state.seed, exclude: state.excluded })
-    : pickThree(list, { seed: state.seed, exclude: state.excluded });
-  else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep });
-  if (fresh) state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.excluded });
+    ? pickMix(list, { seed: state.seed, exclude: state.excluded, fastest: state.fastest })
+    : pickThree(list, { seed: state.seed, exclude: state.excluded, fastest: state.fastest });
+  else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep, fastest: state.fastest });
+  if (fresh) state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.excluded, fastest: state.fastest });
   renderChallenge();
   schedulePicks();
   const el = $("#cards");
@@ -1069,9 +1080,9 @@ function cardHTML(c, i) {
   const colour = isMix() ? `--c:var(--t-${c.effort}); --cat:var(--c-${c.category})` : `--c:var(--c-${c.category})`;
   return `
     <article class="card t-${c.effort}${spinning ? " spin" : ""}" style="${colour}; --i:${spin === "all" ? i : 0}">
-      <div class="cat"><span class="catname">${esc(CATEGORIES[c.category])}</span>${isMix()
+      <div class="cat"><span class="catname">${esc(CATEGORIES[c.category])}</span><span class="catright">${estHTML(c)}${isMix()
         ? `<span class="tierbadge t-${c.effort}" title="${TIER_METAL[c.effort]} tier">${esc(TIER_LABEL[c.effort])}</span>`
-        : `<span class="effort">${esc(c.effort)}</span>`}</div>
+        : `<span class="effort">${esc(c.effort)}</span>`}</span></div>
       ${wildBadge(c)}${titleHTML(c)}
       <p class="detail">${esc(c.detail)}</p>
       ${barHTML(c)}
@@ -1079,6 +1090,16 @@ function cardHTML(c, i) {
       <div class="actions">${actionsHTML(c, i)}</div>
     </article>`;
 }
+
+/** Under "Fastest logs first", the rough time a log or pet card takes, so the order makes sense. */
+function estHTML(c) {
+  if (!state.fastest || c.hours == null || !HUNT_CATEGORIES.has(c.category)) return "";
+  const h = c.hours;
+  // At its tier's floor (the drop rates alone say quicker): "20+ h" rather than a precise-looking number.
+  const text = c.hoursRaw < h ? `${fmtHours(h)}+ h` : h < 1 ? "under 1 h" : `~${fmtHours(h)} h`;
+  return `<span class="est" title="Rough time on average, from drop rates where known: what Fastest logs first orders by">${esc(text)}</span>`;
+}
+const fmtHours = (h) => Math.round(h).toLocaleString();
 
 function actionsHTML(c, i) {
   return `
@@ -1426,22 +1447,37 @@ function swapAt(i) {
     const old = state.picks[i];
     const shown = new Set(state.picks.map((c) => c.id));
     const tierList = currentList().filter((c) => c.effort === old.effort && !shown.has(c.id));
-    const [next] = pickThree(tierList, { seed: state.seed, exclude: state.excluded, keep: state.picks.filter((_, j) => j !== i), n: 7 })
+    const [next] = pickThree(tierList, { seed: state.seed, exclude: state.excluded, keep: state.picks.filter((_, j) => j !== i), n: 7, fastest: state.fastest })
       .filter((c) => !shown.has(c.id));
     // A hidden card must go even when nothing can replace it.
     if (next) state.picks = state.picks.map((c, j) => (j === i ? next : c));
     else if (isHidden(old)) state.picks = state.picks.filter((_, j) => j !== i);
     spin = i;
+    if (next) keepFastestOrder(next);
     renderCards();
     return;
   }
   const keep = state.picks.filter((_, j) => j !== i);
   // Put the replacement back in the same slot.
-  const next = pickThree(currentList(), { seed: state.seed, exclude: state.excluded, keep });
+  const next = pickThree(currentList(), { seed: state.seed, exclude: state.excluded, keep, fastest: state.fastest });
   const added = next.find((c) => !keep.includes(c));
   state.picks = added ? [...keep.slice(0, i), added, ...keep.slice(i)] : keep;
   spin = i;
+  if (added) keepFastestOrder(added);
   renderCards();
+}
+
+/**
+ * Under "Fastest logs first", a swapped-in log or pet card moves to its place in time order
+ * (within its tier in Mixed), and the spin follows it there.
+ */
+function keepFastestOrder(added) {
+  if (!state.fastest || !HUNT_CATEGORIES.has(added.category)) return;
+  const tiers = [...new Set(state.picks.map((c) => c.effort))];
+  state.picks = isMix()
+    ? tiers.flatMap((t) => fastestFirst(state.picks.filter((c) => c.effort === t)))
+    : fastestFirst(state.picks);
+  spin = state.picks.indexOf(added);
 }
 
 $("#cards").addEventListener("click", (e) => {
@@ -1479,8 +1515,8 @@ $("#challenge").addEventListener("click", (e) => {
     // Cycle through the challenges; when they've all been seen, start over.
     const old = state.challenge.id;
     (state.challengeSeen ??= new Set()).add(old);
-    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen });
-    if (!state.challenge) { state.challengeSeen = new Set([old]); state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.challengeSeen }); }
+    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen, fastest: state.fastest });
+    if (!state.challenge) { state.challengeSeen = new Set([old]); state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.challengeSeen, fastest: state.fastest }); }
     renderChallenge();
     $("#challenge .card")?.classList.add("spin");
     return;
@@ -1492,7 +1528,7 @@ $("#challenge").addEventListener("click", (e) => {
   if (hide) {
     hideSuggestion(state.challenge, +hide.dataset.days);
     currentList();
-    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen ?? new Set() })
+    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen ?? new Set(), fastest: state.fastest })
       ?? pickChallenge(visibleAll(), { seed: state.seed });
     renderOptIns();
     renderChallenge();
@@ -1507,6 +1543,13 @@ $("#optins").addEventListener("click", (e) => {
   if (!b || isReadOnly()) return;
   state.content[b.dataset.content] = !state.content[b.dataset.content];
   localStorage.setItem("tm.content", JSON.stringify(state.content));
+  state.excluded.clear();
+  renderControls();
+  renderCards(true);
+});
+$("#fastest").addEventListener("click", () => {
+  state.fastest = !state.fastest;
+  localStorage.setItem("tm.fastest", state.fastest ? "1" : "0");
   state.excluded.clear();
   renderControls();
   renderCards(true);

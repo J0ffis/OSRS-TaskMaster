@@ -94,6 +94,9 @@ Your normal **Start TaskMaster.bat** isn't affected: it still uses copy and past
 - Minigames, Wilderness and clue tasks are hidden until you switch them on under
   **Also include**. Wilderness tasks are marked **☠ Wilderness: PvP risk**: other players can
   attack you there, and you can lose what you carry.
+- Hunting collection log slots? Turn on **Fastest logs first** under the category chips: log and
+  pet cards then come quickest first, each with a rough time ("~12 h"), and Shuffle moves on to
+  the next quickest. Switch off the other categories to see only log cards.
 - **Load sample data** on the start page shows a made-up account. Use **View the sample as** to
   switch between six of them: a main, Ironman, Hardcore, Ultimate, Group and Hardcore Group
   Ironman, each with its own levels and progress. A link like `.../#sample=hcim` opens a

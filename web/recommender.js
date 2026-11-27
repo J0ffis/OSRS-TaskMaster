@@ -21,7 +21,7 @@ import {
   PAGE_EFFORT, MONSTER_EFFORT, PROTECTED_ITEMS, CLUE_PAGE_BASE, KC_REWARDS,
   WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS, SLAYER_BOSSES,
   SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
-  MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
+  MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, EFFORT_FALLBACK_HOURS, SOURCE_RULES, ITEM_EFFORT,
   QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES, XP_RATES,
 } from "./knowledge-base.js";
 
@@ -698,6 +698,30 @@ function itemEffort(item, page, tab, pageRatio) {
   return (CLOG_EASE[page] ?? 0) >= 6 ? "Quick" : "Medium";
 }
 
+/**
+ * Rough hours to get one collection log item, for ordering cards under "Fastest logs first": the
+ * wiki drop rate when there is one, otherwise a typical time for its tier (EFFORT_FALLBACK_HOURS).
+ * Where a hand rule sets the effort because the raw rate understates the grind (superior drops,
+ * raids, team content, duplicate protection), the estimate is at least that tier's lower limit.
+ */
+function itemHours(item, page, tab, effort) {
+  const chance = tab === "Clues" || tab === "Minigames" ? null : dropChance(item.name, page);
+  const forced = ITEM_EFFORT_LC[String(item.name).toLowerCase()] || PAGE_EFFORT[page] || tab === "Raids"
+    || PROTECTED_ITEMS.some((re) => re.test(item.name));
+  const tier = effort === CHALLENGE ? "Long" : effort;
+  if (!chance) return EFFORT_FALLBACK_HOURS[tier] ?? EFFORT_FALLBACK_HOURS.Medium;
+  const h = expectedHours(chance, page, tab);
+  return forced ? Math.max(h, tierFloor(effort)) : h;
+}
+/** The fewest hours a suggestion in effort tier `effort` can take (EFFORT_HOURS). */
+const tierFloor = (effort) => ({ Medium: EFFORT_HOURS.Quick, Long: EFFORT_HOURS.Medium, [CHALLENGE]: EFFORT_HOURS.Medium }[effort] ?? 0);
+/**
+ * `{ hours, hoursRaw }` for a card: the estimate shown is never below its tier's floor (a log
+ * that's a Long haul because it has many slots shouldn't read "under 1 h"); the raw estimate
+ * still orders cards that share the floor.
+ */
+const timeFields = (h, effort) => ({ hours: Math.max(h, tierFloor(effort)), hoursRaw: h });
+
 function clogCandidates(snap) {
   const out = [];
   const log = snap.collectionLog ?? {};
@@ -731,6 +755,7 @@ function clogCandidates(snap) {
     const longMissing = missing.filter((i) => effortOf(i) === "Long").length;
     const pageEffort = usual === "Long" && longMissing > CHALLENGE_MIN_MISSING ? CHALLENGE : usual;
     const rares = missing.filter((i) => rarity(i.name));
+    const hoursOf = (i) => itemHours(i, name, p.tab, effortOf(i));
     out.push({
       id: `clogpage:${name}`,
       category: "clog",
@@ -743,6 +768,8 @@ function clogCandidates(snap) {
       ].filter(Boolean),
       progress: ratio, counter: `${shownGot}/${p.items.length}`,
       effort: pageEffort,
+      // Every missing slot, one after another (a rough upper bound: drops overlap in practice).
+      ...timeFields(missing.reduce((n, i) => n + hoursOf(i), 0), pageEffort),
       group: name,
       base: 22 + ratio * 30 + ease + (missing.length <= 2 ? 10 : 0) - rares.length * 3,
       meta: { page: name },
@@ -764,6 +791,7 @@ function clogCandidates(snap) {
         why: [ease >= 6 ? `${name} is one of the quicker logs to fill` : "Any one of these counts", progressLine],
         progress: ratio, counter: `${shownGot}/${p.items.length}`,
         effort,
+        ...timeFields(Math.min(...fam.items.map(hoursOf)), effort), // any one of them counts
         group: name,
         base: 24 + ratio * 15 + ease + Math.min(10, fam.items.length),
         meta: { page: name, family: fam.key, familyTitle: fam.title, items: fam.items.map((i) => i.name) },
@@ -797,6 +825,8 @@ function clogCandidates(snap) {
         why,
         progress: ratio, counter: `${shownGot}/${p.items.length}`,
         effort: kc && rank > 0 ? "Long" : effortOf(item),
+        // Later kill-count ranks need that many more completions again.
+        ...timeFields(kc ? EFFORT_FALLBACK_HOURS[rank ? "Long" : effortOf(item)] * (1 + rank) : hoursOf(item), kc && rank > 0 ? "Long" : effortOf(item)),
         group: name,
         base: 20 + ratio * 20 + ease - (band ? RARITY_COST[band] : 0) - rank * 3,
         meta: { page: name, item: item.name },
@@ -837,6 +867,7 @@ function petCandidates(snap) {
       why,
       progress: null,
       effort: "Long",
+      ...timeFields(itemHours(pet, pet.source ?? "", page?.tab, "Long"), "Long"),
       base: 14 + otherRatio * 18 + (kills != null ? 4 : 0),
       meta: { pet: pet.name, page: pet.source },
     });
@@ -1600,17 +1631,39 @@ function applyAccountType(list, snap) {
   }
 }
 
+// ---- Fastest logs first ---------------------------------------------------------------------
+// For collection log hunters: log and pet cards come in order of their rough time estimate
+// (`hours`), quickest first, instead of by score. Other categories keep their usual order.
+
+/** The categories "Fastest logs first" reorders: the collection log and its pets. */
+export const HUNT_CATEGORIES = new Set(["clog", "pets"]);
+const isHunt = (c) => HUNT_CATEGORIES.has(c.category) && c.hours != null;
+const byHours = (x, y) => x.hours - y.hours || (x.hoursRaw ?? x.hours) - (y.hoursRaw ?? y.hours) || y.score - x.score;
+
+/**
+ * `list` with its collection log and pet suggestions put in time order, quickest first. They keep
+ * the places they had, so other categories still sit where their score puts them.
+ */
+export function fastestFirst(list) {
+  const hunt = list.filter(isHunt).sort(byHours);
+  let k = 0;
+  return list.map((c) => (isHunt(c) ? hunt[k++] : c));
+}
+
 /**
  * Pick `n` suggestions from different categories. `seed` adds a small, repeatable shuffle so
  * "Shuffle" gives fresh but still sensible picks. `exclude` removes ids the user skipped.
+ * `fastest` serves collection log and pet suggestions quickest first (see fastestFirst); Shuffle
+ * then moves on to the next quickest, since the cards already shown are excluded.
  */
-export function pickThree(list, { seed = 0, exclude = new Set(), keep = [], n = 3 } = {}) {
+export function pickThree(list, { seed = 0, exclude = new Set(), keep = [], n = 3, fastest = false } = {}) {
   const rand = mulberry32(seed);
-  const jittered = list
+  let jittered = list
     .filter((c) => !exclude.has(c.id))
     .map((c) => ({ c, s: c.score + (seed ? rand() * 30 : 0) }))
     .sort((x, y) => y.s - x.s)
     .map((x) => x.c);
+  if (fastest) jittered = fastestFirst(jittered);
   const picked = [...keep];
   const has = (c) => picked.some((p) => p.id === c.id);
   const groupOf = (c) => `${c.category}:${c.group ?? c.id}`;
@@ -1628,11 +1681,11 @@ export function pickThree(list, { seed = 0, exclude = new Set(), keep = [], n = 
   }
   // Still short (everything left was skipped or shuffled past): reuse skipped suggestions rather
   // than show fewer cards than the filters allow.
-  for (const c of list) {
+  for (const c of fastest ? fastestFirst(list) : list) {
     if (picked.length >= n) break;
     if (!has(c)) picked.push(c);
   }
-  return picked;
+  return fastest ? fastestFirst(picked) : picked;
 }
 
 /** How the 7-card Mixed carousel is split across the three tiers. */
@@ -1643,23 +1696,26 @@ const MIX_QUOTA = { Quick: 2, Medium: 3, Long: 2 };
  * variety rules, and categories already picked in earlier tiers are avoided where possible. If a
  * tier runs short, the other tiers fill the gap so the carousel stays full.
  */
-export function pickMix(list, { seed = 0, exclude = new Set(), quota = MIX_QUOTA } = {}) {
+export function pickMix(list, { seed = 0, exclude = new Set(), quota = MIX_QUOTA, fastest = false } = {}) {
   const total = Object.values(quota).reduce((a, b) => a + b, 0);
   const tiers = Object.keys(quota);
   let picked = [];
   tiers.forEach((tier, k) => {
     const sub = list.filter((c) => c.effort === tier);
-    const next = pickThree(sub, { seed: seed ? seed + k * 101 : 0, exclude, keep: picked, n: picked.length + quota[tier] });
+    const next = pickThree(sub, { seed: seed ? seed + k * 101 : 0, exclude, keep: picked, n: picked.length + quota[tier], fastest });
     picked = next;
   });
   // Top up from any tier if one ran short.
-  if (picked.length < total) picked = pickThree(list.filter((c) => c.effort !== CHALLENGE), { seed, exclude, keep: picked, n: total });
-  return tiers.flatMap((t) => picked.filter((c) => c.effort === t));
+  if (picked.length < total) picked = pickThree(list.filter((c) => c.effort !== CHALLENGE), { seed, exclude, keep: picked, n: total, fastest });
+  return tiers.flatMap((t) => {
+    const inTier = picked.filter((c) => c.effort === t);
+    return fastest ? fastestFirst(inTier) : inTier;
+  });
 }
 
 /** One Challenge suggestion (a huge log completion), shown apart from the regular picks. */
-export function pickChallenge(list, { seed = 0, exclude = new Set() } = {}) {
-  return pickThree(list.filter((c) => c.effort === CHALLENGE), { seed, exclude, n: 1 })[0] ?? null;
+export function pickChallenge(list, { seed = 0, exclude = new Set(), fastest = false } = {}) {
+  return pickThree(list.filter((c) => c.effort === CHALLENGE), { seed, exclude, n: 1, fastest })[0] ?? null;
 }
 
 /**
