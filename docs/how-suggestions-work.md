@@ -22,7 +22,10 @@ Nothing is fetched from the internet.
    Each suggestion gets a **base score** (higher is better) and an **effort tier**.
 2. **Filter.** Minigames, Wilderness and clue content are removed unless you switch them on
    under *Also include*. Content you can't access yet (for example Vorkath before Dragon Slayer II,
-   listed in `CONTENT_REQS`) is hidden and counted under *hidden until unlocked*.
+   listed in `CONTENT_REQS`) is hidden and counted under *hidden until unlocked*. That list's
+   **Make it a goal** adds what unlocks a row: the quest itself for a locked quest, otherwise a
+   goal per missing quest or skill level (noted as "Unlocks Vorkath"). Closing the list after
+   adding goals asks whether to plan a route to them.
 3. **Score.** A suggestion that moves one of your goals forward gets +25 for each goal, and the
    card says which goal.
 4. **Pick.** The list is sorted by score. `pickThree` takes the top cards but prefers different

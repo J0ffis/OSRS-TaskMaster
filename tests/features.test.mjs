@@ -247,3 +247,19 @@ test("planner: finished goals and met requirements are left out", async () => {
   const cooking = two.steps.filter((s) => s.kind === "skill").map((s) => s.title);
   assert.deepEqual(cooking, ["Train Cooking to 90", "Train Cooking to 95"]);
 });
+
+test("hidden until unlocked: each row says which goals unlock it, and the planner can route to them", async () => {
+  const { lockedContent, planRoute, goalTitle } = await import("../web/recommender.js");
+  const snap = sampleAccount();
+  const locked = lockedContent(snap, { content: { minigames: true, wilderness: true, clues: true } });
+  assert.ok(locked.length, "the sample account has locked content");
+  for (const l of locked) {
+    assert.ok(l.goals.length, `${l.content} has goals`);
+    for (const g of l.goals) assert.match(g.type, /^(quest|skill)$/, `${l.content}: ${g.type}`);
+    // A locked quest is its own goal; everything else gets one goal per need.
+    if (!l.goals.some((g) => g.quest === l.content)) assert.deepEqual(l.goals.map(goalTitle), l.needs, l.content);
+    const plan = planRoute(snap, l.goals.map((g, i) => ({ id: `t${i}`, ...g })));
+    assert.ok(plan.steps.length, `${l.content}: the route has steps`);
+    assert.deepEqual(plan.done, [], `${l.content}: none of its goals are done yet`);
+  }
+});
