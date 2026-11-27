@@ -79,6 +79,10 @@ npm run dev        # http://127.0.0.1:8789
 npm test           # in a second terminal: end-to-end tests against the running service
 ```
 
+`package.json` approves the setup scripts of `esbuild` and `workerd` (wrangler's bundler and
+local runtime) at their exact versions (`allowScripts`, newer npm). After updating wrangler,
+npm lists any new versions; approve them with `npm install-scripts approve esbuild workerd`.
+
 Pages opened from this PC (`127.0.0.1`/`localhost`) use the local service automatically
 (`web/config.js`). To test the plugin against it, set the plugin's **Upload server** setting to
 `http://127.0.0.1:8789`.

@@ -64,7 +64,10 @@ $wrangler = Join-Path $Sync "node_modules\wrangler\bin\wrangler.js"
 if (-not (Test-Path $wrangler)) {
 	Write-Info "First run: installing the upload service's tools (Cloudflare's wrangler, from npm)."
 	Push-Location $Sync
-	try { & $npm ci --no-audit --no-fund } finally { Pop-Location }
+	# Errors only: npm's notices here (a deprecated sub-dependency of wrangler, install-script
+	# approvals) aren't actionable. esbuild and workerd's setup scripts are approved, pinned to
+	# their exact versions, in sync\package.json ("allowScripts").
+	try { & $npm ci --no-audit --no-fund --loglevel=error } finally { Pop-Location }
 	if (-not (Test-Path $wrangler)) { Stop-Launcher "Installing the upload service's tools failed. Scroll up for details." }
 }
 Write-Ok "Upload service tools are ready."
