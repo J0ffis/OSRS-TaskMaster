@@ -67,6 +67,7 @@ const state = {
   content: JSON.parse(localStorage.getItem("tm.content") || "{}"),
   // "Fastest logs first": collection log and pet cards come quickest first (for clog hunters).
   fastest: localStorage.getItem("tm.fastest") === "1",
+  caGoalsOpen: localStorage.getItem("tm.caGoalsOpen") === "1", // combat achievement goals block open (closed by default)
   seed: 0, // bumped by Shuffle; the same seed gives the same picks
   excluded: new Set(), // suggestion ids the player swapped away
   hidden: {}, // suggestions marked "Not for me": { id: { until (time, or 0 for good), title, effort } }
@@ -1267,6 +1268,7 @@ function addGoalFrom(c) {
 }
 
 // Which category's icon a goal gets when it has no item, skill or tier of its own.
+const CA_GOAL_TYPES = new Set(["ca", "catask", "cabundle", "caboss"]);
 const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask: "combat", cabundle: "combat", caboss: "combat", clog: "clog", pet: "pets", item: "clog", family: "clog" };
 
 function renderGoals() {
@@ -1282,8 +1284,7 @@ function renderGoals() {
     el.innerHTML = `<li class="muted small">${ro ? "No goals set." : `No goals yet. Add one below, or press "Make it a goal" on a suggestion.`}</li>`;
     return;
   }
-  el.innerHTML = state.goals.map((g) => {
-    const p = goalProgress(g, state.snap);
+  const item = (g, p) => {
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
       <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}${ro ? " disabled" : ""}> ` : cardIcon({ goal: g, category: GOAL_CATEGORY[g.type] })}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
@@ -1291,7 +1292,25 @@ function renderGoals() {
       ${!p.done && goalHint(g) ? `<span class="gd">${esc(goalHint(g))}</span>` : ""}
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
     </li>`;
-  }).join("");
+  };
+  const rows = state.goals.map((g) => ({ g, p: goalProgress(g, state.snap) }));
+  // Combat achievement goals ("Pick bosses" adds one per boss) fold into one block that opens
+  // and closes, so they don't push every other goal off the screen. Two or more only.
+  const ca = rows.filter((r) => CA_GOAL_TYPES.has(r.g.type));
+  if (ca.length < 2) { el.innerHTML = rows.map((r) => item(r.g, r.p)).join(""); return; }
+  const done = ca.filter((r) => r.p.done).length;
+  const avg = ca.reduce((s, r) => s + r.p.progress, 0) / ca.length;
+  const tier = ca.find((r) => r.g.type === "ca")?.g.tier;
+  const group = `<li class="goalgroup"><details data-goalgroup="ca"${state.caGoalsOpen ? " open" : ""}>
+      <summary class="goal">
+        <span class="t">${cardIcon({ goal: { type: "ca", tier }, category: "combat" })}Combat achievements</span>
+        <span class="l">${ca.length} goals${done ? ` · ${done} done` : ""} <span class="chev" aria-hidden="true">▾</span></span>
+        <div class="bar" style="--c:${done === ca.length ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(avg * 100)}%"></i></div>
+      </summary>
+      <ul class="goals sub">${ca.map((r) => item(r.g, r.p)).join("")}</ul>
+    </details></li>`;
+  const first = rows.indexOf(ca[0]);
+  el.innerHTML = rows.map((r, i) => (i === first ? group : CA_GOAL_TYPES.has(r.g.type) ? "" : item(r.g, r.p))).join("");
 }
 
 /**
@@ -2108,6 +2127,12 @@ $("#goals").addEventListener("click", (e) => {
     saveGoals(); renderGoals(); renderCards(true);
   }
 });
+// Remember whether the combat achievement goals are open ("toggle" doesn't bubble: capture it).
+$("#goals").addEventListener("toggle", (e) => {
+  if (!e.target.matches?.("details[data-goalgroup=ca]")) return;
+  state.caGoalsOpen = e.target.open;
+  localStorage.setItem("tm.caGoalsOpen", state.caGoalsOpen ? "1" : "0");
+}, true);
 $("#goals").addEventListener("change", (e) => {
   const c = e.target.closest("[data-check]");
   if (!c || isReadOnly()) return;
