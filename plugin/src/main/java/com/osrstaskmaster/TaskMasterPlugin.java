@@ -365,13 +365,21 @@ public class TaskMasterPlugin extends Plugin
 			collectTexts(client.getWidget(id), texts, 3);
 		}
 		List<Map.Entry<String, Integer>> found = ClogKillCounts.parseAll(texts, title);
+		List<Map.Entry<String, Integer>> changed = new ArrayList<>();
 		for (Map.Entry<String, Integer> kc : found)
 		{
-			ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue());
+			if (ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue()))
+			{
+				changed.add(kc);
+			}
 		}
-		// One line per page in RuneLite's log (client.log), so a page that yields nothing can be
-		// diagnosed from what its header actually held.
-		if (found.isEmpty())
+		// The game draws a page several times: log only counts that changed. A page with none at all
+		// (most non-boss pages) logs its header texts at debug level, for diagnosing new layouts.
+		if (!changed.isEmpty())
+		{
+			log.info("OSRS TaskMaster: kill counts from the '{}' collection log page: {}", title, changed);
+		}
+		else if (found.isEmpty() && log.isDebugEnabled())
 		{
 			List<String> shown = new ArrayList<>();
 			for (String t : texts)
@@ -381,11 +389,7 @@ public class TaskMasterPlugin extends Plugin
 					shown.add(Text.removeTags(t).replace(' ', ' ').trim());
 				}
 			}
-			log.info("OSRS TaskMaster: collection log page '{}': no kill counts found in its header {}", title, shown);
-		}
-		else
-		{
-			log.info("OSRS TaskMaster: collection log page '{}': kill counts {}", title, found);
+			log.debug("OSRS TaskMaster: no kill counts in the '{}' collection log header {}", title, shown);
 		}
 		return found.size();
 	}
