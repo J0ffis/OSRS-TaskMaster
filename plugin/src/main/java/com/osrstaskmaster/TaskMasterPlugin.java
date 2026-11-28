@@ -70,8 +70,8 @@ import okhttp3.Response;
  * <p>Builds a snapshot of the player's progress ({@link SnapshotCollector}), adds what can only be
  * seen at certain moments (collection log items, kill counts from chat; kept in
  * {@link ProgressStore}), and hands it to the player: copied to the clipboard, saved to
- * {@code .runelite/osrs-taskmaster/<name>.json} and, only if the player switches it on, sent to
- * their own local server. Never reads the bank, inventory or equipment.
+ * {@code .runelite/osrs-taskmaster/<name>.json} and, only if the player switches on Automatic
+ * upload, sent to the upload service (sync/). Never reads the bank, inventory or equipment.
  */
 @Slf4j
 @PluginDescriptor(
@@ -1123,28 +1123,46 @@ public class TaskMasterPlugin extends Plugin
 			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
 			return;
 		}
+		// An upload still on its way could arrive after the delete and recreate the profile under a
+		// key this plugin is about to forget (so it could never be deleted from here). Wait for it,
+		// and hold new uploads back until the delete is done.
+		if (inFlight)
+		{
+			panel.setStatus("An upload is in progress. Try Delete uploaded data again in a moment.", false);
+			return;
+		}
+		inFlight = true;
 		httpClient.newCall(request).enqueue(new Callback()
 		{
 			@Override
 			public void onFailure(Call call, IOException ex)
 			{
+				inFlight = false;
 				panel.setStatus("Couldn't reach the upload server, so nothing was deleted. Try again later.", false);
 			}
 
 			@Override
 			public void onResponse(Call call, Response response)
 			{
-				response.close();
-				if (!response.isSuccessful())
+				try
 				{
-					panel.setStatus("The server couldn't delete your data (error " + response.code() + "). Try again later.", false);
-					return;
+					response.close();
+					if (!response.isSuccessful())
+					{
+						panel.setStatus("The server couldn't delete your data (error " + response.code() + "). Try again later.", false);
+						return;
+					}
+					// A new key next time means old links stop working, even if uploads are switched back on.
+					launchUpload = false;
+					configManager.setConfiguration(TaskMasterConfig.GROUP, "autoUpload", false);
+					configManager.unsetRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD);
+					panel.setStatus("Your uploaded profile and goals were deleted, and Automatic upload is off.", true);
 				}
-				// A new key next time means old links stop working, even if uploads are switched back on.
-				launchUpload = false;
-				configManager.setConfiguration(TaskMasterConfig.GROUP, "autoUpload", false);
-				configManager.unsetRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD);
-				panel.setStatus("Your uploaded profile and goals were deleted, and Automatic upload is off.", true);
+				finally
+				{
+					// Only now: uploads are off and the key is gone, so none can recreate the profile.
+					inFlight = false;
+				}
 			}
 		});
 	}

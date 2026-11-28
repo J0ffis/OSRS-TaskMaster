@@ -166,7 +166,7 @@ async function load(name, opts = {}) {
       state.snap = r.profile; state.goals = r.goals;
       // A share link (no edit token) opened in the owner's own browser still opens as the owner,
       // since this browser has their edit token; the page says so and offers the visitor view.
-      source = { kind: "sync", id: link.id, edit: link.edit ?? null, public: r.public, ownerViaShare: !!(opts.id && !opts.edit && link.edit) };
+      source = { kind: "sync", id: link.id, edit: link.edit ?? null, public: r.public, ownerViaShare: opts.ownerViaShare ?? !!(opts.id && !opts.edit && link.edit) };
     } else if (!serverMode && local.get(name)) {
       state.snap = local.get(name);
       state.goals = local.goals(name);
@@ -220,7 +220,7 @@ async function load(name, opts = {}) {
   if (source.kind === "sync" && !source.edit) state.route = state.sharedView?.route ?? null;
   state.name = name;
   state.source = source;
-  state.viewAsVisitor = false;
+  state.viewAsVisitor = !!(opts.viewAsVisitor && source.edit);
   state.loadedAt = Date.now();
   state.seed = 0;
   state.excluded.clear();
@@ -355,7 +355,10 @@ function flash(card) {
 /** Uploaded profiles: fetch the latest when the player comes back to the tab. */
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.source?.kind === "sync" && Date.now() - (state.loadedAt ?? 0) > 60_000) {
-    load(state.name, { id: state.source.id });
+    // Same link as before: keep the edit token, how the page was opened, and the owner's preview of
+    // the visitor view (otherwise the owner's page would claim it came from a share link).
+    const { id, edit, ownerViaShare } = state.source;
+    load(state.name, { id, edit, ownerViaShare, viewAsVisitor: state.viewAsVisitor });
   }
 });
 

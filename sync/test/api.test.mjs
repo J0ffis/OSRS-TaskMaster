@@ -290,6 +290,8 @@ test("unknown ids and paths are 404", async () => {
   assert.equal((await api("GET", "/v1/profile/AAAAAAAAAAAAAAAAAAAAAA")).status, 404);
   assert.equal((await api("GET", "/v1/profile/../../etc")).status, 404);
   assert.equal((await api("GET", "/nope")).status, 404);
+  // A broken %-escape in a public name is "no such profile", not a server error.
+  assert.equal((await api("GET", "/v1/public/%E0%A4%A")).status, 404);
 });
 
 test("CORS: only the listed websites get access", async () => {

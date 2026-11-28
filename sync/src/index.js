@@ -74,7 +74,7 @@ async function route(request, env) {
   if (path === "/v1/profile/rotate" && m === "POST") return rotate(request, env);
   let p;
   if ((p = path.match(/^\/v1\/profile\/([^/]+)$/)) && m === "GET") return readById(env, p[1]);
-  if ((p = path.match(/^\/v1\/public\/([^/]+)$/)) && m === "GET") return readPublic(env, decodeURIComponent(p[1]));
+  if ((p = path.match(/^\/v1\/public\/([^/]+)$/)) && m === "GET") return readPublic(env, decodeName(p[1]));
   if ((p = path.match(/^\/v1\/goals\/([^/]+)$/)) && m === "PUT") return saveGoals(request, env, p[1]);
   if ((p = path.match(/^\/v1\/goals\/([^/]+)$/)) && m === "POST") return addGoal(request, env, p[1]);
   if ((p = path.match(/^\/v1\/picks\/([^/]+)$/)) && m === "PUT") return savePicks(request, env, p[1]);
@@ -392,6 +392,11 @@ export async function deriveIds(key) {
 }
 
 const normName = (n) => n.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+
+/** A name from the address; a broken %-escape ("%E0%A4%A") is no name at all (404, not a 500). */
+function decodeName(s) {
+  try { return decodeURIComponent(s); } catch { return ""; }
+}
 
 async function sha256Bytes(text) {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
