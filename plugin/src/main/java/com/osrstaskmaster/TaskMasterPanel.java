@@ -58,8 +58,10 @@ class TaskMasterPanel extends PluginPanel
 	}
 
 	// Tier and category colours match the website (styles.css).
-	private static final String[] TIER_LABELS = {"Quick wins", "Balanced", "Long haul", "Challenges"};
-	private static final Color[] TIER_COLORS = {new Color(0xC4884F), new Color(0x7D86D4), new Color(0x8E2440), new Color(0xD9DDE3)};
+	// The last, "Collection log" (Picks.CLOG), is only offered while the website sends it.
+	private static final String[] TIER_LABELS = {"Quick wins", "Balanced", "Long haul", "Challenges", "Collection log"};
+	private static final Color[] TIER_COLORS = {new Color(0xC4884F), new Color(0x7D86D4), new Color(0x8E2440), new Color(0xD9DDE3),
+		new Color(0xB48CE0)};
 	private static final Map<String, Color> CATEGORY_COLORS = new HashMap<>();
 	private static final Map<String, String> CATEGORY_LABELS = new HashMap<>();
 
@@ -118,7 +120,7 @@ class TaskMasterPanel extends PluginPanel
 
 	// "Your next grinds": the website's picks.
 	private final JPanel picksSection = new JPanel();
-	private final JComboBox<String> tierBox = new JComboBox<>(TIER_LABELS);
+	private final JComboBox<String> tierBox = new JComboBox<>(java.util.Arrays.copyOf(TIER_LABELS, Picks.CLOG));
 	private final JPanel picksList = new JPanel();
 	private final JLabel picksNote = new JLabel();
 	private Picks picks;
@@ -341,6 +343,22 @@ class TaskMasterPanel extends PluginPanel
 			}
 			this.picks = picks;
 			this.picksAt = picksAt;
+			// "Collection log" while the website sends that list ("Fastest logs first" on there);
+			// picked when it goes away, the panel falls back to Quick wins.
+			boolean clog = picks != null && !picks.tier(Picks.TIERS[Picks.CLOG]).isEmpty();
+			boolean shown = tierBox.getItemCount() > Picks.CLOG;
+			if (clog && !shown)
+			{
+				tierBox.addItem(TIER_LABELS[Picks.CLOG]);
+			}
+			else if (!clog && shown)
+			{
+				if (tierBox.getSelectedIndex() == Picks.CLOG)
+				{
+					tierBox.setSelectedIndex(0);
+				}
+				tierBox.removeItemAt(Picks.CLOG);
+			}
 			renderPicks();
 		});
 	}

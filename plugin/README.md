@@ -54,7 +54,8 @@ browser, with your goals.
   the website gives you a fresh one.
   With **Fastest logs first** switched on on the website, collection log and pet rows come
   quickest first and show a rough time ("Collection log · ~12 h"); Refresh steps on to the next
-  quickest.
+  quickest. The list also gets a **Collection log** choice: log and pet rows only, from every
+  tier, quickest first. It goes away when you switch Fastest logs first off.
 - **Your route** appears above it once you pin a route with the website's route planner: the
   next 4 steps in order (the first marked **Next**), how many are done, and what each step is for.
   Steps you finish in game (a level reached, a quest done) drop off at once; click a step to open

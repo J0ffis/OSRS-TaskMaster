@@ -48,7 +48,8 @@ shown below its tier's lower limit in `EFFORT_HOURS` ("20+ h" on a Long haul): t
 ordered by the raw drop-rate time.
 
 With Automatic upload, the setting travels with your picks: the RuneLite panel lists log and pet
-rows in the same order with their estimate (each pick's `est`), and visitors of a share link or
+rows in the same order with their estimate (each pick's `est`), plus a **Collection log** list
+(the `Clog` tier: log and pet rows from every tier, quickest first, up to 15), and visitors of a share link or
 public profile see your view with it on or off (`view.fastest`).
 
 ## Account types

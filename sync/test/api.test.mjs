@@ -145,6 +145,20 @@ test("picks: the old 'Bonus' tier name is read as Challenge", async () => {
   assert.equal(t.Bonus, undefined);
 });
 
+test("picks: the Collection log list keeps each pick's own tier", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  const clog = [{ ...pick("quick-log"), effort: "Quick" }, { ...pick("long-pet"), effort: "Long" }, { ...pick("odd"), effort: "Nonsense" }];
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [pick("a")], Clog: clog } }, headers: { "X-Edit-Token": edit } });
+  const t = (await api("GET", `/v1/picks/${id}`)).data.picks.tiers;
+  assert.deepEqual(t.Clog.map((p) => p.id), ["quick-log", "long-pet", "odd"]);
+  assert.deepEqual(t.Clog.map((p) => p.effort), ["Quick", "Long", "Clog"]);
+  assert.equal(t.Quick[0].effort, "Quick");
+  // Without it (Fastest logs first off) the list is empty, and the panel hides the option.
+  await api("PUT", `/v1/picks/${id}`, { body: { tiers: { Quick: [pick("a")] } }, headers: { "X-Edit-Token": edit } });
+  assert.deepEqual((await api("GET", `/v1/picks/${id}`)).data.picks.tiers.Clog, []);
+});
+
 test("picks: the owner's view is saved for visitors, cleaned", async () => {
   const key = newKey(), { id, edit } = await ids(key);
   await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });

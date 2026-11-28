@@ -22,7 +22,9 @@
 //                                                               the pinned route and the owner's
 //                                                               view (for visitors)
 //   GET    /v1/picks/:id                                        those suggestions (the RuneLite panel)
-//                                                               tiers: Quick, Medium, Long, Challenge
+//                                                               tiers: Quick, Medium, Long, Challenge,
+//                                                               and Clog (log and pet rows, quickest
+//                                                               first) under "Fastest logs first"
 //
 // Suggestions are worked out by the website (web/recommender.js), not here: the engine needs more
 // CPU than the free Workers plan allows per request. The owner's browser saves its picks, and
@@ -30,10 +32,11 @@
 
 const MAX_PROFILE_BYTES = 1_500_000;
 const MAX_GOALS_BYTES = 64_000;
-const MAX_PICKS_BYTES = 128_000; // 50 picks, each with the goal it would make, plus a route
+const MAX_PICKS_BYTES = 160_000; // 65 picks, each with the goal it would make, plus a route
 const MAX_ROUTE_STEPS = 30;
 const MAX_GOALS = 200;
-const PICK_TIERS = ["Quick", "Medium", "Long", "Challenge"];
+// Clog: collection log and pet picks only, quickest first, sent while "Fastest logs first" is on.
+const PICK_TIERS = ["Quick", "Medium", "Long", "Challenge", "Clog"];
 // The Challenge tier used to be called "Bonus"; picks saved or sent under the old name still count.
 const withChallenge = (tiers) => (tiers && tiers.Bonus && !tiers.Challenge ? { ...tiers, Challenge: tiers.Bonus } : tiers);
 const MIN_UPLOAD_GAP_MS = 30_000;            // uploads closer together than this are skipped
@@ -323,7 +326,8 @@ function cleanPick(p, tier) {
     title: cleanText(p.title, 160),
     detail: cleanText(p.detail, 240),
     category: cleanText(p.category, 20),
-    effort: tier,
+    // A Clog pick keeps its own tier (Quick, Medium, ...); every other list is one tier.
+    effort: tier === "Clog" && PICK_TIERS.includes(p.effort) ? p.effort : tier,
     progress: typeof p.progress === "number" && p.progress >= 0 && p.progress <= 1 ? Math.round(p.progress * 1000) / 1000 : null,
     wilderness: p.wilderness === true,
     icon,

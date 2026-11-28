@@ -296,6 +296,12 @@ async function publishPicks() {
     // "Fastest logs first" orders the panel's log and pet rows the same way as the cards here.
     tiers[tier] = pickThree(visibleAll().filter((c) => c.effort === tier), { seed: 0, n, fastest: state.fastest }).map(toPick);
   }
+  // Under "Fastest logs first", the panel also gets a Collection log list: log and pet rows from
+  // every tier, quickest first.
+  if (state.fastest) {
+    const hunt = visibleAll().filter((c) => HUNT_CATEGORIES.has(c.category) && c.hours != null);
+    tiers.Clog = fastestFirst(pickThree(hunt, { seed: 0, n: 15, fastest: true })).map((c) => ({ ...toPick(c), effort: c.effort }));
+  }
   const off = Object.keys(CATEGORIES).filter((k) => !state.cats.has(k));
   const on = Object.entries(state.content).filter(([, v]) => v).map(([k]) => k);
   const filters = [off.length ? `hiding ${off.join(", ")}` : "", on.length ? `including ${on.join(", ")}` : "",
@@ -1266,6 +1272,7 @@ function renderGoals() {
   $("#goalform").hidden = ro;
   // The planner only reads goals (so view-only pages can use it too).
   $("#planbtn").hidden = !openGoals().length;
+  $("#cleargoals").hidden = ro || !state.goals.length;
   if ($("#plandlg").open) renderPlan();
   renderRoute();
   if (!state.goals.length) {
@@ -2100,6 +2107,26 @@ $("#showcasedlg").addEventListener("click", (e) => {
   if (pick) setShowcase(state.showcaseTab, pick.dataset.showcasePick);
 });
 $("#showcasefilter").addEventListener("input", renderShowcasePicker);
+
+// Clear all goals, after a confirmation saying what goes with them and where it's kept.
+$("#cleargoals").addEventListener("click", () => {
+  if (isReadOnly() || !state.goals.length) return;
+  const n = state.goals.length;
+  const where = state.name === SAMPLE ? "from this sample in this browser"
+    : state.source?.kind === "sync" ? "from your uploaded profile, on every browser and in the RuneLite panel"
+    : "from this browser";
+  $("#clearbody").textContent = `This removes all ${n} goal${n === 1 ? "" : "s"} ${where}${state.route ? ", and unpins your route" : ""}. It can't be undone.`;
+  $("#cleardlg").showModal();
+});
+$("#cleardlg").addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
+  if (!e.target.closest("#clearconfirm")) return;
+  e.currentTarget.close();
+  if (isReadOnly()) return;
+  state.goals = [];
+  if (state.route) saveRoute(null);
+  saveGoals(); renderGoals(); renderCards(true);
+});
 
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab]");

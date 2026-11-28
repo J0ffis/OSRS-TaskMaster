@@ -11,8 +11,12 @@ import java.util.Map;
  */
 class Picks
 {
-	/** Tier names used by the website and service, in display order. */
-	static final String[] TIERS = {"Quick", "Medium", "Long", "Challenge"};
+	/**
+	 * Tier names used by the website and service, in display order. "Clog" is collection log and pet
+	 * rows only, quickest first; the website sends it only while "Fastest logs first" is on.
+	 */
+	static final String[] TIERS = {"Quick", "Medium", "Long", "Challenge", "Clog"};
+	static final int CLOG = 4;
 
 	Map<String, List<Pick>> tiers;
 	String filters;

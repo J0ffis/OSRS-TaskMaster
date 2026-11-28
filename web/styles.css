@@ -108,7 +108,8 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 8
 .showcaselist .pick.none.on { color: var(--text); border-style: solid; }
 .showcaselist .tag { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .6px; color: var(--gold);
   border: 1px solid var(--gold-dim); border-radius: 999px; padding: 1px 6px; margin-left: 6px; font-style: normal; }
-.dlgfoot { display: flex; justify-content: flex-end; margin: 12px 0 0; }
+.dlgfoot { display: flex; justify-content: flex-end; gap: 8px; margin: 12px 0 0; }
+.btn.primary.danger { background: var(--bad); border-color: var(--bad); }
 /* Favourite boss, quest and skill: quiet chips under the name, only for the ones picked. */
 .favs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 6px; }
 .favchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 999px; cursor: pointer;

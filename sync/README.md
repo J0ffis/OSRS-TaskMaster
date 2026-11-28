@@ -45,7 +45,8 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 
 **Why picks come from the website:** the recommendation engine (`web/recommender.js`) needs about
 9–12 ms of CPU per run (≈ 30 ms cold), over the free Workers plan's 10 ms per request. So the
-owner's browser works the suggestions out and saves the top 15 per tier (5 Challenge); the plugin
+owner's browser works the suggestions out and saves the top 15 per tier (5 Challenge, plus a `Clog` list of up to 15 log and pet picks while
+"Fastest logs first" is on); the plugin
 only displays them. Picks follow the site's filters and goals and refresh whenever the owner
 opens the website. Running the engine here instead would need the $5/month Workers Paid plan.
 
@@ -60,7 +61,7 @@ also carry `route` (its next 30 steps with titles, times, which goals they're fo
 needs, plus steps done and total) for the panel, and `view.route` (the goal ids and step keys)
 so visitors of a share link see the same route, planned in their browser from the owner's goals.
 
-Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows, plus each pick's goal up to 1.5 KB), a route of up to 30 steps, picks 128 KB in all, uploads at most every 30 seconds per key, browsers
+Limits: profiles up to 1.5 MB, 200 goals, 15 picks per tier (fields trimmed to what the panel shows, plus each pick's goal up to 1.5 KB), a route of up to 30 steps, picks 160 KB in all, uploads at most every 30 seconds per key, browsers
 only from the sites in `ALLOWED_ORIGINS` (`wrangler.toml`), and no wealth data.
 
 ## Try it on your PC (one click)

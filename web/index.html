@@ -105,6 +105,7 @@
               <h3 id="goals-h">Goals</h3>
               <span class="muted small">Goals push matching suggestions to the top.</span>
               <button id="planbtn" type="button" class="btn tiny" hidden>Plan a route</button>
+              <button id="cleargoals" type="button" class="btn tiny ghost" title="Remove every goal" hidden>Clear all</button>
             </div>
             <ul id="goals" class="goals"></ul>
             <form id="goalform" class="goalform">
@@ -155,6 +156,17 @@
     <p class="muted small">Pick a reward tier, then the bosses whose unfinished tasks get you there. Only tasks up to the tier you choose are counted, so you can stay below the hardest content. The bosses become goals and get a route, with their quest and Slayer unlocks.</p>
     <div id="cacontrols" class="cacontrols"></div>
     <div id="cabody"></div>
+  </dialog>
+  <dialog id="cleardlg" class="dlg" aria-labelledby="clear-h">
+    <div class="dlghead">
+      <h3 id="clear-h">Clear all goals?</h3>
+      <button type="button" class="x" data-close aria-label="Close">×</button>
+    </div>
+    <p id="clearbody"></p>
+    <p class="dlgfoot">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="button" class="btn primary danger" id="clearconfirm">Remove all goals</button>
+    </p>
   </dialog>
   <dialog id="importdlg" class="dlg" aria-labelledby="import-h">
     <div class="dlghead">
