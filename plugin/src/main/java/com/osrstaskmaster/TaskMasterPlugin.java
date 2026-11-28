@@ -9,7 +9,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.swing.SwingUtilities;
 import java.util.LinkedHashMap;
@@ -38,7 +43,11 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.game.SpriteManager;
+import net.runelite.api.Skill;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -67,7 +76,7 @@ import okhttp3.Response;
 @Slf4j
 @PluginDescriptor(
 	name = "OSRS TaskMaster",
-	description = "Saves your own account progress so the OSRS TaskMaster website can suggest what to grind next",
+	description = "Suggests what to grind next from your own progress, on the OSRS TaskMaster website",
 	tags = {"goals", "planner", "collection", "combat achievements", "diary", "quests"}
 )
 public class TaskMasterPlugin extends Plugin
@@ -90,6 +99,8 @@ public class TaskMasterPlugin extends Plugin
 	@Inject private ClientThread clientThread;
 	@Inject private ClientToolbar clientToolbar;
 	@Inject private ItemManager itemManager;
+	@Inject private SkillIconManager skillIconManager;
+	@Inject private SpriteManager spriteManager;
 	@Inject private OkHttpClient httpClient;
 	@Inject private Gson gson;
 	@Inject private TaskMasterConfig config;
@@ -106,19 +117,43 @@ public class TaskMasterPlugin extends Plugin
 	private long lastSyncAt;
 	private volatile boolean inFlight;
 
+	// Set by "Test Auto-Upload.bat" for that run of RuneLite only (see build.gradle's run task): the
+	// local test service and website, with Automatic upload on, without changing saved settings, so
+	// Start TaskMaster.bat and a normal RuneLite never upload to the test service, or the test to
+	// the live one.
+	private static final String LAUNCH_UPLOAD_SERVER = System.getProperty("osrstaskmaster.uploadServer", "").trim();
+	private static final String LAUNCH_WEBSITE = System.getProperty("osrstaskmaster.website", "").trim();
+	/** On for a test run until the tester switches Automatic upload off or deletes their data. */
+	private volatile boolean launchUpload = !LAUNCH_UPLOAD_SERVER.isEmpty();
+
 	@Provides
 	TaskMasterConfig provideConfig(ConfigManager configManager)
 	{
 		return configManager.getConfig(TaskMasterConfig.class);
 	}
 
+	@Inject private ConfigManager configManager;
+
 	@Override
 	protected void startUp()
 	{
-		panel = new TaskMasterPanel(
-			() -> clientThread.invokeLater(this::copyProfile),
-			() -> LinkBrowser.browse(config.websiteUrl().trim()),
-			this::openExportFolder);
+		panel = new TaskMasterPanel(new TaskMasterPanel.Actions()
+		{
+			@Override public void copyProfile() { clientThread.invokeLater(TaskMasterPlugin.this::copyProfile); }
+			@Override public void openWebsite() { clientThread.invokeLater(TaskMasterPlugin.this::openWebsite); }
+			@Override public void openFolder() { openExportFolder(); }
+			@Override public void uploadNow() { clientThread.invokeLater(() -> sync(true)); }
+			@Override public void copyShareLink() { clientThread.invokeLater(TaskMasterPlugin.this::copyShareLink); }
+			@Override public void deleteUploaded() { clientThread.invokeLater(TaskMasterPlugin.this::deleteUploadedData); }
+			@Override public void resetLinks() { clientThread.invokeLater(TaskMasterPlugin.this::resetLinks); }
+			@Override public void syncPicks() { clientThread.invokeLater(TaskMasterPlugin.this::syncPicks); }
+			@Override public void openPick(String pickId) { clientThread.invokeLater(() -> openWebsiteOn(pickId)); }
+			@Override public void makeGoal(Picks.Pick pick) { clientThread.invokeLater(() -> TaskMasterPlugin.this.makeGoal(pick)); }
+		});
+		// Item icons load in the background and appear in the label when ready (safe from any thread).
+		panel.setIconSources(this::skillIcon, (itemId, label) -> itemManager.getImage(itemId).addTo(label), gameSprites::get);
+		loadGameSprites();
+		panel.setUploadEnabled(autoUpload());
 		navButton = NavigationButton.builder()
 			.tooltip("OSRS TaskMaster")
 			.icon(icon())
@@ -164,11 +199,26 @@ public class TaskMasterPlugin extends Plugin
 	public void onGameTick(GameTick t)
 	{
 		readSlayerRewards();
+		// A collection log page whose kill counts weren't drawn yet when it was read: once more.
+		if (clogRetryTitle != null)
+		{
+			String title = clogRetryTitle;
+			clogRetryTitle = null;
+			if (title.equals(clogTitle()) && readClogKillCounts(title) > 0)
+			{
+				store.save();
+				dirty = true;
+			}
+		}
 		if (ticksUntilLoginSync > 0 && --ticksUntilLoginSync == 0)
 		{
 			if (config.autoSync())
 			{
 				sync(false);
+			}
+			if (autoUpload())
+			{
+				fetchPicks();
 			}
 			return;
 		}
@@ -215,24 +265,64 @@ public class TaskMasterPlugin extends Plugin
 		clientThread.invokeLater(this::readClogPage);
 	}
 
+	/** The page whose kill counts to read again next tick, if they weren't drawn yet. */
+	private String clogRetryTitle;
+
+	/** The open page's title: the header's title text, or the header container's first line. */
+	private String clogTitle()
+	{
+		for (int id : new int[]{InterfaceID.Collection.HEADER_TEXT, InterfaceID.Collection.HEADER})
+		{
+			Widget w = client.getWidget(id);
+			if (w == null)
+			{
+				continue;
+			}
+			String t = w.getText();
+			Widget[] kids = w.getDynamicChildren();
+			if ((t == null || Text.removeTags(t).trim().isEmpty()) && kids != null && kids.length > 0)
+			{
+				t = kids[0].getText();
+			}
+			t = t == null ? "" : Text.removeTags(t).replace(' ', ' ').trim();
+			if (!t.isEmpty())
+			{
+				return t;
+			}
+		}
+		return "";
+	}
+
 	private void readClogPage()
 	{
-		Widget header = client.getWidget(InterfaceID.Collection.HEADER_TEXT);
-		Widget itemsWidget = client.getWidget(InterfaceID.Collection.ITEMS);
-		if (header == null || itemsWidget == null)
+		String title = clogTitle();
+		if (title.isEmpty())
 		{
+			log.info("OSRS TaskMaster: a collection log page was drawn, but its title wasn't found");
 			return;
 		}
-		String title = header.getText();
-		Widget[] headerKids = header.getDynamicChildren();
-		if ((title == null || title.isEmpty()) && headerKids != null && headerKids.length > 0)
+		// Kill counts first: they don't depend on reading the item tiles below.
+		boolean found = readClogKillCounts(title) > 0;
+		// The header may be filled in after the item list: try once more next tick.
+		clogRetryTitle = found ? null : title;
+		Widget[] items = null;
+		for (int id : new int[]{InterfaceID.Collection.ITEMS, InterfaceID.Collection.ITEMS_CONTENTS})
 		{
-			title = headerKids[0].getText();
+			Widget w = client.getWidget(id);
+			Widget[] kids = w == null ? null : w.getDynamicChildren();
+			if (kids != null && kids.length > 0)
+			{
+				items = kids;
+				break;
+			}
 		}
-		title = title == null ? "" : Text.removeTags(title).trim();
-		Widget[] items = itemsWidget.getDynamicChildren();
-		if (title.isEmpty() || items == null || items.length == 0)
+		if (items == null)
 		{
+			if (found)
+			{
+				store.save();
+				dirty = true;
+			}
 			return;
 		}
 		int tabIdx = client.getVarbitValue(VarbitID.COLLECTION_LAST_TAB);
@@ -257,33 +347,69 @@ public class TaskMasterPlugin extends Plugin
 			}
 		}
 		store.clogPages.put(title, page);
-		readClogKillCounts(header, title);
 		store.save();
 		dirty = true;
 	}
 
 	/**
 	 * The page header's kill count lines ("Zulrah kills: 87"), so bosses killed before the plugin
-	 * was installed get a count without waiting for the next kill message.
+	 * was installed get a count without waiting for the next kill message. The lines are children
+	 * of the header container (Collection.HEADER: title, "Obtained: x/y", then the counts), not of
+	 * its title text (HEADER_TEXT), so both are read, with every kind of child.
 	 */
-	private void readClogKillCounts(Widget header, String title)
+	private int readClogKillCounts(String title)
 	{
-		Widget[] lines = header.getDynamicChildren();
-		if (lines == null)
+		List<String> texts = new ArrayList<>();
+		for (int id : new int[]{InterfaceID.Collection.HEADER, InterfaceID.Collection.HEADER_TEXT})
+		{
+			collectTexts(client.getWidget(id), texts, 3);
+		}
+		List<Map.Entry<String, Integer>> found = ClogKillCounts.parseAll(texts, title);
+		List<Map.Entry<String, Integer>> changed = new ArrayList<>();
+		for (Map.Entry<String, Integer> kc : found)
+		{
+			if (ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue()))
+			{
+				changed.add(kc);
+			}
+		}
+		// The game draws a page several times: log only counts that changed. A page with none at all
+		// (most non-boss pages) logs its header texts at debug level, for diagnosing new layouts.
+		if (!changed.isEmpty())
+		{
+			log.info("OSRS TaskMaster: kill counts from the '{}' collection log page: {}", title, changed);
+		}
+		else if (found.isEmpty() && log.isDebugEnabled())
+		{
+			List<String> shown = new ArrayList<>();
+			for (String t : texts)
+			{
+				if (t != null && !t.trim().isEmpty())
+				{
+					shown.add(Text.removeTags(t).replace(' ', ' ').trim());
+				}
+			}
+			log.debug("OSRS TaskMaster: no kill counts in the '{}' collection log header {}", title, shown);
+		}
+		return found.size();
+	}
+
+	/** A widget's text and its children's (every kind), down to `depth` levels. */
+	private static void collectTexts(Widget w, List<String> out, int depth)
+	{
+		if (w == null || depth < 0)
 		{
 			return;
 		}
-		for (Widget w : lines)
+		out.add(w.getText());
+		for (Widget[] kids : new Widget[][]{w.getDynamicChildren(), w.getStaticChildren(), w.getNestedChildren()})
 		{
-			String text = w.getText() == null ? "" : Text.removeTags(w.getText()).trim();
-			if (text.isEmpty() || text.equals(title))
+			if (kids != null)
 			{
-				continue;
-			}
-			Map.Entry<String, Integer> kc = ClogKillCounts.parse(text);
-			if (kc != null)
-			{
-				ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue());
+				for (Widget k : kids)
+				{
+					collectTexts(k, out, depth - 1);
+				}
 			}
 		}
 	}
@@ -417,10 +543,10 @@ public class TaskMasterPlugin extends Plugin
 		}
 	}
 
-	// ---- Profile export and sync ---------------------------------------------------------
+	// ---- Profile export ------------------------------------------------------------------
 
-	/** The profile as JSON, or null if not logged in. Must run on the client thread. */
-	private String snapshotJson()
+	/** The profile, or null if not logged in. Must run on the client thread. */
+	private Map<String, Object> snapshot()
 	{
 		if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null)
 		{
@@ -429,7 +555,7 @@ public class TaskMasterPlugin extends Plugin
 		Map<String, Object> snapshot = collector.collect();
 		snapshot.put("collectionLog", collectionLog());
 		snapshot.put("killCounts", store.killCounts);
-		return gson.toJson(snapshot);
+		return snapshot;
 	}
 
 	private File exportDir()
@@ -460,15 +586,14 @@ public class TaskMasterPlugin extends Plugin
 	/** "Copy my profile": update the file, copy the profile for pasting on the website. Client thread. */
 	private void copyProfile()
 	{
-		String json = snapshotJson();
-		if (json == null)
+		Map<String, Object> snap = snapshot();
+		if (snap == null)
 		{
 			panel.setStatus("Log in first, then copy your profile.", false);
 			return;
 		}
+		String json = gson.toJson(snap);
 		writeExport(json);
-		dirty = false;
-		lastSyncAt = System.currentTimeMillis();
 		SwingUtilities.invokeLater(() ->
 		{
 			try
@@ -481,10 +606,6 @@ public class TaskMasterPlugin extends Plugin
 				panel.setStatus("Couldn't use the clipboard. Use Show profile file and load that file on the website instead.", false);
 			}
 		});
-		if (config.serverSync())
-		{
-			postToServer(json, true);
-		}
 	}
 
 	private void openExportFolder()
@@ -509,20 +630,23 @@ public class TaskMasterPlugin extends Plugin
 		return new java.text.SimpleDateFormat("HH:mm").format(new java.util.Date());
 	}
 
-	/** Automatic update: refresh the profile file, and send it to your own server if enabled. Client thread. */
+	/** Automatic update: refresh the profile file, and upload it if Automatic upload is on. Client thread. */
 	private void sync(boolean manual)
 	{
-		String json = snapshotJson();
-		if (json == null)
+		Map<String, Object> snap = snapshot();
+		if (snap == null)
 		{
 			return;
 		}
 		dirty = false;
 		lastSyncAt = System.currentTimeMillis();
-		writeExport(json);
-		if (config.serverSync())
+		writeExport(gson.toJson(snap));
+		// The panel drops suggestions this profile shows finished, without waiting for the website.
+		com.google.gson.JsonObject profile = gson.toJsonTree(snap).getAsJsonObject();
+		panel.setDoneCheck(id -> PickProgress.isDone(id, profile));
+		if (autoUpload())
 		{
-			postToServer(json, manual);
+			upload(snap, manual);
 		}
 		else
 		{
@@ -530,63 +654,522 @@ public class TaskMasterPlugin extends Plugin
 		}
 	}
 
-	private void postToServer(String body, boolean manual)
+	// ---- Automatic upload ----------------------------------------------------------------
+	//
+	// Each OSRS account gets its own secret upload key, kept in that account's RuneLite profile.
+	// The server and the website derive the same two values from it (see sync/src/index.js):
+	//   profile id  : read-only link, safe to share
+	//   edit token  : lets the website save goals; only in the link the panel opens for you
+
+	private static final String KEY_UPLOAD = "uploadKey";
+
+	/** This account's upload key, created on first use. Needs a logged-in account. */
+	private String uploadKey(boolean create)
+	{
+		String key = configManager.getRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD);
+		if ((key == null || key.isEmpty()) && create)
+		{
+			byte[] bytes = new byte[32];
+			new SecureRandom().nextBytes(bytes);
+			key = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+			configManager.setRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD, key);
+		}
+		return key == null || key.isEmpty() ? null : key;
+	}
+
+	static String deriveId(String key)
+	{
+		return sha256B64url("tm-id:" + key).substring(0, 22);
+	}
+
+	static String deriveEditToken(String key)
+	{
+		return sha256B64url("tm-edit:" + key).substring(0, 32);
+	}
+
+	private static String sha256B64url(String text)
+	{
+		try
+		{
+			byte[] d = MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+			return Base64.getUrlEncoder().withoutPadding().encodeToString(d);
+		}
+		catch (NoSuchAlgorithmException e)
+		{
+			throw new IllegalStateException(e);
+		}
+	}
+
+	private String serverUrl()
+	{
+		String server = LAUNCH_UPLOAD_SERVER.isEmpty() ? config.uploadServer() : LAUNCH_UPLOAD_SERVER;
+		return server.trim().replaceAll("/+$", "");
+	}
+
+	/** Automatic upload: switched on in settings, or for this run by Test Auto-Upload.bat. */
+	private boolean autoUpload()
+	{
+		return config.autoUpload() || launchUpload;
+	}
+
+	private String websiteUrl()
+	{
+		return LAUNCH_WEBSITE.isEmpty() ? config.websiteUrl().trim() : LAUNCH_WEBSITE;
+	}
+
+	private void upload(Map<String, Object> snap, boolean manual)
 	{
 		if (inFlight)
 		{
+			dirty = true;
 			return;
 		}
-		String endpoint = config.endpoint().trim();
-		Request.Builder rb;
+		String key = uploadKey(true);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("profile", snap);
+		body.put("public", config.publicProfile());
+		// Lets the server keep a public name with the account that owns it. Sent only as a hash input;
+		// the server stores a hash of it, never the value itself.
+		body.put("account", String.valueOf(client.getAccountHash()));
+		Request request;
 		try
 		{
-			rb = new Request.Builder().url(endpoint).post(RequestBody.create(JSON, body));
+			request = new Request.Builder()
+				.url(serverUrl() + "/v1/profile")
+				.header("Authorization", "Bearer " + key)
+				.put(RequestBody.create(JSON, gson.toJson(body)))
+				.build();
 		}
 		catch (IllegalArgumentException ex)
 		{
-			panel.setStatus("Invalid sync endpoint in plugin settings.", false);
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
 			return;
 		}
-		// Strip whitespace, quotes and invisible characters that sneak in when copying the token.
-		String token = config.token().replaceAll("[^0-9A-Za-z]", "");
-		if (!token.isEmpty())
-		{
-			rb.header("X-TaskMaster-Token", token);
-		}
-
 		inFlight = true;
-		panel.setStatus(manual ? "Syncing..." : "Auto-syncing...", true);
-		httpClient.newCall(rb.build()).enqueue(new Callback()
+		panel.setStatus(manual ? "Uploading..." : "Auto-uploading...", true);
+		httpClient.newCall(request).enqueue(new Callback()
 		{
 			@Override
 			public void onFailure(Call call, IOException ex)
 			{
 				inFlight = false;
 				dirty = true;
-				panel.setStatus("Could not reach the OSRS TaskMaster server. Is it running?", false);
+				// Name the address: a wrong or not-yet-running Upload server setting is the usual cause.
+				panel.setStatus("Couldn't reach the upload server (" + serverUrl() + "). Your profile is saved on this PC and will upload later.", false);
 			}
 
 			@Override
 			public void onResponse(Call call, Response response)
 			{
 				inFlight = false;
-				int code = response.code();
-				response.close();
-				if (code >= 200 && code < 300)
+				try (Response r = response)
 				{
-					panel.setStatus("Synced to your server at " + now() + ".", true);
+					String text = r.body() == null ? "" : r.body().string();
+					Map<?, ?> reply = parse(text);
+					if (r.isSuccessful())
+					{
+						Object note = reply.get("note");
+						boolean isPublic = Boolean.TRUE.equals(reply.get("public"));
+						panel.setStatus(note instanceof String ? (String) note
+							: "Uploaded at " + now() + (isPublic ? " (public)." : " (private: only your link can see it)."), note == null);
+						fetchPicks();
+					}
+					else
+					{
+						if (r.code() >= 500 || r.code() == 429)
+						{
+							dirty = true;
+						}
+						Object err = reply.get("error");
+						panel.setStatus("Upload failed: " + (err instanceof String ? err : "server error " + r.code()), false);
+					}
 				}
-				else if (code == 401)
-				{
-					panel.setStatus("Server rejected the sync token. Check plugin settings.", false);
-				}
-				else
+				catch (IOException ex)
 				{
 					dirty = true;
-					panel.setStatus("Server error " + code, false);
+					panel.setStatus("Upload failed while reading the server's reply.", false);
 				}
 			}
 		});
+	}
+
+	private Map<?, ?> parse(String json)
+	{
+		try
+		{
+			Map<?, ?> m = gson.fromJson(json, Map.class);
+			return m == null ? Collections.emptyMap() : m;
+		}
+		catch (RuntimeException ex)
+		{
+			return Collections.emptyMap();
+		}
+	}
+
+	/** Open website: with Automatic upload on, opens your own live profile (with goal editing). */
+	private void openWebsite()
+	{
+		openWebsiteOn(null);
+	}
+
+	/** Open the website, on one suggestion if given (a row in the panel's list). */
+	private void openWebsiteOn(String pickId)
+	{
+		String site = websiteUrl();
+		String key = autoUpload() ? uploadKey(false) : null;
+		if (key == null)
+		{
+			LinkBrowser.browse(site);
+			return;
+		}
+		// Everything after # stays in the browser: it's never sent to the website's host.
+		String link = site + "#id=" + deriveId(key) + "&edit=" + deriveEditToken(key);
+		if (pickId != null)
+		{
+			try
+			{
+				link += "&focus=" + java.net.URLEncoder.encode(pickId, "UTF-8").replace("+", "%20");
+			}
+			catch (java.io.UnsupportedEncodingException e)
+			{
+				throw new IllegalStateException(e);
+			}
+		}
+		LinkBrowser.browse(link);
+	}
+
+	// ---- Your next grinds: the website's picks, shown in the panel ------------------------
+
+	/**
+	 * The panel's Sync button: refresh the profile and upload it now (the upload then fetches the
+	 * website's latest list), so finished tasks drop off. Not logged in: just fetch the list.
+	 */
+	private void syncPicks()
+	{
+		if (client.getGameState() == GameState.LOGGED_IN && autoUpload())
+		{
+			sync(true);
+		}
+		else
+		{
+			fetchPicks();
+		}
+	}
+
+	/** Fetch the suggestions the website last saved for this account. Client thread. */
+	private void fetchPicks()
+	{
+		String key = autoUpload() ? uploadKey(false) : null;
+		if (key == null)
+		{
+			return;
+		}
+		Request request;
+		try
+		{
+			request = new Request.Builder().url(serverUrl() + "/v1/picks/" + deriveId(key)).get().build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			return;
+		}
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				// Keep showing the last list; the status line already reports upload problems.
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				try (Response r = response)
+				{
+					if (r.code() == 404)
+					{
+						panel.setPicks(null, 0); // nothing uploaded yet
+						return;
+					}
+					if (!r.isSuccessful() || r.body() == null)
+					{
+						return;
+					}
+					Picks.Reply reply = gson.fromJson(r.body().string(), Picks.Reply.class);
+					if (reply != null)
+					{
+						panel.setPicks(reply.picks, reply.picksAt == null ? 0 : reply.picksAt);
+					}
+				}
+				catch (IOException | RuntimeException ex)
+				{
+					log.debug("OSRS TaskMaster: couldn't read picks", ex);
+				}
+			}
+		});
+	}
+
+	// Game interface sprites for the panel, read live from the game's own files, so they always
+	// match the game: the PvP skull for Wilderness rows and an icon per suggestion category.
+	private static final Object[][] PANEL_SPRITES = {
+		{"skull", net.runelite.api.gameval.SpriteID.HEADICONS_PK},
+		{"quests", net.runelite.api.gameval.SpriteID.AchievementDiaryIcons.BLUE_QUESTS},
+		{"diaries", net.runelite.api.gameval.SpriteID.AchievementDiaryIcons.GREEN_ACHIEVEMENT_DIARIES},
+		{"combat", net.runelite.api.gameval.SpriteID.CaTierSwordsSmall._3},
+		{"clog", 6390}, // hiscores "collections logged"
+		{"pets", 6390},
+	};
+	private final Map<String, BufferedImage> gameSprites = new java.util.concurrent.ConcurrentHashMap<>();
+
+	private void loadGameSprites()
+	{
+		for (Object[] s : PANEL_SPRITES)
+		{
+			String name = (String) s[0];
+			spriteManager.getSpriteAsync((Integer) s[1], 0, img ->
+			{
+				if (img != null)
+				{
+					gameSprites.put(name, img);
+					panel.iconsChanged();
+				}
+			});
+		}
+	}
+
+	private BufferedImage skillIcon(String skill)
+	{
+		try
+		{
+			return skillIconManager.getSkillImage(Skill.valueOf(skill.toUpperCase()), true);
+		}
+		catch (IllegalArgumentException ex)
+		{
+			return null; // a skill this client doesn't know
+		}
+	}
+
+	/**
+	 * Make it a goal (right-click a row in Your next grinds): the service adds the goal the website
+	 * saved with that suggestion, so it's exactly what the website's own button would add. Needs
+	 * the edit token, which this plugin derives from the upload key like the owner's link does.
+	 */
+	private void makeGoal(Picks.Pick pick)
+	{
+		String key = autoUpload() ? uploadKey(false) : null;
+		if (key == null)
+		{
+			panel.setStatus("Turn on Automatic upload in the plugin settings and log in first.", false);
+			return;
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("pick", pick.id);
+		Request request;
+		try
+		{
+			request = new Request.Builder()
+				.url(serverUrl() + "/v1/goals/" + deriveId(key))
+				.header("X-Edit-Token", deriveEditToken(key))
+				.post(RequestBody.create(JSON, gson.toJson(body)))
+				.build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
+			return;
+		}
+		panel.setStatus("Adding goal...", true);
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				panel.setStatus("Couldn't reach the upload server (" + serverUrl() + "), so the goal wasn't added.", false);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				try (Response r = response)
+				{
+					Map<?, ?> reply = parse(r.body() == null ? "" : r.body().string());
+					if (r.isSuccessful())
+					{
+						boolean added = Boolean.TRUE.equals(reply.get("added"));
+						panel.goalAdded(pick.id);
+						panel.setStatus((added ? "New goal: " : "Already a goal: ") + pick.title
+							+ (added ? ". It shows on the website next time it loads." : "."), true);
+					}
+					else
+					{
+						Object err = reply.get("error");
+						panel.setStatus("Couldn't add the goal: " + (err instanceof String ? err : "server error " + r.code()), false);
+					}
+				}
+				catch (IOException ex)
+				{
+					panel.setStatus("Couldn't add the goal: the server's reply didn't arrive.", false);
+				}
+			}
+		});
+	}
+
+	/** Copy share link: a read-only link to your uploaded profile. */
+	private void copyShareLink()
+	{
+		String key = uploadKey(false);
+		if (!autoUpload() || key == null)
+		{
+			panel.setStatus("Turn on Automatic upload in the plugin settings and log in first.", false);
+			return;
+		}
+		String link = websiteUrl() + "#id=" + deriveId(key);
+		SwingUtilities.invokeLater(() ->
+		{
+			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(link), null);
+			panel.setStatus("Share link copied. Anyone with it can view your suggestions, but not change your goals.", true);
+		});
+	}
+
+	/**
+	 * Reset my links: the server moves the profile, goals and picks to a new key, so every old
+	 * link stops working (how a leaked owner link is revoked). The new key is only kept once the
+	 * server has confirmed. Uploads wait meanwhile, so none can recreate the old profile.
+	 */
+	private void resetLinks()
+	{
+		String oldKey = uploadKey(false);
+		if (!autoUpload() || oldKey == null)
+		{
+			panel.setStatus("Nothing has been uploaded for this account, so there are no links to reset.", true);
+			return;
+		}
+		if (inFlight)
+		{
+			panel.setStatus("An upload is in progress. Try Reset my links again in a moment.", false);
+			return;
+		}
+		byte[] bytes = new byte[32];
+		new SecureRandom().nextBytes(bytes);
+		String newKey = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("newKey", newKey);
+		Request request;
+		try
+		{
+			request = new Request.Builder()
+				.url(serverUrl() + "/v1/profile/rotate")
+				.header("Authorization", "Bearer " + oldKey)
+				.post(RequestBody.create(JSON, gson.toJson(body)))
+				.build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
+			return;
+		}
+		inFlight = true;
+		panel.setStatus("Resetting your links...", true);
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				inFlight = false;
+				panel.setStatus("Couldn't reach the upload server, so your links weren't changed. Try again later.", false);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				try (Response r = response)
+				{
+					if (r.isSuccessful() || r.code() == 404)
+					{
+						// 404: nothing on the server yet, so a new key alone gives new links.
+						configManager.setRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD, newKey);
+						panel.setStatus("Your links were reset. Old links no longer work; use Open website and Copy share link for the new ones.", true);
+						fetchPicks();
+					}
+					else
+					{
+						panel.setStatus("The server couldn't reset your links (error " + r.code() + "). Nothing was changed.", false);
+					}
+				}
+				finally
+				{
+					inFlight = false;
+				}
+			}
+		});
+	}
+
+	/** Delete uploaded data: removes it from the server, turns uploads off and retires the key. */
+	private void deleteUploadedData()
+	{
+		String key = uploadKey(false);
+		if (key == null)
+		{
+			panel.setStatus("Nothing has been uploaded for this account.", true);
+			return;
+		}
+		Request request;
+		try
+		{
+			request = new Request.Builder().url(serverUrl() + "/v1/profile").header("Authorization", "Bearer " + key).delete().build();
+		}
+		catch (IllegalArgumentException ex)
+		{
+			panel.setStatus("The Upload server address in the plugin settings isn't valid.", false);
+			return;
+		}
+		httpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException ex)
+			{
+				panel.setStatus("Couldn't reach the upload server, so nothing was deleted. Try again later.", false);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				response.close();
+				if (!response.isSuccessful())
+				{
+					panel.setStatus("The server couldn't delete your data (error " + response.code() + "). Try again later.", false);
+					return;
+				}
+				// A new key next time means old links stop working, even if uploads are switched back on.
+				launchUpload = false;
+				configManager.setConfiguration(TaskMasterConfig.GROUP, "autoUpload", false);
+				configManager.unsetRSProfileConfiguration(TaskMasterConfig.GROUP, KEY_UPLOAD);
+				panel.setStatus("Your uploaded profile and goals were deleted, and Automatic upload is off.", true);
+			}
+		});
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged e)
+	{
+		if (!TaskMasterConfig.GROUP.equals(e.getGroup()))
+		{
+			return;
+		}
+		if ("autoUpload".equals(e.getKey()) || "publicProfile".equals(e.getKey()))
+		{
+			if ("autoUpload".equals(e.getKey()))
+			{
+				// Switching it in settings during a test run: the tester's choice wins from now on.
+				launchUpload = false;
+			}
+			panel.setUploadEnabled(autoUpload());
+			// Upload straight away so the website reflects the change.
+			if (autoUpload())
+			{
+				clientThread.invokeLater(() -> sync(true));
+			}
+		}
 	}
 
 	private Map<String, Object> collectionLog()

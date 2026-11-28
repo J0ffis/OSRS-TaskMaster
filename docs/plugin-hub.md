@@ -22,7 +22,12 @@ when the plugin is stable:
 
 ## Before submitting
 
-- Settle the website address (`DEFAULT_WEBSITE` in `TaskMasterConfig.java`).
-- Decide whether to keep **Send to my own server**. It's the reason
-  `runelite-plugin.properties` carries a `warning`. If the Hub version shouldn't send data
-  anywhere, remove the setting and the warning together.
+- Deploy the sync service (`sync/README.md`) and make sure `DEFAULT_UPLOAD_SERVER` and
+  `DEFAULT_WEBSITE` in `TaskMasterConfig.java` are the live addresses.
+- Decide whether the first Plugin Hub version offers Automatic upload. To offer it, run
+  `.\scripts\Set-UploadLive.ps1` (it checks the service answers, then sets the plugin and the
+  website together), update the docs it lists, and run the tests: see
+  [Going live](../README.md#going-live-one-switch). Submitting with it off is fine too; it then
+  needs a later plugin update to switch on.
+- Automatic upload is the reason `runelite-plugin.properties` carries a `warning`: it's off by
+  default, and the warning tells players what's sent if they switch it on.

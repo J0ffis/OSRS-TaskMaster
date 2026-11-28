@@ -21,8 +21,9 @@ import {
   PAGE_EFFORT, MONSTER_EFFORT, PROTECTED_ITEMS, CLUE_PAGE_BASE, KC_REWARDS,
   WILDERNESS_PAGES, WILDERNESS_MONSTERS, CONTENT_REQS, SLAYER_BOSSES,
   SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
-  MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, SOURCE_RULES, ITEM_EFFORT,
+  MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, EFFORT_FALLBACK_HOURS, SOURCE_RULES, ITEM_EFFORT,
   QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES, XP_RATES,
+  SKILL_UNLOCK_QUESTS, KC_PAGE_NAMES,
 } from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
@@ -698,6 +699,30 @@ function itemEffort(item, page, tab, pageRatio) {
   return (CLOG_EASE[page] ?? 0) >= 6 ? "Quick" : "Medium";
 }
 
+/**
+ * Rough hours to get one collection log item, for ordering cards under "Fastest logs first": the
+ * wiki drop rate when there is one, otherwise a typical time for its tier (EFFORT_FALLBACK_HOURS).
+ * Where a hand rule sets the effort because the raw rate understates the grind (superior drops,
+ * raids, team content, duplicate protection), the estimate is at least that tier's lower limit.
+ */
+function itemHours(item, page, tab, effort) {
+  const chance = tab === "Clues" || tab === "Minigames" ? null : dropChance(item.name, page);
+  const forced = ITEM_EFFORT_LC[String(item.name).toLowerCase()] || PAGE_EFFORT[page] || tab === "Raids"
+    || PROTECTED_ITEMS.some((re) => re.test(item.name));
+  const tier = effort === CHALLENGE ? "Long" : effort;
+  if (!chance) return EFFORT_FALLBACK_HOURS[tier] ?? EFFORT_FALLBACK_HOURS.Medium;
+  const h = expectedHours(chance, page, tab);
+  return forced ? Math.max(h, tierFloor(effort)) : h;
+}
+/** The fewest hours a suggestion in effort tier `effort` can take (EFFORT_HOURS). */
+const tierFloor = (effort) => ({ Medium: EFFORT_HOURS.Quick, Long: EFFORT_HOURS.Medium, [CHALLENGE]: EFFORT_HOURS.Medium }[effort] ?? 0);
+/**
+ * `{ hours, hoursRaw }` for a card: the estimate shown is never below its tier's floor (a log
+ * that's a Long haul because it has many slots shouldn't read "under 1 h"); the raw estimate
+ * still orders cards that share the floor.
+ */
+const timeFields = (h, effort) => ({ hours: Math.max(h, tierFloor(effort)), hoursRaw: h });
+
 function clogCandidates(snap) {
   const out = [];
   const log = snap.collectionLog ?? {};
@@ -731,6 +756,7 @@ function clogCandidates(snap) {
     const longMissing = missing.filter((i) => effortOf(i) === "Long").length;
     const pageEffort = usual === "Long" && longMissing > CHALLENGE_MIN_MISSING ? CHALLENGE : usual;
     const rares = missing.filter((i) => rarity(i.name));
+    const hoursOf = (i) => itemHours(i, name, p.tab, effortOf(i));
     out.push({
       id: `clogpage:${name}`,
       category: "clog",
@@ -743,6 +769,8 @@ function clogCandidates(snap) {
       ].filter(Boolean),
       progress: ratio, counter: `${shownGot}/${p.items.length}`,
       effort: pageEffort,
+      // Every missing slot, one after another (a rough upper bound: drops overlap in practice).
+      ...timeFields(missing.reduce((n, i) => n + hoursOf(i), 0), pageEffort),
       group: name,
       base: 22 + ratio * 30 + ease + (missing.length <= 2 ? 10 : 0) - rares.length * 3,
       meta: { page: name },
@@ -764,6 +792,7 @@ function clogCandidates(snap) {
         why: [ease >= 6 ? `${name} is one of the quicker logs to fill` : "Any one of these counts", progressLine],
         progress: ratio, counter: `${shownGot}/${p.items.length}`,
         effort,
+        ...timeFields(Math.min(...fam.items.map(hoursOf)), effort), // any one of them counts
         group: name,
         base: 24 + ratio * 15 + ease + Math.min(10, fam.items.length),
         meta: { page: name, family: fam.key, familyTitle: fam.title, items: fam.items.map((i) => i.name) },
@@ -797,6 +826,8 @@ function clogCandidates(snap) {
         why,
         progress: ratio, counter: `${shownGot}/${p.items.length}`,
         effort: kc && rank > 0 ? "Long" : effortOf(item),
+        // Later kill-count ranks need that many more completions again.
+        ...timeFields(kc ? EFFORT_FALLBACK_HOURS[rank ? "Long" : effortOf(item)] * (1 + rank) : hoursOf(item), kc && rank > 0 ? "Long" : effortOf(item)),
         group: name,
         base: 20 + ratio * 20 + ease - (band ? RARITY_COST[band] : 0) - rank * 3,
         meta: { page: name, item: item.name },
@@ -837,6 +868,7 @@ function petCandidates(snap) {
       why,
       progress: null,
       effort: "Long",
+      ...timeFields(itemHours(pet, pet.source ?? "", page?.tab, "Long"), "Long"),
       base: 14 + otherRatio * 18 + (kills != null ? 4 : 0),
       meta: { pet: pet.name, page: pet.source },
     });
@@ -978,6 +1010,123 @@ function itemIndexRaw(snap) {
   return out;
 }
 
+// ---- Showcase ------------------------------------------------------------------------------
+
+// Clue casket rates are per reward roll, not per clue, so they'd look far rarer than boss drops.
+const isCluePage = (page) => /Treasure Trails/i.test(page ?? "");
+
+/**
+ * Everything the player could show off next to their name: each owned collection log item and
+ * pet once, as { id, name, pet, page, p, rarity }. `p` is the best chance per attempt from the
+ * drop-rate snapshot, null when it has none or when it's a clue reward (see isCluePage).
+ * Pets first, then rarest first, clue rewards last, then A–Z (the first is the picker's suggestion).
+ */
+function showcaseOptionsRaw(snap) {
+  const pets = petInfo(snap).ids;
+  const out = [];
+  for (const i of itemIndex(snap).values()) {
+    if (!i.owned) continue;
+    const d = isCluePage(i.page) ? null : dropChance(i.name, i.page ?? "");
+    out.push({ id: i.id, name: i.name, pet: pets.has(i.id), page: i.page ?? null, p: d?.p ?? null, rarity: d?.rarity ?? null, from: d?.from ?? null });
+  }
+  const rank = (o) => (o.p ?? (isCluePage(o.page) ? 3 : 2));
+  return out.sort((a, b) => Number(b.pet) - Number(a.pet) || rank(a) - rank(b) || a.name.localeCompare(b.name));
+}
+export const showcaseOptions = memoBySnap(showcaseOptionsRaw);
+
+/** What can go in the showcase, in the order the picker and the banner show them. */
+export const SHOWCASE_KINDS = ["item", "boss", "quest", "skill"];
+const BOSS_TABS = new Set(["Bosses", "Raids"]);
+
+/**
+ * Everything the player could pick for one showcase slot, as { key, name, detail, itemId?,
+ * sprite?, ... }. `key` is what gets saved. Items: only ones they own. Bosses: boss and raid log
+ * pages and anything with a kill count, most killed first. Quests: finished first. Skills: game order.
+ */
+/** A kill count or page name, compared without capitals, a leading "The" or curly apostrophes. */
+const kcName = (s) => String(s).toLowerCase().replace(/[‘’`]/g, "'").replace(/\s+/g, " ").trim().replace(/^the /, "");
+/** The same, without a raid mode: "Theatre of Blood: Hard Mode" counts for Theatre of Blood. */
+const kcModeless = (s) => kcName(s).replace(/:?\s+(?:challenge|hard|entry|expert) mode$/, "");
+
+/**
+ * Kill counts per boss page: { [page]: { kc, parts: [{ name, kc }] } }, plus `unmatched`, the
+ * recorded counts that belong to no page. Counts are kept under the game's own names, which
+ * aren't always the page's (KC_PAGE_NAMES); a page that counts under several adds them up.
+ */
+export function pageKillCounts(snap, pageNames) {
+  const kc = snap.killCounts ?? {};
+  const out = {};
+  const used = new Set();
+  for (const page of pageNames) {
+    const wanted = new Set([page, ...(KC_PAGE_NAMES[page] ?? [])].map(kcName));
+    const parts = Object.entries(kc)
+      .filter(([k, n]) => Number.isFinite(n) && (wanted.has(kcName(k)) || wanted.has(kcModeless(k))))
+      .map(([name, n]) => (used.add(name), { name, kc: n }));
+    if (parts.length) out[page] = { kc: parts.reduce((t, p) => t + p.kc, 0), parts };
+  }
+  const unmatched = Object.fromEntries(Object.entries(kc).filter(([k]) => !used.has(k)));
+  return { pages: out, unmatched };
+}
+
+function showcaseChoicesRaw(snap) {
+  const pages = snap.collectionLog?.pages ?? {};
+  const petByPage = {};
+  for (const p of petInfo(snap).pets) if (p.source && !petByPage[p.source]) petByPage[p.source] = p.id;
+  const bossPages = Object.keys(pages).filter((n) => BOSS_TABS.has(pages[n].tab));
+  const counts = pageKillCounts(snap, bossPages);
+  // Every boss and raid page, plus any count that belongs to none (a boss without a log page).
+  const entries = [
+    ...bossPages.map((n) => ({ name: n, ...(counts.pages[n] ?? { kc: null, parts: [] }) })),
+    ...Object.entries(counts.unmatched).map(([n, k]) => ({ name: n, kc: k, parts: [{ name: n, kc: k }] })),
+  ];
+  const boss = entries.map(({ name: n, kc, parts }) => ({
+    key: n, name: n, kc,
+    // "1,234 KC", and what it adds up when the page counts under other names.
+    detail: kc == null ? "" : `${kc.toLocaleString()} KC${parts.length > 1 || (parts[0] && kcName(parts[0].name) !== kcName(n))
+      ? ` (${parts.map((p) => `${p.name} ${p.kc.toLocaleString()}`).join(", ")})` : ""}`,
+    // The boss's pet if it has one, otherwise the first item on its log page.
+    itemId: petByPage[n] ?? pages[n]?.items?.[0]?.id ?? null,
+  })).sort((a, b) => (b.kc ?? -1) - (a.kc ?? -1) || a.name.localeCompare(b.name));
+  const quest = (snap.quests ?? []).map((q) => ({
+    key: q.name, name: q.name, finished: q.state === "FINISHED", sprite: "cat-quests",
+    detail: q.state === "FINISHED" ? "Finished" : q.state === "IN_PROGRESS" ? "In progress" : "Not started",
+  })).sort((a, b) => Number(b.finished) - Number(a.finished) || a.name.localeCompare(b.name));
+  const skill = SKILLS.filter((k) => snap.skills?.[k]).map((k) => ({
+    key: k, name: cap(k), level: snap.skills[k].level, xp: snap.skills[k].xp ?? 0, sprite: `skill-${k}`,
+    detail: `Level ${snap.skills[k].level}`,
+  }));
+  const item = showcaseOptions(snap).map((o) => ({ ...o, key: o.name, itemId: o.id }));
+  return { item, boss, quest, skill };
+}
+const showcaseChoicesMemo = memoBySnap(showcaseChoicesRaw);
+export const showcaseChoices = (snap, kind) => showcaseChoicesMemo(snap)[kind] ?? [];
+
+/**
+ * The player's picks, resolved against this profile: { item, boss, quest, skill }, each a choice
+ * from showcaseChoices or null. Nothing is ever picked for them: an empty or unknown pick (an item
+ * they don't own, a boss from another account) is simply not shown.
+ */
+export function showcasePicks(snap, saved) {
+  const out = {};
+  for (const kind of SHOWCASE_KINDS) {
+    const want = String(saved?.[kind] ?? "").toLowerCase();
+    out[kind] = (want && showcaseChoices(snap, kind).find((c) => c.key.toLowerCase() === want)) || null;
+  }
+  return out;
+}
+
+/**
+ * The one choice the picker offers first for a slot, or null: the rarest pet (else rarest item),
+ * the most-killed boss, the skill with the most XP. Quests have no obvious favourite.
+ */
+export function showcaseSuggestion(snap, kind) {
+  const list = showcaseChoices(snap, kind);
+  if (kind === "item") return list[0] ?? null;
+  if (kind === "boss") return list.find((b) => b.kc > 0) ?? null;
+  if (kind === "skill") return list.reduce((x, y) => (!x || y.xp > x.xp ? y : x), null);
+  return null;
+}
+
 // ---- Goals -----------------------------------------------------------------------------
 
 /** Returns { progress 0..1, done, label } for a goal against the snapshot. */
@@ -1008,6 +1157,12 @@ export function goalProgress(goal, snap) {
       const need = ca.thresholds?.[goal.tier] ?? 0;
       const pts = ca.points ?? 0;
       return { progress: need ? Math.min(1, pts / need) : 0, done: need > 0 && pts >= need, label: `${pts}/${need || "?"} pts` };
+    }
+    case "caboss": {
+      const left = caBossTasks(snap, goal.monster, goal.tier);
+      const all = caBossTasks(snap, goal.monster, goal.tier, true);
+      const pts = (l) => l.reduce((n, t) => n + (CA_TIER_POINTS[t.tier] ?? 1), 0);
+      return { progress: all.length ? 1 - left.length / all.length : 0, done: all.length > 0 && !left.length, label: `${all.length - left.length}/${all.length} tasks · ${pts(left)} pts left` };
     }
     case "pet": {
       const pet = petInfo(snap).pets.find((p) => p.name === goal.pet);
@@ -1062,6 +1217,7 @@ export function goalTitle(g) {
     case "family": return `${g.title ?? `Get any missing ${g.family} piece`} (${g.page})`;
     case "catask": return g.name;
     case "cabundle": return `Finish every ${g.tier} task at ${g.monster}`;
+    case "caboss": return `${g.tier === "Easy" ? "Every Easy task" : `Every task up to ${g.tier}`} ${isGeneralCa(g.monster) ? "not tied to a boss" : `at ${g.monster}`}`;
     default: return g.text;
   }
 }
@@ -1088,6 +1244,7 @@ function advances(c, g, a) {
     case "family": return m.family === g.family && m.page === g.page || (m.page === g.page && g.items.includes(m.item));
     case "catask": return m.task === g.task;
     case "cabundle": return m.monster === g.monster && m.tier === g.tier;
+    case "caboss": return m.monster === g.monster && CA_TIERS.indexOf(m.tier) <= CA_TIERS.indexOf(g.tier);
     default: return false;
   }
 }
@@ -1141,6 +1298,7 @@ function goalEffort(g, snap, a, byId, byItem) {
     case "family": return byId.get(`clogfam:${g.page}:${g.family}`)?.effort ?? g.effort ?? "Medium";
     case "catask": return byId.get(`ca:${g.task}`)?.effort ?? g.effort ?? "Medium";
     case "cabundle": return byId.get(`cabundle:${g.monster}|${g.tier}`)?.effort ?? g.effort ?? "Medium";
+    case "caboss": return caBossEffort(caBossTasks(snap, g.monster, g.tier));
     default: return "Medium";
   }
 }
@@ -1175,6 +1333,90 @@ function goalCandidates(snap, goals, others = []) {
     });
   }
   return out;
+}
+
+// ---- Combat achievement tier planner -----------------------------------------------------------
+// Pick a reward tier to reach, then the bosses whose tasks get you there. Tasks count up to a tier
+// (by default the one you're aiming for), so "Elite" plans with Easy to Elite tasks only.
+
+/** "Other" and "None" tasks aren't tied to one boss. */
+const isGeneralCa = (m) => !m || m === "Other" || m === "None";
+
+/** A boss's tasks of `maxTier` or easier: unfinished ones, or all of them with `all`. */
+function caBossTasks(snap, monster, maxTier, all = false) {
+  const top = CA_TIERS.indexOf(maxTier);
+  const general = isGeneralCa(monster);
+  return (snap.combatAchievements?.tasks ?? []).filter((t) => (all || !t.done)
+    && (general ? isGeneralCa(t.monster) : t.monster === monster)
+    && CA_TIERS.indexOf(t.tier) <= top && CA_TIERS.indexOf(t.tier) >= 0);
+}
+
+/** Rough work per task by tier, for ordering bosses by points per effort. Never shown. */
+const CA_TASK_COST = { Easy: 1, Medium: 1.6, Hard: 2.6, Elite: 4.2, Master: 7, Grandmaster: 11 };
+/** Work for taking on a boss at all (gear, travel, learning it): fewer bosses with more tasks win. */
+const CA_BOSS_COST = 3;
+
+/** A boss's effort from its hardest task left: like the single-task cards. */
+function caBossEffort(tasks) {
+  const top = Math.max(-1, ...tasks.map((t) => CA_TIERS.indexOf(t.tier)));
+  return top <= 1 ? (tasks.length > 6 ? "Medium" : "Quick") : top <= 3 ? (tasks.length > 8 ? "Long" : "Medium") : "Long";
+}
+
+/**
+ * caTierPlan(snap, tier, { maxTier = tier }) -> the bosses with points towards a reward tier:
+ *   { tier, maxTier, need, have, gap, reached, available,
+ *     bosses: [{ monster, general, tasks, points, byTier: {Easy: n, ..}, effort, efficiency,
+ *               locked: { needs, goals } | null, wilderness }],
+ *     suggested: [monster, ..] }
+ * `need` is the tier's threshold, `gap` the points still to earn. `bosses` are best value first
+ * (points per unit of work, open ones before locked ones). `suggested` is the fewest of them, in
+ * that order, whose points cover the gap; all of them when they can't (see `available`), and
+ * none once the tier is reached.
+ */
+export function caTierPlan(snap, tier, { maxTier = tier } = {}) {
+  const a = analyse(snap);
+  const ca = snap.combatAchievements ?? {};
+  const need = ca.thresholds?.[tier] ?? 0;
+  const have = ca.points ?? 0;
+  const gap = Math.max(0, need - have);
+  const names = new Set();
+  for (const t of ca.tasks ?? []) if (!t.done) names.add(isGeneralCa(t.monster) ? "Other" : t.monster);
+  const bosses = [];
+  for (const monster of names) {
+    const tasks = caBossTasks(snap, monster, maxTier);
+    if (!tasks.length) continue;
+    const points = tasks.reduce((n, t) => n + (CA_TIER_POINTS[t.tier] ?? 1), 0);
+    const work = tasks.reduce((n, t) => n + (CA_TASK_COST[t.tier] ?? 4), 0);
+    const byTier = {};
+    for (const t of tasks) byTier[t.tier] = (byTier[t.tier] ?? 0) + 1;
+    const general = isGeneralCa(monster);
+    const lock = general ? null : lockOf({ meta: { monster } }, a);
+    bosses.push({
+      monster, general, tasks, points, byTier, effort: caBossEffort(tasks),
+      efficiency: points / (work + CA_BOSS_COST),
+      locked: lock ? { needs: lock.needs, goals: lock.goals } : null,
+      wilderness: WILDERNESS_MONSTERS.has(monster),
+    });
+  }
+  bosses.sort((x, y) => Number(!!x.locked) - Number(!!y.locked) || Number(x.general) - Number(y.general)
+    || y.efficiency - x.efficiency || y.points - x.points || x.monster.localeCompare(y.monster));
+  const available = bosses.reduce((n, b) => n + b.points, 0);
+  const suggested = [];
+  if (gap && available < gap) suggested.push(...bosses.map((b) => b.monster));
+  else if (gap) {
+    let sum = 0;
+    for (const b of bosses) {
+      if (sum >= gap) break;
+      suggested.push(b.monster);
+      sum += b.points;
+    }
+    // Drop picks the others cover anyway, cheapest-value first, so the list stays short.
+    for (const m of [...suggested].reverse()) {
+      const b = bosses.find((x) => x.monster === m);
+      if (sum - b.points >= gap) { suggested.splice(suggested.indexOf(m), 1); sum -= b.points; }
+    }
+  }
+  return { tier, maxTier, need, have, gap, reached: need > 0 && have >= need, available, bosses, suggested };
 }
 
 // ---- Progress marked by hand -------------------------------------------------------------
@@ -1600,17 +1842,39 @@ function applyAccountType(list, snap) {
   }
 }
 
+// ---- Fastest logs first ---------------------------------------------------------------------
+// For collection log hunters: log and pet cards come in order of their rough time estimate
+// (`hours`), quickest first, instead of by score. Other categories keep their usual order.
+
+/** The categories "Fastest logs first" reorders: the collection log and its pets. */
+export const HUNT_CATEGORIES = new Set(["clog", "pets"]);
+const isHunt = (c) => HUNT_CATEGORIES.has(c.category) && c.hours != null;
+const byHours = (x, y) => x.hours - y.hours || (x.hoursRaw ?? x.hours) - (y.hoursRaw ?? y.hours) || y.score - x.score;
+
+/**
+ * `list` with its collection log and pet suggestions put in time order, quickest first. They keep
+ * the places they had, so other categories still sit where their score puts them.
+ */
+export function fastestFirst(list) {
+  const hunt = list.filter(isHunt).sort(byHours);
+  let k = 0;
+  return list.map((c) => (isHunt(c) ? hunt[k++] : c));
+}
+
 /**
  * Pick `n` suggestions from different categories. `seed` adds a small, repeatable shuffle so
  * "Shuffle" gives fresh but still sensible picks. `exclude` removes ids the user skipped.
+ * `fastest` serves collection log and pet suggestions quickest first (see fastestFirst); Shuffle
+ * then moves on to the next quickest, since the cards already shown are excluded.
  */
-export function pickThree(list, { seed = 0, exclude = new Set(), keep = [], n = 3 } = {}) {
+export function pickThree(list, { seed = 0, exclude = new Set(), keep = [], n = 3, fastest = false } = {}) {
   const rand = mulberry32(seed);
-  const jittered = list
+  let jittered = list
     .filter((c) => !exclude.has(c.id))
     .map((c) => ({ c, s: c.score + (seed ? rand() * 30 : 0) }))
     .sort((x, y) => y.s - x.s)
     .map((x) => x.c);
+  if (fastest) jittered = fastestFirst(jittered);
   const picked = [...keep];
   const has = (c) => picked.some((p) => p.id === c.id);
   const groupOf = (c) => `${c.category}:${c.group ?? c.id}`;
@@ -1628,11 +1892,11 @@ export function pickThree(list, { seed = 0, exclude = new Set(), keep = [], n = 
   }
   // Still short (everything left was skipped or shuffled past): reuse skipped suggestions rather
   // than show fewer cards than the filters allow.
-  for (const c of list) {
+  for (const c of fastest ? fastestFirst(list) : list) {
     if (picked.length >= n) break;
     if (!has(c)) picked.push(c);
   }
-  return picked;
+  return fastest ? fastestFirst(picked) : picked;
 }
 
 /** How the 7-card Mixed carousel is split across the three tiers. */
@@ -1643,23 +1907,26 @@ const MIX_QUOTA = { Quick: 2, Medium: 3, Long: 2 };
  * variety rules, and categories already picked in earlier tiers are avoided where possible. If a
  * tier runs short, the other tiers fill the gap so the carousel stays full.
  */
-export function pickMix(list, { seed = 0, exclude = new Set(), quota = MIX_QUOTA } = {}) {
+export function pickMix(list, { seed = 0, exclude = new Set(), quota = MIX_QUOTA, fastest = false } = {}) {
   const total = Object.values(quota).reduce((a, b) => a + b, 0);
   const tiers = Object.keys(quota);
   let picked = [];
   tiers.forEach((tier, k) => {
     const sub = list.filter((c) => c.effort === tier);
-    const next = pickThree(sub, { seed: seed ? seed + k * 101 : 0, exclude, keep: picked, n: picked.length + quota[tier] });
+    const next = pickThree(sub, { seed: seed ? seed + k * 101 : 0, exclude, keep: picked, n: picked.length + quota[tier], fastest });
     picked = next;
   });
   // Top up from any tier if one ran short.
-  if (picked.length < total) picked = pickThree(list.filter((c) => c.effort !== CHALLENGE), { seed, exclude, keep: picked, n: total });
-  return tiers.flatMap((t) => picked.filter((c) => c.effort === t));
+  if (picked.length < total) picked = pickThree(list.filter((c) => c.effort !== CHALLENGE), { seed, exclude, keep: picked, n: total, fastest });
+  return tiers.flatMap((t) => {
+    const inTier = picked.filter((c) => c.effort === t);
+    return fastest ? fastestFirst(inTier) : inTier;
+  });
 }
 
 /** One Challenge suggestion (a huge log completion), shown apart from the regular picks. */
-export function pickChallenge(list, { seed = 0, exclude = new Set() } = {}) {
-  return pickThree(list.filter((c) => c.effort === CHALLENGE), { seed, exclude, n: 1 })[0] ?? null;
+export function pickChallenge(list, { seed = 0, exclude = new Set(), fastest = false } = {}) {
+  return pickThree(list.filter((c) => c.effort === CHALLENGE), { seed, exclude, n: 1, fastest })[0] ?? null;
 }
 
 /**
@@ -1685,11 +1952,17 @@ function mulberry32(a) {
 
 /** Rough internal cost (hours) for ordering steps that have no time estimate. Never shown. */
 const PLAN_ORDER_COST = { quest: 1.5, qp: 4, combat: 4, goal: 2, levelUnknown: 0.5 };
+/** The same for a quest by its wiki length, and the order lengths go in (shortest first). */
+const QUEST_LENGTH_COST = { "Very Short": 0.5, Short: 1, Medium: 2, Long: 4, "Very Long": 6 };
+const questLength = (q) => QUEST_REQS[q]?.length ?? null;
+const questPointsOf = (q) => QUEST_REQS[q]?.points ?? 0;
 
 /**
  * planRoute(snap, goals) -> { steps, done, skipped, unknown, unchecked, total }
  *   steps:   [{ key, kind: "skill"|"quest"|"qp"|"combat"|"goal", title, forGoals: [title],
- *              shared, completes: [title], hours: {low, high}|null, note }] in order
+ *              shared, completes: [title], neededBy: [name], hours: {low, high}|null, note }] in order
+ *            `neededBy` names what asks for the step directly: a quest, a skill it unlocks, or a
+ *            goal (so "Train Crafting to 49" says it's for The Hand in the Sand).
  *   done:    titles of goals already complete
  *   skipped: titles of goals the planner can't plan (custom goals)
  *   unknown: quests whose requirements aren't in our tables (check the wiki)
@@ -1701,15 +1974,32 @@ export function planRoute(snap, goals = []) {
   const nodes = new Map();
   const unknown = new Set(), unchecked = new Set();
   const node = (key, init) => {
-    if (!nodes.has(key)) nodes.set(key, { key, deps: new Set(), completes: [], ...init });
+    if (!nodes.has(key)) nodes.set(key, { key, deps: new Set(), completes: [], neededBy: new Set(), ...init });
     return nodes.get(key);
+  };
+  // `n` needs step `d`: the dependency, plus the name shown on `d` ("for The Hand in the Sand").
+  const need = (n, d) => {
+    n.deps.add(d.key);
+    if (n.label) d.neededBy.add(n.label);
   };
   const xpOf = (s) => snap.skills?.[s]?.xp ?? xpForLevel(a.lvl(s));
 
   // A skill target (level or XP); null when it's already reached.
+  // A skill that a quest unlocks (Herblore: Druidic Ritual) gets that quest first.
   const skillNode = (skill, targetXp, title) => {
     if (!snap.skills?.[skill] || xpOf(skill) >= targetXp) return null;
-    return node(`skill:${skill}:${targetXp}`, { kind: "skill", skill, targetXp, title });
+    const n = node(`skill:${skill}:${targetXp}`, { kind: "skill", skill, targetXp, title });
+    const unlock = SKILL_UNLOCK_QUESTS[skill];
+    if (unlock && !n.unlockChecked) {
+      n.unlockChecked = true;
+      const qn = questNode(unlock);
+      if (qn) {
+        n.deps.add(qn.key);
+        qn.neededBy.add(`training ${cap(skill)}`);
+        qn.note ??= `Unlocks ${cap(skill)}.`;
+      }
+    }
+    return n;
   };
   const levelNode = (skill, level) => skillNode(skill, xpForLevel(level), `Train ${cap(skill)} to ${level}`);
 
@@ -1717,21 +2007,24 @@ export function planRoute(snap, goals = []) {
   // Requirements { skills (incl. combat / questPoints), quests, questPoints } become deps of `n`.
   const addReqs = (n, req, seen) => {
     for (const [k, lvl] of Object.entries(req?.skills ?? {})) {
-      if (k === "combat") { if ((snap.player?.combatLevel ?? 0) < lvl) { combatNeed = Math.max(combatNeed, lvl); n.deps.add("combat"); } continue; }
+      if (k === "combat") {
+        if ((snap.player?.combatLevel ?? 0) < lvl) { combatNeed = Math.max(combatNeed, lvl); need(n, node("combat", { kind: "combat" })); }
+        continue;
+      }
       if (k === "questPoints") { addQp(n, lvl); continue; }
       const s = levelNode(k, lvl);
-      if (s) n.deps.add(s.key);
+      if (s) need(n, s);
     }
     if (req?.questPoints) addQp(n, req.questPoints);
     for (const q of req?.quests ?? []) {
       const qn = questNode(q, seen);
-      if (qn) n.deps.add(qn.key);
+      if (qn) need(n, qn);
     }
   };
-  const addQp = (n, need) => {
-    if ((snap.questPoints ?? 0) >= need) return;
-    qpNeed = Math.max(qpNeed, need);
-    n.deps.add("qp");
+  const addQp = (n, pts) => {
+    if ((snap.questPoints ?? 0) >= pts) return;
+    qpNeed = Math.max(qpNeed, pts);
+    need(n, node("qp", { kind: "qp" }));
   };
   const questNode = (q, seen = new Set(), isGoal = false) => {
     const st = a.questState[q];
@@ -1739,16 +2032,60 @@ export function planRoute(snap, goals = []) {
     // Not in the profile (a trimmed profile, or a quest newer than the plugin): can't tell if it's
     // done, so it's named rather than planned. A goal is still planned.
     if (st == null && !isGoal && snap.quests?.length) { unchecked.add(q); return null; }
-    const n = node(`quest:${q}`, { kind: "quest", quest: q, title: `${st === "IN_PROGRESS" ? "Finish" : "Do"} ${q}` });
+    const n = node(`quest:${q}`, { kind: "quest", quest: q, label: q, title: `${st === "IN_PROGRESS" ? "Finish" : "Do"} ${q}` });
     if (n.expanded) return n;
     n.expanded = true;
     const req = questRequirements(q);
     if (!req.known) unknown.add(q);
-    if (req.other.length) n.note = `Also needs: ${req.other.join("; ")}.`;
+    if (req.other.length) n.note = `Also needs: ${req.other.join("; ").replace(/\.$/, "")}.`;
     addReqs(n, req, new Set([...seen, q]));
     return n;
   };
   const contentReqs = (name) => CONTENT_REQS.filter((r) => name && r.match.test(name));
+
+  // Can quest `q` be started now (every requirement already met)?
+  const questReady = (q) => {
+    const req = questRequirements(q);
+    if (!req.known) return false;
+    return Object.entries(req.skills).every(([k, lvl]) => (k === "combat" ? (snap.player?.combatLevel ?? 0) : a.lvl(k)) >= lvl)
+      && (req.questPoints ?? 0) <= (snap.questPoints ?? 0)
+      && req.quests.every((x) => a.questState[x] === "FINISHED");
+  };
+  // "Reach N quest points": quests already on the route count (those that don't wait for the
+  // quest points themselves), and the quickest quests you can start now make up the rest.
+  const planQuestPoints = (target) => {
+    const qp = nodes.get("qp");
+    const have = snap.questPoints ?? 0;
+    const waits = (key, seen = new Set()) => {
+      if (key === "qp") return true;
+      if (seen.has(key) || !nodes.has(key)) return false;
+      seen.add(key);
+      return [...nodes.get(key).deps].some((d) => waits(d, seen));
+    };
+    const counted = [...nodes.values()].filter((n) => n.quest && questPointsOf(n.quest) && !waits(n.key));
+    const onRoute = counted.reduce((t, n) => t + questPointsOf(n.quest), 0);
+    let short = target - have - onRoute;
+    const picked = [];
+    const value = (q) => (QUEST_LENGTH_COST[questLength(q)] ?? 3) / questPointsOf(q);
+    const ready = (snap.quests ?? []).map((q) => q.name)
+      .filter((q) => a.questState[q] !== "FINISHED" && !nodes.has(`quest:${q}`) && questPointsOf(q) > 0 && questReady(q))
+      .sort((x, y) => value(x) - value(y) || questPointsOf(y) - questPointsOf(x) || x.localeCompare(y));
+    for (const q of ready) {
+      if (short <= 0) break;
+      const qn = questNode(q);
+      if (!qn) continue;
+      qn.neededBy.add("quest points");
+      qn.note ??= `${questLength(q) ?? "A"} quest worth ${questPointsOf(q)} quest point${questPointsOf(q) === 1 ? "" : "s"}, picked to make up the total.`;
+      picked.push(qn);
+      short -= questPointsOf(q);
+    }
+    for (const n of [...counted, ...picked]) qp.deps.add(n.key);
+    const parts = [`You have ${have}`];
+    if (onRoute) parts.push(`quests earlier on this route give ${onRoute}`);
+    if (picked.length) parts.push(`${picked.length} quick quest${picked.length === 1 ? "" : "s"} added for the rest`);
+    const tail = short > 0 ? ` Still ${short} short: any other quests count.` : "";
+    Object.assign(qp, { title: `Reach ${target} quest points`, note: `${parts.join("; ")}.${tail}` });
+  };
 
   const done = [], skipped = [], goalRoots = [];
   for (const g of goals) {
@@ -1760,14 +2097,13 @@ export function planRoute(snap, goals = []) {
       case "xp": root = skillNode(g.skill, g.xp, `Push ${cap(g.skill)} to ${fmt(g.xp)} XP`); break;
       case "quest": root = questNode(g.quest, new Set(), true); break;
       case "diary": {
-        root = node(`goal:${g.id}`, { kind: "goal", title });
+        root = node(`goal:${g.id}`, { kind: "goal", title, label: title });
         const req = DIARY_REQS[g.region]?.[g.tier];
         if (req) addReqs(root, { skills: req.skills, quests: req.quests, questPoints: req.questPoints });
         else unknown.add(title);
         const questsLeft = (snap.quests ?? []).filter((q) => q.state !== "FINISHED").length;
         if (req?.allQuests && questsLeft) {
-          node("allquests", { kind: "quest", title: `Finish every remaining quest (${questsLeft} left)`, note: "For the Quest point cape." });
-          root.deps.add("allquests");
+          need(root, node("allquests", { kind: "quest", title: `Finish every remaining quest (${questsLeft} left)`, note: "For the Quest point cape." }));
         }
         break;
       }
@@ -1776,16 +2112,22 @@ export function planRoute(snap, goals = []) {
         // Collection log, pets, items and combat achievements: the access gates in CONTENT_REQS.
         const page = g.page ?? (g.type === "item" || g.type === "pet" ? itemIndex(snap).get(String(g.item ?? g.pet).toLowerCase())?.page : null);
         const monster = g.monster ?? (g.type === "catask" ? (snap.combatAchievements?.tasks ?? []).find((t) => t.id === g.task)?.monster : null);
-        root = node(`goal:${g.id}`, { kind: "goal", title });
+        root = node(`goal:${g.id}`, { kind: "goal", title, label: title });
         for (const r of [...contentReqs(page), ...(monster !== page ? contentReqs(monster) : [])]) addReqs(root, r);
       }
     }
     if (!root) { done.push(title); continue; }
     root.completes.push(title);
-    goalRoots.push({ title, key: root.key });
+    goalRoots.push({ title, key: root.key, goal: g });
   }
-  if (qpNeed) node("qp", { kind: "qp", title: `Reach ${qpNeed} quest points`, note: `You have ${snap.questPoints ?? 0}; any quests count.` });
-  if (combatNeed) node("combat", { kind: "combat", title: `Reach combat level ${combatNeed}`, note: `You're level ${snap.player?.combatLevel ?? "?"}.` });
+  // A CA tier goal comes after the bosses picked for it (with the combat achievement planner), so
+  // those steps count towards the tier too.
+  for (const r of goalRoots) {
+    if (r.goal.type !== "ca") continue;
+    for (const b of goalRoots) if (b.goal.type === "caboss" && b.goal.forTier === r.goal.tier) nodes.get(r.key).deps.add(b.key);
+  }
+  if (qpNeed) planQuestPoints(qpNeed);
+  if (combatNeed) Object.assign(nodes.get("combat"), { title: `Reach combat level ${combatNeed}`, note: `You're level ${snap.player?.combatLevel ?? "?"}.` });
 
   // A skill's targets are trained in order: each one after the one below it.
   const bySkill = {};
@@ -1799,16 +2141,18 @@ export function planRoute(snap, goals = []) {
       n.cost = n.hours ? (n.hours.low + n.hours.high) / 2 : PLAN_ORDER_COST.levelUnknown * Math.max(1, levelOf(n.targetXp) - levelOf(from));
     });
   }
-  for (const n of nodes.values()) n.cost ??= PLAN_ORDER_COST[n.kind] ?? 1;
+  for (const n of nodes.values()) n.cost ??= (n.quest && QUEST_LENGTH_COST[questLength(n.quest)]) || (PLAN_ORDER_COST[n.kind] ?? 1);
 
   // Which goals each step serves (everything a goal's root depends on, directly or not).
-  const closure = (key, out = new Set()) => {
-    if (out.has(key) || !nodes.has(key)) return out;
+  // A CA tier goal waits for its bosses but doesn't share their steps: they're for the boss goals.
+  const bossKeys = new Set(goalRoots.filter((g) => g.goal.type === "caboss").map((g) => g.key));
+  const closure = (key, out = new Set(), skip = null) => {
+    if (out.has(key) || !nodes.has(key) || skip?.has(key)) return out;
     out.add(key);
-    for (const d of nodes.get(key).deps) closure(d, out);
+    for (const d of nodes.get(key).deps) closure(d, out, skip);
     return out;
   };
-  const goalSets = goalRoots.map((g) => ({ ...g, keys: closure(g.key) }));
+  const goalSets = goalRoots.map((g) => ({ ...g, keys: closure(g.key, new Set(), g.goal.type === "ca" ? bossKeys : null) }));
   for (const n of nodes.values()) n.forGoals = goalSets.filter((g) => g.keys.has(n.key)).map((g) => g.title);
 
   // Order: of the steps that are ready, take the one on the way to the goal that's closest to
@@ -1826,7 +2170,7 @@ export function planRoute(snap, goals = []) {
     left.delete(n.key);
     steps.push({
       key: n.key, kind: n.kind, title: n.title, forGoals: n.forGoals, shared: n.forGoals.length > 1,
-      completes: n.completes, hours: n.hours ?? null, note: n.note ?? null,
+      completes: n.completes, neededBy: [...n.neededBy], hours: n.hours ?? null, note: n.note ?? null,
     });
   }
   const timed = steps.filter((s) => s.hours);

@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { candidates, compactProfile, sinceLast, accountKind } from "../web/recommender.js";
+import { candidates, compactProfile, sinceLast, accountKind, showcaseOptions, showcaseChoices, showcasePicks, showcaseSuggestion, SHOWCASE_KINDS } from "../web/recommender.js";
 import { loadDropRates, sampleAccount, SAMPLE_IDS, fullAccount } from "./test-account.mjs";
 import { WILDERNESS_PAGES } from "../web/knowledge-base.js";
 
@@ -262,4 +262,267 @@ test("hidden until unlocked: each row says which goals unlock it, and the planne
     assert.ok(plan.steps.length, `${l.content}: the route has steps`);
     assert.deepEqual(plan.done, [], `${l.content}: none of its goals are done yet`);
   }
+});
+
+// ---- Clog hunting ------------------------------------------------------------------------------
+
+test("stale baguette: a random-event rarity is a Long haul, not Balanced", () => {
+  const snap = clone(sampleAccount());
+  const page = snap.collectionLog.pages["Random Events"];
+  for (const i of page.items) if (i.name === "Stale baguette") i.quantity = 0;
+  const c = candidates(snap, [], {}).find((x) => x.title === "Get Stale baguette");
+  assert.ok(c, "the baguette is suggested");
+  assert.equal(c.effort, "Long");
+  assert.match(c.why[0], /random events/i);
+  assert.ok(c.hours >= 100, `about ${c.hours} hours`);
+});
+
+test("fastest logs first: log and pet cards come quickest first, other categories keep their places", async () => {
+  const { pickThree, pickMix, fastestFirst, HUNT_CATEGORIES } = await import("../web/recommender.js");
+  for (const id of SAMPLE_IDS) {
+    const all = candidates(sampleAccount(id), [], {});
+    for (const c of all.filter((x) => HUNT_CATEGORIES.has(x.category))) {
+      assert.ok(c.hours > 0 && Number.isFinite(c.hours), `${id}: ${c.title} has a time estimate`);
+    }
+    // Only collection log cards: the picks are the quickest ones, in order, even after Shuffle.
+    const clog = all.filter((c) => c.category === "clog" && c.effort === "Medium");
+    for (const seed of [0, 7]) {
+      const picks = pickThree(clog, { seed, fastest: true });
+      const hours = picks.map((c) => c.hours);
+      assert.deepEqual(hours, [...hours].sort((a, b) => a - b), `${id}: in time order`);
+      // Quickest per page: no unpicked card on a page not already shown is quicker than the last pick.
+      const shown = new Set(picks.map((c) => c.group));
+      const quicker = clog.filter((c) => !picks.includes(c) && !shown.has(c.group) && c.hours < Math.min(...hours));
+      assert.deepEqual(quicker.map((c) => c.title), [], `${id}: nothing quicker was skipped`);
+    }
+    // Mixed: each tier's log cards in time order, and the tiers stay Quick -> Balanced -> Long.
+    const mix = pickMix(all.filter((c) => HUNT_CATEGORIES.has(c.category)), { fastest: true });
+    for (const t of ["Quick", "Medium", "Long"]) {
+      const h = mix.filter((c) => c.effort === t).map((c) => c.hours);
+      assert.deepEqual(h, [...h].sort((a, b) => a - b), `${id}: ${t} in time order`);
+    }
+    assert.deepEqual(mix.map((c) => c.effort), [...mix.map((c) => c.effort)].sort((a, b) => ["Quick", "Medium", "Long"].indexOf(a) - ["Quick", "Medium", "Long"].indexOf(b)));
+  }
+  // Other categories stay where they were; only the log and pet slots are reordered.
+  const list = [
+    { id: "a", category: "levels", score: 9 },
+    { id: "b", category: "clog", score: 8, hours: 40 },
+    { id: "c", category: "quests", score: 7 },
+    { id: "d", category: "pets", score: 6, hours: 5 },
+  ];
+  assert.deepEqual(fastestFirst(list).map((c) => c.id), ["a", "d", "c", "b"]);
+  // Off by default: picks are unchanged.
+  const all = candidates(sampleAccount(), [], {});
+  assert.deepEqual(pickThree(all, { seed: 3 }).map((c) => c.id), pickThree(all, { seed: 3, fastest: false }).map((c) => c.id));
+});
+
+// ---- Showcase ----------------------------------------------------------------------------
+
+test("showcase: strictly opt-in, so nothing is shown until the player picks it", () => {
+  const snap = sampleAccount("main");
+  for (const saved of [undefined, null, {}, { item: "", boss: "" }]) {
+    assert.deepEqual(showcasePicks(snap, saved), { item: null, boss: null, quest: null, skill: null });
+  }
+});
+
+test("showcase: picks resolve against the profile, ignoring capitalisation", () => {
+  const snap = sampleAccount("main");
+  const p = showcasePicks(snap, { item: "abyssal WHIP", boss: "vorkath", quest: snap.quests[0].name, skill: "slayer" });
+  assert.equal(p.item.name, "Abyssal whip");
+  assert.equal(p.boss.name, "Vorkath");
+  assert.equal(p.boss.kc, 640);
+  assert.equal(p.quest.name, snap.quests[0].name);
+  assert.equal(p.skill.name, "Slayer");
+  assert.equal(p.skill.level, snap.skills.slayer.level);
+  // Not owned, or not in this profile: not shown (and never swapped for something else).
+  const gone = showcasePicks(snap, { item: "Twisted bow", boss: "Not a boss", quest: "Not a quest", skill: "sorcery" });
+  assert.deepEqual(gone, { item: null, boss: null, quest: null, skill: null });
+});
+
+test("showcase: suggestions are the rarest pet, the most-killed boss and the top skill", () => {
+  const main = sampleAccount("main");
+  assert.equal(showcaseSuggestion(main, "item").name, "Vorki", "rarest of Vorki 1/3,000, Callisto cub 1/1,500 and TzRek-Jad 1/200");
+  assert.equal(showcaseSuggestion(main, "boss").name, "Vorkath", "640 KC, the most");
+  const top = Object.entries(main.skills).filter(([k]) => k !== "overall").sort((a, b) => b[1].xp - a[1].xp)[0][0];
+  assert.equal(showcaseSuggestion(main, "skill").key, top);
+  assert.equal(showcaseSuggestion(main, "quest"), null);
+  // No pets: the rarest item, and never a clue reward (their rates are per roll, not per clue).
+  const iron = sampleAccount("iron");
+  const item = showcaseSuggestion(iron, "item");
+  assert.ok(!item.pet && item.p != null && !/Treasure Trails/.test(item.page), `${item.name} from ${item.page}`);
+  assert.ok(showcaseOptions(iron).filter((o) => o.p != null).every((o) => o.p >= item.p));
+  assert.ok(showcaseOptions(iron).filter((o) => /Treasure Trails/.test(o.page)).every((o) => o.p == null));
+});
+
+test("showcase: choices are owned items once each, bosses most-killed first, every quest and skill", () => {
+  const snap = fullAccount();
+  const items = showcaseChoices(snap, "item");
+  assert.equal(new Set(items.map((o) => o.key.toLowerCase())).size, items.length);
+  // By name: an item on several pages counts as owned when any of them has it.
+  const owned = new Set(Object.values(snap.collectionLog.pages).flatMap((p) => p.items.filter((i) => i.quantity > 0).map((i) => i.name.toLowerCase())));
+  assert.ok(items.every((o) => owned.has(o.key.toLowerCase())));
+  const bosses = showcaseChoices(snap, "boss");
+  assert.ok(bosses.length > 20);
+  const kcs = bosses.map((b) => b.kc ?? -1);
+  assert.deepEqual(kcs, [...kcs].sort((a, b) => b - a));
+  assert.equal(showcaseChoices(snap, "quest").length, snap.quests.length);
+  assert.ok(showcaseChoices(snap, "skill").length >= 23);
+  assert.deepEqual(SHOWCASE_KINDS, ["item", "boss", "quest", "skill"]);
+});
+
+test("showcase: an empty profile has nothing to pick and nothing to suggest", () => {
+  for (const kind of SHOWCASE_KINDS) {
+    assert.deepEqual(showcaseChoices({}, kind), []);
+    assert.equal(showcaseSuggestion({}, kind), null);
+  }
+});
+
+test("CA tier planner: bosses with tasks up to a tier, and a pick that covers the points", async () => {
+  const { caTierPlan, planRoute, goalTitle, goalProgress } = await import("../web/recommender.js");
+  const { CA_TIERS, CA_TIER_POINTS } = await import("../web/knowledge-base.js");
+  const snap = sampleAccount();
+  const ca = snap.combatAchievements;
+  const tier = CA_TIERS.find((t) => ca.thresholds[t] > ca.points);
+  const plan = caTierPlan(snap, tier);
+  assert.equal(plan.gap, ca.thresholds[tier] - ca.points);
+  const top = CA_TIERS.indexOf(tier);
+  for (const b of plan.bosses) {
+    assert.ok(b.tasks.every((t) => !t.done && CA_TIERS.indexOf(t.tier) <= top), `${b.monster}: only unfinished tasks up to ${tier}`);
+    assert.equal(b.points, b.tasks.reduce((n, t) => n + CA_TIER_POINTS[t.tier], 0));
+  }
+  // Locked bosses come after open ones.
+  const firstLocked = plan.bosses.findIndex((b) => b.locked);
+  if (firstLocked >= 0) assert.ok(plan.bosses.slice(firstLocked).every((b) => b.locked || b.general));
+  // The suggestion covers the gap, and dropping any one boss from it wouldn't.
+  const pts = (ms) => ms.reduce((n, m) => n + plan.bosses.find((b) => b.monster === m).points, 0);
+  if (plan.available >= plan.gap) {
+    assert.ok(pts(plan.suggested) >= plan.gap);
+    for (const m of plan.suggested) assert.ok(pts(plan.suggested.filter((x) => x !== m)) < plan.gap, `${m} is needed`);
+  } else assert.equal(plan.suggested.length, plan.bosses.length);
+
+  // Counting fewer tiers only ever leaves easier tasks.
+  const easy = caTierPlan(snap, tier, { maxTier: "Easy" });
+  assert.ok(easy.bosses.every((b) => b.tasks.every((t) => t.tier === "Easy")));
+  assert.ok(easy.available <= plan.available);
+
+  // As goals: each boss tracks its tasks, and the route ends with the tier after its bosses.
+  const goals = [{ id: "t", type: "ca", tier },
+    ...plan.suggested.slice(0, 3).map((monster, i) => ({ id: `b${i}`, type: "caboss", monster, tier, forTier: tier }))];
+  for (const g of goals.slice(1)) {
+    assert.match(goalTitle(g), new RegExp(`up to ${tier} at`));
+    assert.equal(goalProgress(g, snap).done, false);
+  }
+  const route = planRoute(snap, goals);
+  const at = (title) => route.steps.findIndex((s) => s.completes.includes(title));
+  for (const g of goals.slice(1)) assert.ok(at(goalTitle(g)) < at(goalTitle(goals[0])), `${goalTitle(g)} before the tier`);
+  assert.ok(route.steps.every((s) => !s.shared), "the tier goal doesn't make boss steps shared");
+});
+
+test("CA tier planner: a reached tier needs nothing, and a boss goal is done when its tasks are", async () => {
+  const { caTierPlan, goalProgress } = await import("../web/recommender.js");
+  const snap = clone(sampleAccount());
+  const ca = snap.combatAchievements;
+  const reached = caTierPlan(snap, "Easy");
+  assert.equal(reached.gap, 0);
+  assert.deepEqual(reached.suggested, []);
+  const t = ca.tasks.find((x) => !x.done && x.monster !== "Other" && x.monster !== "None");
+  const g = { id: "b", type: "caboss", monster: t.monster, tier: "Grandmaster" };
+  for (const x of ca.tasks) if (x.monster === t.monster) x.done = true;
+  assert.equal(goalProgress(g, snap).done, true);
+});
+
+// A fresh-ish account: no quests, diaries or quest points, skills capped at 40, no Herblore.
+function freshAccount() {
+  const snap = clone(sampleAccount());
+  for (const q of snap.quests) q.state = "NOT_STARTED";
+  for (const s of Object.values(snap.skills)) { s.level = Math.min(s.level, 40); s.xp = Math.min(s.xp, 37224); }
+  snap.skills.herblore = { level: 1, xp: 0 };
+  snap.questPoints = 0;
+  for (const d of Object.values(snap.diaries)) for (const t in d) d[t] = false;
+  return snap;
+}
+
+test("planner: each step says what needs it, down to the quest that asks for a level", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const plan = planRoute(freshAccount(), [{ id: "d", type: "diary", region: "Ardougne", tier: "medium" }]);
+  const step = (title) => plan.steps.find((s) => s.title === title);
+  // The diary needs The Hand in the Sand, which needs 49 Crafting: the step names the quest.
+  assert.deepEqual(step("Train Crafting to 49").neededBy, ["The Hand in the Sand"]);
+  assert.ok(step("Do Plague City").neededBy.includes("Biohazard"));
+  for (const s of plan.steps) if (!s.completes.length) assert.ok(s.neededBy.length, `${s.title} says what needs it`);
+});
+
+test("planner: a skill a quest unlocks gets that quest first (Herblore: Druidic Ritual)", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const snap = freshAccount();
+  const plan = planRoute(snap, [{ id: "h", type: "skill", skill: "herblore", level: 30 }]);
+  const keys = plan.steps.map((s) => s.key);
+  assert.ok(keys.indexOf("quest:Druidic Ritual") >= 0, "Druidic Ritual is planned");
+  assert.ok(keys.indexOf("quest:Druidic Ritual") < keys.findIndex((k) => k.startsWith("skill:herblore")));
+  assert.ok(plan.steps[0].neededBy.includes("training Herblore"));
+  // Done already: nothing extra. (A new copy: the analysis is cached per profile object.)
+  const done = clone(snap);
+  done.quests.find((q) => q.name === "Druidic Ritual").state = "FINISHED";
+  assert.ok(!planRoute(done, [{ id: "h", type: "skill", skill: "herblore", level: 30 }]).steps.some((s) => s.key === "quest:Druidic Ritual"));
+});
+
+test("planner: quest points are made up with quests on the route, then the quickest ones you can do", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const quests = JSON.parse(readFileSync(new URL("../web/data/quest-reqs.json", import.meta.url), "utf8")).quests;
+  const plan = planRoute(freshAccount(), [{ id: "q", type: "quest", quest: "Heroes' Quest" }]);
+  const qpAt = plan.steps.findIndex((s) => s.kind === "qp");
+  assert.ok(qpAt > 0, "there's a quest point step");
+  assert.equal(plan.steps[qpAt].title, "Reach 55 quest points");
+  // Every quest before the step adds up to at least 55, and the ones picked for points are named.
+  const before = plan.steps.slice(0, qpAt).filter((s) => s.kind === "quest").map((s) => s.key.slice(6));
+  assert.ok(before.reduce((t, q) => t + (quests[q]?.points ?? 0), 0) >= 55);
+  const picked = plan.steps.filter((s) => s.neededBy.includes("quest points"));
+  assert.ok(picked.length, "quick quests were added");
+  for (const s of picked) assert.match(s.note, /quest points?, picked/);
+  assert.doesNotMatch(plan.steps[qpAt].note, /short/, "nothing left over");
+  // The quest that needs the points comes after them.
+  assert.ok(plan.steps.findIndex((s) => s.key === "quest:Heroes' Quest") > qpAt);
+});
+
+// ---- Showcase: kill counts under the game's own names ---------------------------------------
+
+test("showcase KC: every page in KC_PAGE_NAMES is a real boss or raid page", async () => {
+  const { KC_PAGE_NAMES } = await import("../web/knowledge-base.js");
+  const { pages } = JSON.parse(readFileSync(new URL("./fixtures/game-names.json", import.meta.url), "utf8"));
+  for (const page of Object.keys(KC_PAGE_NAMES)) {
+    assert.ok(pages[page] && ["Bosses", "Raids"].includes(pages[page].tab), `${page} is a boss or raid page`);
+  }
+});
+
+test("showcase KC: counts reach their page whatever the game calls them", async () => {
+  const { pageKillCounts } = await import("../web/recommender.js");
+  const snap = clone(sampleAccount("main"));
+  snap.killCounts = {
+    "Dagannoth Rex": 10, "Dagannoth Prime": 20, "Dagannoth Supreme": 30, // several bosses, one page
+    "TzTok-Jad": 4, // the page is "The Fight Caves"
+    "Nightmare": 7, "Phosani's Nightmare": 3, // "The" dropped, plus another name
+    "Theatre of Blood": 50, "Theatre of Blood: Hard Mode": 5, // raid modes count for the raid
+    "thermonuclear smoke devil": 12, // capitals
+    "Brutus": 99, // a page of its own
+    "Bryophyta": 2,
+    "Not a boss at all": 1, // no page: still offered on its own
+  };
+  const pages = Object.keys(snap.collectionLog.pages);
+  const { pages: by, unmatched } = pageKillCounts(snap, pages);
+  const kcOf = (p) => by[p]?.kc;
+  assert.equal(kcOf("Dagannoth Kings"), 60);
+  if (pages.includes("The Fight Caves")) assert.equal(kcOf("The Fight Caves"), 4);
+  if (pages.includes("The Nightmare")) assert.equal(kcOf("The Nightmare"), 10);
+  if (pages.includes("Theatre of Blood")) assert.equal(kcOf("Theatre of Blood"), 55);
+  if (pages.includes("Thermonuclear Smoke Devil")) assert.equal(kcOf("Thermonuclear Smoke Devil"), 12);
+  assert.deepEqual(Object.keys(unmatched), pages.includes("Brutus") ? ["Not a boss at all"] : ["Brutus", "Not a boss at all"]);
+
+  // In the picker: one entry per page (no separate "Dagannoth Rex"), with what it adds up.
+  const bosses = showcaseChoices(snap, "boss");
+  const dks = bosses.find((b) => b.key === "Dagannoth Kings");
+  assert.equal(dks.kc, 60);
+  assert.match(dks.detail, /^60 KC \(Dagannoth Rex 10, Dagannoth Prime 20, Dagannoth Supreme 30\)$/);
+  assert.ok(!bosses.some((b) => b.key === "Dagannoth Rex"), "the kings are counted on their page only");
+  assert.ok(bosses.some((b) => b.key === "Not a boss at all" && b.kc === 1));
+  assert.equal(showcasePicks(snap, { boss: "dagannoth kings" }).boss.kc, 60);
 });

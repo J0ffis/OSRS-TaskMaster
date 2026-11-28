@@ -1,0 +1,20 @@
+{
+  "name": "osrs-taskmaster-sync",
+  "private": true,
+  "description": "OSRS TaskMaster auto-upload service (Cloudflare Worker + D1).",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --ip 127.0.0.1 --port 8789 --local",
+    "db:local": "wrangler d1 execute taskmaster --local --file=schema.sql",
+    "db:remote": "wrangler d1 execute taskmaster --remote --file=schema.sql",
+    "deploy": "wrangler deploy",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261123.1": true
+  }
+}

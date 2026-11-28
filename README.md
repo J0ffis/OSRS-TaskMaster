@@ -15,18 +15,43 @@ from quick wins you can finish tonight to long hauls for the month ahead.
 Suggestions are based on your levels, quests, achievement diaries, combat achievements,
 collection log, pets and any goals you set yourself, including goals to get specific items.
 
-Your data comes from a small RuneLite plugin that reads your own game client. You copy your
-profile from the plugin and paste it on the website, which keeps it in your browser. Nothing
-calls the hiscores, the wiki, Wise Old Man, TempleOSRS or any other community service, and the
-plugin never reads your bank, inventory or equipment.
+Your data comes from a small RuneLite plugin that reads your own game client. By default you
+copy your profile from the plugin and paste it on the website, which keeps it in your browser.
+**Automatic upload**, which skips the copy and paste, is in testing and not live yet. Nothing calls
+the hiscores, the wiki, Wise Old Man, TempleOSRS or any other community service, and the plugin
+never reads your bank, inventory or equipment.
 
-**Testing it?** Follow the step-by-step **[tester guide](TESTER-GUIDE.md)**.
+## Testing it
+
+Follow the step-by-step **[tester guide](TESTER-GUIDE.md)**. One download covers both ways of
+testing; the plugin is the same, and the file you double-click picks the mode:
+
+| | `Start TaskMaster.bat` | `Test Auto-Upload.bat` (optional) |
+|---|---|---|
+| Mode | Copy and paste | Automatic upload |
+| Website | The live site (GitHub Pages, published from `main`) | This download's `web/`, served on http://127.0.0.1:8790/ |
+| Upload service | None | A local copy of `sync/` on http://127.0.0.1:8789, data in `sync\.wrangler` |
+| Plugin settings | Saved settings (Automatic upload off by default) | Automatic upload on and pointed at the local service, for that run only |
+| Needs | Java (downloaded if missing) | Java and Node.js (both downloaded if missing) |
+
+Neither launcher changes the other's settings, so a tester can switch back and forth. Nothing in
+the test mode reaches the live website or any server off the PC.
+
+Both ways ship from `main`: testers download it with **Code → Download ZIP**, and every push to
+`main` that touches `web/` republishes the live site. So anything merged to `main` reaches copy
+and paste testers on their next visit to the site, and Automatic upload testers when they
+download again (their website and plugin both come from the download). Keep both working: a
+change to `main` must not need the upload service for copy and paste, and the website must not
+mention Automatic upload on the live site until the service is deployed (see
+[Running the Automatic upload service](#running-the-automatic-upload-service)).
 
 ## How it works
 
 ```
 RuneLite + plugin  ──"Copy my profile"──▶  website (paste with Ctrl+V)
 reads your client                          keeps your profile in this browser
+        └──Automatic upload (opt-in)──▶  sync service  ──▶  website on any browser,
+                                                             and "Your next grinds" in RuneLite
 ```
 
 1. The plugin reads your progress from the game client's memory and the game cache.
@@ -34,6 +59,11 @@ reads your client                          keeps your profile in this browser
    `%USERPROFILE%\.runelite\osrs-taskmaster\<name>.json`.
 3. The website turns it into suggestions. It runs entirely in your browser; your profile and
    goals live in `localStorage`.
+4. With **Automatic upload** on (testing only for now: see [Testing it](#testing-it)), the
+   plugin also uploads the profile to the sync service
+   (`sync/`): the website then loads it from a link on any browser, goals are saved with it, and
+   the plugin's panel shows the website's latest picks. Profiles are private by default, with an
+   optional public lookup by name. Details in [sync/README.md](sync/README.md).
 
 For a complete collection log, open it in game and click **Search** once. Kill counts are picked
 up from chat messages as you play, and from a boss's collection log page when you open it. The
@@ -48,18 +78,22 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
   - `knowledge-base.js` – hand-written game facts (quest requirements, diary rewards, effort
     estimates). Edit this to tune suggestions.
   - `app.js` – the page itself: importing profiles, rendering cards, managing goals.
+  - `config.js` – where the Automatic upload service runs (local or live), and the website's
+    half of the go-live switch (see [Going live](#going-live-one-switch)).
   - `samples/` – the made-up accounts behind **Load sample data**, one per account type (made by
     `tests/make-sample-profiles.mjs`, `npm run samples`).
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
-  - `data/quest-reqs.json` – a snapshot of every quest's requirements from the OSRS Wiki (the
-    route planner and **Within reach** use it).
+  - `data/quest-reqs.json` – a snapshot of every quest's requirements, length and quest point
+    reward from the OSRS Wiki (the route planner and **Within reach** use it).
   - `icons/game/` and `game-icons.js` – game icons exported from the game cache (see
     [Game icons](#game-icons)).
+- `sync/` – the Automatic upload service (Cloudflare Worker + D1 database), with end-to-end tests.
+  How it works, running it locally and deploying it: [sync/README.md](sync/README.md).
 - `tests/` – checks for the website, run with Node.js (`npm run check`, `npm test`): the
   knowledge-base checker, suggestion snapshots, and `fixtures/game-names.json` (the game's own
   page, item, quest and task names, no player progress).
 - `tools/game-icons/` – the Java tool behind `Update-GameIcons.ps1` (not part of the plugin).
-- `server/` – an optional, dependency-free local server (`Server.java`) for automatic syncing.
+- `server/` – an optional, dependency-free local server (`Server.java`) for development.
 - `scripts/` – PowerShell scripts:
   - `Start-TaskMaster.ps1` – the tester launcher behind `Start TaskMaster.bat`.
   - `Start-RuneLiteDev.ps1` – starts RuneLite with the plugin, for development.
@@ -72,10 +106,12 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
   - `Update-GameData.ps1` – after a game update: game names, icons, drop rates, quest
     requirements and checks in one go.
   - `Format-Json.ps1` – lays JSON files out one entry per line so they're easy to read.
+  - `Set-UploadLive.ps1` – the go-live switch for Automatic upload (plugin and website together).
 - `docs/` – reference notes: [how suggestions work](docs/how-suggestions-work.md) (start here
   to tune them), [what the plugin reads](docs/data-sources.md), and
   [publishing to the Plugin Hub](docs/plugin-hub.md).
 - `Start TaskMaster.bat` / `Forget TaskMaster login.bat` – double-click entry points for testers.
+- `Test Auto-Upload.bat` – try Automatic upload on this PC (`scripts/Start-AutoUploadTest.ps1`).
 - `.editorconfig` / `.gitattributes` – formatting and line-ending rules, so every editor and
   checkout stays consistent.
 
@@ -95,13 +131,14 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
 
 This runs `gradlew run` in `plugin/`, which starts RuneLite in developer mode with the plugin
 side-loaded. The first start takes a few minutes. Jagex accounts need the one-time login step
-described in the [tester guide](TESTER-GUIDE.md#2-start-it).
+described in the [tester guide](TESTER-GUIDE.md#2-first-start-both-ways).
 
 ### Running the website
 
 The hosted site is published to GitHub Pages from `web/` by
 [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main` that touches
-`web/` or `tests/`. Locally, any static file server works, or use the local server below.
+`web/` or `tests/`. Locally, any static file server works, or use the local server below. Pages
+opened from this PC (`localhost` / `127.0.0.1`) talk to the local sync service, not the live one.
 
 ### Checks and tests
 
@@ -120,24 +157,59 @@ combat achievement points that don't add up); the website then tells the player 
 suggestions may be off.
 [How suggestions work](docs/how-suggestions-work.md#checking-an-edit) explains them.
 
+### Running the Automatic upload service
+
+To try the whole thing on your PC (service, website and RuneLite with the plugin), double-click
+**`Test Auto-Upload.bat`**; see [sync/README.md](sync/README.md#try-it-on-your-pc-one-click).
+By hand:
+
+```powershell
+cd sync
+npm install
+npm run db:local   # once
+npm run dev        # http://127.0.0.1:8789
+npm test           # end-to-end tests, in a second terminal
+```
+
+Set the plugin's **Upload server** setting to `http://127.0.0.1:8789` to test against it (the
+one-click test sets it for that run only, without changing your settings).
+Deploying it to Cloudflare is covered in [sync/README.md](sync/README.md).
+
+#### Going live: one switch
+
+Whether Automatic upload is offered to everyone is one switch with a value on each side:
+`UPLOAD_LIVE` in `TaskMasterConfig.java` (plugin) and `LIVE` in `web/config.js` (website). Set
+both with one command:
+
+```powershell
+.\scripts\Set-UploadLive.ps1 -Status   # show the switch
+.\scripts\Set-UploadLive.ps1           # go live: checks the live service answers first
+.\scripts\Set-UploadLive.ps1 -Off      # back to not live
+```
+
+While it's off (now, until the service is deployed): the plugin's *Automatic upload* settings
+section is closed and labelled as not live, the panel's copy-and-paste note points testers to
+`Test Auto-Upload.bat`, and the website only mentions Automatic upload on the local test site.
+When it's on, all three switch to their normal wording. `Test Auto-Upload.bat` and copy and paste
+work the same either way. `tests/upload-switch.test.mjs` fails if the two sides differ or point at
+different services, and once live, if the tester guide or plugin README still says it isn't.
+Going live reaches the website on the next push to `main` and RuneLite players with the next
+Plugin Hub update.
+
 ### Running the local server (optional)
 
-The local server serves the website and receives profiles straight from the plugin, so you don't
-have to copy and paste.
+The local server serves the website at http://localhost:8787 and lists any profiles saved in
+`server/data/profiles`. (The plugin no longer sends to it: Automatic upload, above, replaced its
+old "Send to my own server" setting.)
 
 ```powershell
 .\scripts\Start-LocalServer.ps1
 ```
 
-It prints a sync token (also saved in `server/data/token.txt`) and serves the site at
-http://localhost:8787 (use `-Port 8788` if that port is taken, and point the plugin's server
-address at the same port). In RuneLite, open **Configuration → OSRS TaskMaster → Your own server
-(advanced)**, switch on **Send to my own server** and paste the token into **Sync token**.
+Use `.\scripts\Start-LocalServer.ps1 -Port 8788` if port 8787 is taken.
 
-The plugin then syncs on login and at most every 5 minutes after something changes. The server
-binds to 127.0.0.1 only, checks the token, rejects foreign `Host` headers and refuses any snapshot
-that contains wealth data. Synced profiles and goals are kept in `server/data/`, which is not
-committed.
+The server binds to 127.0.0.1 only, rejects foreign `Host` headers and refuses any profile that
+contains wealth data. Saved profiles and goals are kept in `server/data/`, which is not committed.
 
 ### After a game update
 
@@ -187,8 +259,8 @@ file. Effort is estimated as (1 ÷ chance per attempt) × minutes per attempt, u
 
 ### Quest requirements
 
-`web/data/quest-reqs.json` holds every quest's and miniquest's requirements from the OSRS Wiki
-(the route planner and **Within reach** use it):
+`web/data/quest-reqs.json` holds every quest's and miniquest's requirements, length and quest
+point reward from the OSRS Wiki (the route planner and **Within reach** use it):
 
 ```powershell
 npm run quest-reqs                                  # only if the game has quests the file doesn't
@@ -196,8 +268,9 @@ node scripts/update-quest-reqs.mjs --dry-run        # say whether it would ask; 
 node scripts/update-quest-reqs.mjs --full           # ask anyway, e.g. after a quest's requirements changed
 ```
 
-It compares the quests in `tests/fixtures/game-names.json` with the file and sends one request
-(the wiki's whole quest list) only when there's a new one. Game names the wiki has no page for
+It compares the quests in `tests/fixtures/game-names.json` with the file and sends three requests
+(the wiki's whole quest bucket, plus the free-to-play and members quest lists for quest points)
+only when there's a new one. Game names the wiki has no page for
 are remembered in `notOnWiki`, so they don't send a request every time.
 
 If you edit a JSON file by hand, `.\scripts\Format-Json.ps1 <file>` puts it back in the same

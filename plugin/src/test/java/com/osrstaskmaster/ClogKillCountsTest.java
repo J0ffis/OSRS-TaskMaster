@@ -5,7 +5,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
@@ -41,6 +43,26 @@ public class ClogKillCountsTest
 		assertNull(ClogKillCounts.parse("Rewards claimed: 4"));
 		assertNull(ClogKillCounts.parse(""));
 		assertNull(ClogKillCounts.parse(null));
+	}
+
+	@Test
+	public void readsAWholeHeader()
+	{
+		// The header container's children, with colour tags, read alongside its title text widget,
+		// so the same line may come twice; blank and null texts are skipped.
+		List<Map.Entry<String, Integer>> kcs = ClogKillCounts.parseAll(Arrays.asList(
+			"Dagannoth Kings", null, "",
+			"Obtained: <col=ff0000>5/14</col>",
+			"Dagannoth Rex kills: <col=ffffff>410</col>",
+			"Dagannoth Prime kills: <col=ffffff>1,388</col><br>Dagannoth Supreme kills: <col=ffffff>402</col>",
+			"Dagannoth Rex kills: <col=ffffff>410</col>",
+			"Dagannoth Kings"), "Dagannoth Kings");
+		assertEquals(3, kcs.size());
+		assertEquals("Dagannoth Rex", kcs.get(0).getKey());
+		assertEquals(Integer.valueOf(410), kcs.get(0).getValue());
+		assertEquals("Dagannoth Prime", kcs.get(1).getKey());
+		assertEquals(Integer.valueOf(1388), kcs.get(1).getValue());
+		assertEquals("Dagannoth Supreme", kcs.get(2).getKey());
 	}
 
 	@Test

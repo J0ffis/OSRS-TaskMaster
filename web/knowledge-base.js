@@ -146,6 +146,8 @@ export const ITEM_EFFORT = {
   "Mist battlestaff": { effort: "Medium", why: SUPERIOR_COMMON },
   "Dust battlestaff": { effort: "Medium", why: SUPERIOR_COMMON },
   "Helmet of the moon": { effort: "Long", why: MOON_KEYS },
+  // Only from a rare roll on random event rewards, and random events come about once an hour.
+  "Stale baguette": { effort: "Long", why: "A rare roll from the Sandwich lady or a Mystery box, and random events only come about once an hour: a long haul" },
 };
 
 // Kill-count rewards: unlocked by reaching a number of completions (raid shrouds and records,
@@ -158,6 +160,26 @@ export const KC_REWARDS = [
   /^Xeric's (guard|warrior|sentinel|general|champion)$/i,
   /^Victor's cape \(\d+\)$/i,
 ];
+
+// Kill counts are kept under the name the game counts them by ("Your Dagannoth Rex kill count
+// is", or a collection log page's "Callisto kills: 12" header line), which isn't always the page's
+// name. Pages that count under other names, or several: their counts add up for the page (the
+// showcase's "N KC"). Matching already ignores capitals, a leading "The" ("Nightmare" = The
+// Nightmare) and raid modes ("Theatre of Blood: Hard Mode" counts for Theatre of Blood), so
+// those need no entry here.
+export const KC_PAGE_NAMES = {
+  "Barrows Chests": ["Barrows"],
+  "Callisto and Artio": ["Callisto", "Artio"],
+  "Dagannoth Kings": ["Dagannoth Rex", "Dagannoth Prime", "Dagannoth Supreme"],
+  "Fortis Colosseum": ["Sol Heredit"],
+  "Moons of Peril": ["Lunar", "Lunar Chest", "Lunar Chests"],
+  "The Fight Caves": ["TzTok-Jad"],
+  "The Gauntlet": ["Corrupted Gauntlet"],
+  "The Inferno": ["TzKal-Zuk"],
+  "The Nightmare": ["Phosani's Nightmare"],
+  "Venenatis and Spindel": ["Venenatis", "Spindel"],
+  "Vet'ion and Calvar'ion": ["Vet'ion", "Calvar'ion"],
+};
 
 // Items with duplicate protection (you always get a piece you're missing): always Balanced.
 export const PROTECTED_ITEMS = [
@@ -197,6 +219,7 @@ export const MINUTES_PER_ATTEMPT = {
   "Skotizo": 3, "Tempoross": 7, "Thermonuclear Smoke Devil": 0.75, "The Gauntlet": 7, "Vardorvis": 2.5,
   "Venenatis and Spindel": 2, "Vet'ion and Calvar'ion": 2, "Vorkath": 2, "The Whisperer": 3,
   "Wintertodt": 6, "Yama": 4, "Zalcano": 4, "Zulrah": 2,
+  "Random Events": 60, // one random event roughly every hour of play
 };
 // Wiki sources that are a second roll or a reward table rather than a kill. `page` links the
 // source to its collection log page, `perAttempt` is the chance of reaching that table per
@@ -209,6 +232,9 @@ export const SOURCE_RULES = {
 export const TAB_MINUTES = { Bosses: 2.5, Raids: 30, Clues: 10, Minigames: 10, Other: 1 };
 // Expected hours at or under these limits count as Quick / Balanced; anything longer is a Long haul.
 export const EFFORT_HOURS = { Quick: 3, Medium: 20 };
+// Typical hours for a collection log item with no drop rate to go on, by its effort tier. Only
+// used to put log cards in order under "Fastest logs first"; never shown as a time on its own.
+export const EFFORT_FALLBACK_HOURS = { Quick: 1.5, Medium: 10, Long: 60 };
 
 // ---- Opt-in content --------------------------------------------------------------------
 // Minigames and clues follow the collection log's own tabs. Wilderness content is listed here.
@@ -220,6 +246,13 @@ export const WILDERNESS_MONSTERS = new Set([
   "Callisto", "Artio", "Venenatis", "Spindel", "Vet'ion", "Calvar'ion", "Chaos Elemental",
   "Chaos Fanatic", "Crazy Archaeologist", "Scorpia", "King Black Dragon", "Revenants",
 ]);
+
+// Skills you can't train at all until a quest is done (OSRS Wiki, November 2026). The route
+// planner puts the quest before any training step for the skill.
+export const SKILL_UNLOCK_QUESTS = {
+  herblore: "Druidic Ritual",
+  sailing: "Pandemonium",
+};
 
 // ---- Access requirements ---------------------------------------------------------------
 // Content that is hidden until you meet its requirement. `match` is tested against collection

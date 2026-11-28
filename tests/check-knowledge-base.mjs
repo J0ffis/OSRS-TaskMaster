@@ -161,6 +161,10 @@ for (const [region, tiers] of Object.entries(KB.DIARY_REQS)) {
     for (const q of req.quests ?? []) needQuest(where, q);
   }
 }
+for (const [skill, q] of Object.entries(KB.SKILL_UNLOCK_QUESTS ?? {})) {
+  if (!skills.has(skill)) err("SKILL_UNLOCK_QUESTS", `"${skill}" isn't a skill.${hint(skill, skills)}`);
+  needQuest(`SKILL_UNLOCK_QUESTS ${skill}`, q);
+}
 for (const t of Object.keys(KB.DIARY_TIER_TOTAL)) if (!DIARY_TIERS.includes(t)) err("DIARY_TIER_TOTAL", `"${t}" isn't a diary tier.`);
 KB.CONTENT_REQS.forEach((r, i) => {
   const where = `CONTENT_REQS[${i}]`;

@@ -1,17 +1,19 @@
 // OSRS TaskMaster website: the page around the recommender.
-// Imports profiles (paste, file drop or the local server), renders the suggestion cards, goals
-// and tabs, and saves goals. Suggestions themselves come from recommender.js; game facts from knowledge-base.js.
-// In browser mode (GitHub Pages) everything is kept in localStorage; nothing is uploaded.
+// Gets profiles (paste, file drop, the local server, or an Automatic upload link), renders the
+// suggestion cards, goals and tabs, and saves goals. Suggestions themselves come from
+// recommender.js; game facts from knowledge-base.js. Pasted profiles stay in localStorage;
+// uploaded ones are read from, and their goals and picks saved to, the sync service (config.js).
 
 import {
   CATEGORIES, CONTENT_TOGGLES, STYLE_EFFORT, setDropRates, setQuestReqs,
-  candidates, lockedContent, pickThree, pickMix, pickChallenge, slayerTask,
+  candidates, lockedContent, pickThree, pickMix, pickChallenge, fastestFirst, HUNT_CATEGORIES, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
-  planRoute, hoursRangeText,
+  planRoute, hoursRangeText, caTierPlan, SHOWCASE_KINDS, showcaseChoices, showcasePicks, showcaseSuggestion,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
+import { SYNC_API, UPLOAD_LIVE } from "./config.js";
 // Data guards (tests/guards.test.mjs): values a profile can't really have.
 import { profileIssues } from "./recommender.js";
 
@@ -63,6 +65,8 @@ const state = {
   cats: new Set(Object.keys(CATEGORIES).filter((k) => !JSON.parse(localStorage.getItem("tm.off") || "[]").includes(k))),
   // Opt-in content (minigames, Wilderness, clues): off until the player switches it on.
   content: JSON.parse(localStorage.getItem("tm.content") || "{}"),
+  // "Fastest logs first": collection log and pet cards come quickest first (for clog hunters).
+  fastest: localStorage.getItem("tm.fastest") === "1",
   seed: 0, // bumped by Shuffle; the same seed gives the same picks
   excluded: new Set(), // suggestion ids the player swapped away
   hidden: {}, // suggestions marked "Not for me": { id: { until (time, or 0 for good), title, effort } }
@@ -73,6 +77,10 @@ const state = {
   locked: [], // content hidden until unlocked (lockedContent), for the dialog
   tab: "skills", // open tab in the Account panel
   clogOpen: null, // the collection log page (or CA tier) open in the Account panel
+  // Where the open profile came from: sample | local (pasted) | server (Start-LocalServer.ps1) | sync (uploaded)
+  source: null,
+  showcase: {}, // what the player chose to show off: { item, boss, quest, skill } (each optional)
+  showcaseTab: "item", // the slot open in the showcase picker
 };
 
 // ---- Data -------------------------------------------------------------------------------
@@ -99,15 +107,52 @@ const local = {
     localStorage.setItem("tm.profileNames", JSON.stringify([name, ...names]));
   },
   forget(name) {
-    for (const k of ["profile", "goals", "marks", "hidden", "history", "seen", "prev", "route"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
+    for (const k of ["profile", "goals", "marks", "hidden", "history", "seen", "prev", "route", "showcase"]) localStorage.removeItem(`tm.${k}:${keyOf(name)}`);
     localStorage.setItem("tm.profileNames", JSON.stringify(local.names().filter((n) => keyOf(n) !== keyOf(name))));
   },
   goals: (name) => JSON.parse(localStorage.getItem(`tm.goals:${keyOf(name)}`) || "[]"),
   saveGoals: (name, goals) => localStorage.setItem(`tm.goals:${keyOf(name)}`, JSON.stringify(goals)),
 };
 
-async function load(name) {
+// Automatic upload: profiles the plugin uploads are opened with a link, #id=<id>&edit=<token>.
+// The id is read-only and safe to share; the edit token (only in the owner's link) lets goals
+// be saved. Both stay after the # so they never reach the website's host. Links opened in this
+// browser are remembered so the player can come back by name.
+const links = {
+  all: () => JSON.parse(localStorage.getItem("tm.links") || "[]"),
+  save: (list) => localStorage.setItem("tm.links", JSON.stringify(list)),
+  put(link) {
+    const old = links.byId(link.id);
+    // Never downgrade: keep a known edit token if this visit came from a view-only link.
+    const merged = { ...old, ...link, edit: link.edit ?? old?.edit ?? null };
+    links.save([merged, ...links.all().filter((l) => l.id !== link.id)]);
+  },
+  byId: (id) => links.all().find((l) => l.id === id),
+  byName: (name) => links.all().find((l) => keyOf(l.name) === keyOf(name)),
+  remove: (id) => links.save(links.all().filter((l) => l.id !== id)),
+};
+
+async function syncApi(path, opts) {
+  let r;
+  try { r = await fetch(SYNC_API + path, opts); } catch { throw Object.assign(new Error("offline"), { status: 0, sync: true }); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.error ?? r.statusText), { status: r.status, sync: true });
+  return data;
+}
+
+// View only: opened without the edit token, or the owner previewing what visitors see.
+const isReadOnly = () => state.source?.kind === "sync" && (!state.source.edit || state.viewAsVisitor);
+
+/**
+ * Open a profile. `name` is looked up in this order: a profile linked in this browser, one
+ * pasted into this browser, the local server (server mode), then public profiles. `opts.id`
+ * opens an uploaded profile directly (from a link).
+ */
+async function load(name, opts = {}) {
   showError(null);
+  let source;
+  const link = opts.id ? { id: opts.id, edit: opts.edit ?? links.byId(opts.id)?.edit ?? null }
+    : name !== SAMPLE && !opts.local ? links.byName(name) : null;
   try {
     if (name === SAMPLE) {
       const id = sampleAccount(state.sampleType).id;
@@ -115,17 +160,30 @@ async function load(name) {
       state.snap = snap;
       state.goals = JSON.parse(localStorage.getItem(`tm.sampleGoals:${id}`) || "null")
         ?? index.accounts.find((a) => a.id === id)?.goals ?? [];
-    } else if (!serverMode) {
+      source = { kind: "sample" };
+    } else if (link) {
+      const r = await syncApi(`/v1/profile/${encodeURIComponent(link.id)}`);
+      state.snap = r.profile; state.goals = r.goals;
+      // A share link (no edit token) opened in the owner's own browser still opens as the owner,
+      // since this browser has their edit token; the page says so and offers the visitor view.
+      source = { kind: "sync", id: link.id, edit: link.edit ?? null, public: r.public, ownerViaShare: !!(opts.id && !opts.edit && link.edit) };
+    } else if (!serverMode && local.get(name)) {
       state.snap = local.get(name);
-      if (!state.snap) throw Object.assign(new Error("not imported"), { status: 404 });
       state.goals = local.goals(name);
-      name = state.snap.player?.name ?? name;
-    } else {
-      state.snap = await api(`/api/profile/${encodeURIComponent(name)}`);
+      source = { kind: "local" };
+    } else if (serverMode && await api(`/api/profile/${encodeURIComponent(name)}`).then((s) => (state.snap = s), () => null)) {
       state.goals = await api(`/api/goals/${encodeURIComponent(name)}`).catch(() => []);
+      source = { kind: "server" };
+    } else {
+      const r = await syncApi(`/v1/public/${encodeURIComponent(name)}`);
+      state.snap = r.profile; state.goals = r.goals;
+      source = { kind: "sync", id: r.id, edit: links.byId(r.id)?.edit ?? null, public: true };
     }
+    // Samples keep SAMPLE as their name (storeName, the sample drop-down and #sample= rely on it).
+    if (name !== SAMPLE) name = state.snap.player?.name ?? name;
     // Wealth tracking was removed; drop any old net-worth goals.
-    state.goals = state.goals.filter((g) => g.type !== "wealth");
+    state.goals = (state.goals ?? []).filter((g) => g.type !== "wealth");
+    state.goalsSeen = new Set(state.goals.map((g) => g.id));
     delete state.snap.wealth;
     state.raw = state.snap;
     const key = storeName(name);
@@ -134,30 +192,191 @@ async function load(name) {
     state.snap = applyManual(state.raw, state.marks);
     state.hidden = loadHidden(key);
     state.route = loadRoute(key);
+    state.showcase = loadShowcase(key);
   } catch (e) {
     if (location.protocol === "file:") return showError("Open the site through the server (http://localhost:8787), not as a file.");
-    if (e.status === 404 && !serverMode) return showError(`No profile for "${name}" in this browser yet. In RuneLite, open the OSRS TaskMaster panel, click Copy my profile, then paste it here.`);
-    if (e.status === 404) return showError(`No synced data for "${name}" yet. Log in with the RuneLite plugin enabled, or press Copy my profile in its panel.`);
+    // A name lookup that can't reach the upload service reads like "not found": pasting still works.
+    if (e.sync && e.status === 0 && (opts.id || link)) return showError("Couldn't reach the OSRS TaskMaster upload service. Check your connection and try again.");
+    if (e.sync && e.status === 0) e.status = 404;
+    // Only a real "not found" from the service: being offline never forgets a link.
+    if (e.sync && e.status === 404 && link) {
+      // A dead link stays dead (deleted data or reset links): stop offering it by name.
+      links.remove(link.id);
+      refreshKnown();
+      return showError("That link doesn't work any more: its owner reset their links or deleted their uploaded data. If it's yours, click Open website in the RuneLite panel for your current link.");
+    }
+    if (e.status === 404) return showError(`No profile for "${name}" yet. If it's yours: in RuneLite, open the OSRS TaskMaster panel and ${UPLOAD_LIVE ? "either click Copy my profile and paste it here, or switch on Automatic upload and click Open website" : "click Copy my profile, then paste it here"}.`);
     if (e.status === 400) return showError("That doesn't look like an OSRS name (1–12 letters, numbers, spaces, - or _).");
-    return showError("Couldn't reach the OSRS TaskMaster server. Is Start-LocalServer.ps1 running?");
+    return showError(serverMode ? "Couldn't reach the OSRS TaskMaster server. Is Start-LocalServer.ps1 running?" : "Something went wrong loading that profile. Try again in a moment.");
   }
+  // Leaving a view-only profile: bring back this browser's own settings (its hidden list was just
+  // loaded for the new profile), then fetch the owner's view if this one is view-only too.
+  if (state.ownView) {
+    ({ style: state.style, cats: state.cats, content: state.content, fastest: state.fastest } = state.ownView);
+    state.ownView = null;
+  }
+  state.sharedView = source.kind === "sync" && !source.edit ? await loadSharedView(source.id) : null;
+  // Visitors see the owner's pinned route (planned here from the owner's goals), never their own.
+  if (source.kind === "sync" && !source.edit) state.route = state.sharedView?.route ?? null;
   state.name = name;
+  state.source = source;
+  state.viewAsVisitor = false;
+  state.loadedAt = Date.now();
   state.seed = 0;
   state.excluded.clear();
   state.picks = [];
-  if (name !== SAMPLE) {
-    localStorage.setItem("tm.last", name);
+  if (source.kind === "sync") {
+    links.put({ id: source.id, edit: source.edit, name });
+    // The address bar keeps only the view-only part, so copying it never shares goal editing.
+    history.replaceState(null, "", `#id=${source.id}`);
+  } else if (name !== SAMPLE) {
     history.replaceState(null, "", `#${encodeURIComponent(name)}`);
   } else {
     history.replaceState(null, "", `#sample=${state.sampleType}`);
   }
+  if (name !== SAMPLE) localStorage.setItem("tm.last", name);
+  refreshKnown();
+  $("#name").value = name === SAMPLE ? "" : name;
   $("#intro").hidden = true;
   $("#app").hidden = false;
   renderAll();
+  if (opts.focus) applyFocus(opts.focus);
 }
+
+// ---- Picks for the RuneLite panel ---------------------------------------------------------
+// The plugin can't run this engine, so when the owner has their own profile open, the site
+// saves its current top picks per tier to the upload service; the plugin's panel shows them.
+// Picks follow the site's filters and goals, and are only sent when they change.
+
+// 15 per tier (the service's limit): the panel shows 5 at a time and its Refresh button steps
+// through the rest.
+const PANEL_TIERS = { Quick: 15, Medium: 15, Long: 15, Challenge: 5 };
+let picksTimer = null;
+
+function schedulePicks() {
+  if (state.source?.kind !== "sync" || !state.source.edit) return;
+  clearTimeout(picksTimer);
+  picksTimer = setTimeout(publishPicks, 1500);
+}
+
+/** A RuneLite icon for a suggestion: an item id from the collection log, or a skill. */
+function iconFor(c, snap) {
+  const m = { ...(c.goal ?? {}), ...(c.meta ?? {}) };
+  const items = itemIndex(snap);
+  const itemId = (name) => (name ? items.get(String(name).toLowerCase())?.id ?? null : null);
+  const pages = snap.collectionLog?.pages ?? {};
+  const id = itemId(m.item) ?? itemId(m.pet) ?? itemId(m.items?.[0])
+    ?? pages[m.page]?.items?.find((i) => !(i.quantity > 0))?.id
+    // Combat achievements: the boss's own collection log page, e.g. its pet or first unique.
+    ?? pages[m.monster]?.items?.[0]?.id ?? null;
+  if (id) return { item: id };
+  if (m.skill && SKILLS.includes(m.skill)) return { skill: m.skill };
+  return null;
+}
+
+async function publishPicks() {
+  if (state.source?.kind !== "sync" || !state.source.edit || state.viewAsVisitor || !listCache.all?.length) return;
+  const snap = state.snap;
+  const toPick = (c) => {
+    // The goal this suggestion would make, so the panel's "Make it a goal" adds exactly what the
+    // button here would (the service gives it an id when it's used).
+    const { id: _, ...goal } = (c.category !== "goals" && toGoal(c)) || {};
+    return {
+      id: c.id, title: c.title, detail: c.detail, category: c.category,
+      progress: typeof c.progress === "number" ? c.progress : null,
+      wilderness: !!c.wilderness, icon: iconFor(c, snap),
+      goal: goal.type ? goal : null,
+      // Under "Fastest logs first", the rough time the panel shows on log and pet rows ("~12 h").
+      est: estText(c),
+    };
+  };
+  const tiers = {};
+  for (const [tier, n] of Object.entries(PANEL_TIERS)) {
+    // Suggestions hidden with "Not for me" stay out of the panel too.
+    // "Fastest logs first" orders the panel's log and pet rows the same way as the cards here.
+    tiers[tier] = pickThree(visibleAll().filter((c) => c.effort === tier), { seed: 0, n, fastest: state.fastest }).map(toPick);
+  }
+  // Under "Fastest logs first", the panel also gets a Collection log list: log and pet rows from
+  // every tier, quickest first.
+  if (state.fastest) {
+    const hunt = visibleAll().filter((c) => HUNT_CATEGORIES.has(c.category) && c.hours != null);
+    tiers.Clog = fastestFirst(pickThree(hunt, { seed: 0, n: 15, fastest: true })).map((c) => ({ ...toPick(c), effort: c.effort }));
+  }
+  const off = Object.keys(CATEGORIES).filter((k) => !state.cats.has(k));
+  const on = Object.entries(state.content).filter(([, v]) => v).map(([k]) => k);
+  const filters = [off.length ? `hiding ${off.join(", ")}` : "", on.length ? `including ${on.join(", ")}` : "",
+    state.fastest ? "fastest logs first" : ""].filter(Boolean).join("; ");
+  // The owner's view, which visitors of a share link or public profile see (read-only).
+  const hidden = Object.entries(state.hidden).filter(([, e]) => !e.until || e.until > Date.now()).map(([id]) => id).sort();
+  const view = { style: state.style, off, content: Object.fromEntries(on.map((k) => [k, true])), hidden, fastest: state.fastest };
+  // The pinned route: its next steps for the panel, and its goals for visitors (who plan it from
+  // the owner's goals themselves).
+  if (state.route) view.route = { goals: state.route.goals, keys: state.route.keys ?? [] };
+  const body = JSON.stringify({ tiers, filters, view, route: routeForPanel() });
+  // Skip if nothing changed since the last save from this browser.
+  const sentKey = `tm.picksSent:${state.source.id}`;
+  const sig = `${body.length}:${[...body].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
+  if (localStorage.getItem(sentKey) === sig) return;
+  try {
+    await syncApi(`/v1/picks/${encodeURIComponent(state.source.id)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json", "X-Edit-Token": state.source.edit }, body,
+    });
+    localStorage.setItem(sentKey, sig);
+  } catch { /* the panel keeps its previous picks; next visit tries again */ }
+}
+
+/** Open on one suggestion (from the RuneLite panel): show its tier with it as the first card. */
+function applyFocus(focusId) {
+  currentList();
+  const c = listCache.all.find((x) => x.id === focusId);
+  if (!c) {
+    $("#tierhint").textContent = "That suggestion isn't on the list any more: it may be done already. Here are your current picks.";
+    return;
+  }
+  if (c.effort === "Challenge") {
+    state.challenge = c;
+    renderChallenge();
+    flash($("#challenge .card"));
+    return;
+  }
+  const style = Object.keys(STYLE_EFFORT).find((k) => STYLE_EFFORT[k] === c.effort);
+  if (style && style !== state.style) { state.style = style; renderControls(); }
+  renderCards(false, [c]);
+  flash($("#cards .card"));
+}
+
+function flash(card) {
+  if (!card) return;
+  card.classList.add("focus");
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => card.classList.remove("focus"), 2600);
+}
+
+/** Uploaded profiles: fetch the latest when the player comes back to the tab. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.source?.kind === "sync" && Date.now() - (state.loadedAt ?? 0) > 60_000) {
+    load(state.name, { id: state.source.id });
+  }
+});
 
 async function saveGoals() {
   if (state.name === SAMPLE) return localStorage.setItem(`tm.sampleGoals:${state.sampleType}`, JSON.stringify(state.goals));
+  if (state.source?.kind === "sync") {
+    if (!state.source.edit) return;
+    // `known`: every goal this page has seen, so the service keeps goals added meanwhile from the
+    // RuneLite panel instead of this (older) list wiping them.
+    for (const g of state.goals) state.goalsSeen.add(g.id);
+    const body = JSON.stringify({ goals: state.goals, known: [...state.goalsSeen] });
+    return syncApi(`/v1/goals/${encodeURIComponent(state.source.id)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json", "X-Edit-Token": state.source.edit }, body,
+    }).then((r) => {
+      if (!Array.isArray(r?.goals) || r.goals.length === state.goals.length) return;
+      state.goals = r.goals;
+      for (const g of r.goals) state.goalsSeen.add(g.id);
+      renderGoals();
+      renderCards(true);
+    }).catch(() => alert("Couldn't save goals: the OSRS TaskMaster upload service didn't respond. Your change will be lost when you leave this page."));
+  }
   if (!serverMode) return local.saveGoals(state.name, state.goals);
   await api(`/api/goals/${encodeURIComponent(state.name)}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state.goals),
@@ -236,9 +455,11 @@ function markFor(c) {
   if (m.task != null && (raw.combatAchievements?.tasks ?? []).some((t) => t.id === m.task && !t.done)) return { bucket: "ca", key: String(m.task) };
   return null;
 }
+/** Marking controls show when the toggle is on, and never on someone else's (view-only) profile. */
+const canMark = () => state.manualMode && !isReadOnly();
 const isMarked = (mk) => !!mk && !!state.marks[mk.bucket]?.[mk.key];
 function markButton(c) {
-  if (!state.manualMode) return "";
+  if (!canMark()) return "";
   const mk = markFor(c);
   if (!mk) return "";
   const on = isMarked(mk);
@@ -302,7 +523,50 @@ function showToastError() { alert("Couldn't save goals: the server didn't respon
 
 // ---- Rendering ---------------------------------------------------------------------------
 
+// ---- View only ------------------------------------------------------------------------------
+// Share links and public profiles show the owner's own view: their grind style, category filters,
+// opt-in content and the suggestions they hid with Not for me (saved with the panel's picks, see
+// publishPicks). Visitors can't change it (tiers, Shuffle, Swap, filters, goals); they can still
+// open wiki links and the account tabs. A visitor's own settings for their own profiles are set
+// aside while it shows and come back afterwards. The owner's "See it as others do" preview is the
+// same view, locked.
+
+const DEFAULT_VIEW = { style: "balanced", off: [], content: {}, hidden: [], fastest: false };
+
+function applyViewMode() {
+  const ro = isReadOnly();
+  const visitor = ro && !state.source?.edit;
+  if (visitor && !state.ownView) {
+    const v = state.sharedView ?? DEFAULT_VIEW;
+    state.ownView = { style: state.style, cats: new Set(state.cats), content: { ...state.content }, seed: state.seed, hidden: state.hidden, fastest: state.fastest };
+    state.style = v.style ?? "balanced";
+    state.fastest = v.fastest === true;
+    state.cats = new Set(Object.keys(CATEGORIES).filter((k) => !(v.off ?? []).includes(k)));
+    if (!state.cats.size) state.cats = new Set(Object.keys(CATEGORIES));
+    state.content = { ...(v.content ?? {}) };
+    state.hidden = Object.fromEntries((v.hidden ?? []).map((id) => [id, { until: 0 }]));
+    state.seed = 0;
+    state.excluded.clear();
+  } else if (!visitor && state.ownView) {
+    ({ style: state.style, cats: state.cats, content: state.content, seed: state.seed, hidden: state.hidden, fastest: state.fastest } = state.ownView);
+    state.ownView = null;
+    state.excluded.clear();
+  }
+  $("#app").classList.toggle("readonly", ro);
+}
+
+/** The owner's saved view for a profile opened view-only, or null (then a default view shows). */
+async function loadSharedView(id) {
+  try {
+    const r = await syncApi(`/v1/picks/${encodeURIComponent(id)}`);
+    return r?.picks?.view ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function renderAll() {
+  applyViewMode();
   renderSummary();
   renderReach();
   renderControls();
@@ -327,13 +591,16 @@ function renderSummary() {
   const { badges } = completions(s);
   $("#summary").innerHTML = `
     <div class="who">
-      <h2>${helmHTML(p.accountType)}${esc(p.name)}</h2>
+      <h2>${helmHTML(p.accountType)}${esc(p.name)}${showcaseItemHTML()}</h2>
+      ${showcaseChipsHTML()}
       ${sampleTypeHTML()}
-      <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `Synced <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}</div>
-      <div class="manualrow">
-        <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't synced since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until a sync shows them done.">Mark progress by hand</button>
+      <div class="muted">${esc(p.accountType ?? "")} · Combat ${esc(p.combatLevel ?? "?")} · ${state.name === SAMPLE ? "Sample data" : `${state.source.kind === "sync" ? "Uploaded" : "Synced"} <span class="${age > 864e5 ? "stale" : ""}">${ago}</span>`}${isReadOnly() ? ` · <span class="viewonly" title="Opened from a share link or public profile: you can see the suggestions but not change the goals">View only</span>` : ""}${ownerToggleHTML()}</div>
+      ${isReadOnly() ? "" : `<div class="manualrow">
+        <button type="button" id="manualbtn" class="toggle" aria-pressed="${state.manualMode}" title="Haven't ${state.source.kind === "sync" ? "uploaded" : "synced"} since playing? Turn this on to tick off quests, diary tiers and combat achievements here. Marks stay in this browser until your profile shows them done.">Mark progress by hand</button>
+        <button type="button" id="showcaseedit" class="toggle showcaseedit" title="Show off a favourite item or pet, boss, quest and skill next to your name. All optional.">${showcaseCount() ? "Edit showcase" : "Showcase"}</button>
         ${markCount() ? `<span class="muted small">${markCount()} marked by hand, waiting for a sync</span>` : ""}
-      </div>
+        ${state.source.kind === "sync" ? `<button type="button" id="sharebtn" class="link small" title="Copies a link that shows your suggestions and goals but can't change anything. Your own link (with editing) never leaves this browser.">Copy share link</button>` : ""}
+      </div>`}
       ${sinceLastHTML()}
       ${missingHTML()}
     </div>
@@ -348,7 +615,111 @@ function renderSummary() {
     ${badges.length ? `<div class="badges" aria-label="Milestones reached">${badges.map((b) =>
       `<span class="badge" title="${esc(b.detail)}"><span aria-hidden="true">✦</span> ${esc(b.label)}</span>`).join("")}</div>` : ""}`;
 }
+// ---- Showcase: favourites the player chose to show next to their name -------------------
+// An item or pet from the collection log (a framed icon after the name), and a boss, quest and
+// skill (small chips under it). All optional: nothing shows until the player picks it, and the
+// picker only suggests. Kept per profile in this browser.
+
+const SHOWCASE_LABEL = { item: "Item or pet", boss: "Boss", quest: "Quest", skill: "Skill" };
+const showcaseKey = (name) => `tm.showcase:${keyOf(name)}`;
+function loadShowcase(name) {
+  const raw = localStorage.getItem(showcaseKey(name));
+  try {
+    const v = JSON.parse(raw);
+    if (v && typeof v === "object") return v;
+  } catch { /* the first version saved just the item's name */ }
+  return raw && raw !== "-" ? { item: raw } : {};
+}
+/** Pick `key` for a slot, or clear it with "" / null. */
+function setShowcase(kind, key) {
+  const next = { ...state.showcase };
+  if (key) next[kind] = key; else delete next[kind];
+  state.showcase = next;
+  const k = showcaseKey(storeName(state.name));
+  if (Object.keys(next).length) localStorage.setItem(k, JSON.stringify(next)); else localStorage.removeItem(k);
+  renderSummary();
+  renderTabs();
+  if ($("#showcasedlg").open) renderShowcasePicker();
+}
+const picks = () => showcasePicks(state.snap, state.showcase);
+const showcaseCount = () => Object.values(picks()).filter(Boolean).length;
+
+/** The icon for a choice: an item from the game cache, or a skill/quest sprite. */
+const choiceIcon = (c, cls = "gicon tiny") =>
+  c.itemId != null ? iconImg(itemUrl(c.itemId), { cls: `${cls} item` }) : iconImg(spriteUrl(c.sprite), { cls });
+/** "1/3,000 from Vorkath" for items; each other kind already has its own detail. */
+const choiceDetail = (kind, c) => (kind !== "item" ? c.detail
+  : c.rarity ? `${c.rarity}${c.from ? ` from ${c.from}` : ""}` : c.pet ? "Pet" : (c.page ?? ""));
+
+function showcaseItemHTML() {
+  const o = picks().item;
+  if (!o) return "";
+  const icon = choiceIcon(o, "gicon");
+  const detail = choiceDetail("item", o);
+  return `<button type="button" class="showcase${o.pet ? " pet" : ""}" data-showcase-open="item" title="${esc(`${o.name}${detail ? ` (${detail})` : ""}. Click to change`)}" aria-label="${esc(`Showcase item: ${o.name}. Change it`)}">${icon || `<span class="name">${esc(o.name)}</span>`}</button>`;
+}
+
+function showcaseChipsHTML() {
+  const p = picks();
+  const text = { boss: (c) => `${c.name}${c.kc ? ` · ${c.kc.toLocaleString()} KC` : ""}`, quest: (c) => c.name, skill: (c) => `${c.name} ${c.level}` };
+  const chips = ["boss", "quest", "skill"].filter((k) => p[k]).map((k) =>
+    `<button type="button" class="favchip ${k}${k === "skill" && p[k].level >= 99 ? " max" : ""}" data-showcase-open="${k}" title="${esc(`Favourite ${k}${k === "boss" && p[k].detail ? `: ${p[k].detail}` : ""}. Click to change`)}">${choiceIcon(p[k])}<span>${esc(text[k](p[k]))}</span></button>`);
+  return chips.length ? `<div class="favs" aria-label="Favourites">${chips.join("")}</div>` : "";
+}
+
+function openShowcase(kind) {
+  state.showcaseTab = SHOWCASE_KINDS.includes(kind) ? kind : SHOWCASE_KINDS.find((k) => !picks()[k]) ?? "item";
+  $("#showcasefilter").value = "";
+  renderShowcasePicker();
+  $("#showcasedlg").showModal();
+}
+function renderShowcasePicker() {
+  const kind = state.showcaseTab;
+  const p = picks();
+  const current = p[kind];
+  const q = $("#showcasefilter").value.trim().toLowerCase();
+  const all = showcaseChoices(state.snap, kind);
+  const list = all.filter((c) => !q || c.name.toLowerCase().includes(q));
+  const tip = showcaseSuggestion(state.snap, kind);
+  const row = (c, extra = "") => {
+    const on = current?.key === c.key;
+    return `<li><button type="button" class="pick${on ? " on" : ""}" data-showcase-pick="${esc(c.key)}" aria-pressed="${on}">
+      ${choiceIcon(c)}<span class="grow">${esc(c.name)}${extra}</span><span class="muted small">${esc(choiceDetail(kind, c))}</span></button></li>`;
+  };
+  const what = { item: "item or pet", boss: "boss", quest: "quest", skill: "skill" }[kind];
+  $("#showcasetabs").innerHTML = SHOWCASE_KINDS.map((k) =>
+    `<button type="button" role="tab" data-showcase-tab="${k}" aria-selected="${k === kind}">${SHOWCASE_LABEL[k]}${p[k] ? ' <span class="dot" aria-label="(chosen)">●</span>' : ""}</button>`).join("");
+  $("#showcasefilter").placeholder = `Filter ${kind === "item" ? "what you own" : `${what}s`}`;
+  $("#showcasebody").innerHTML = `
+    <ul class="showcaselist">
+      <li><button type="button" class="pick none${current ? "" : " on"}" data-showcase-pick="" aria-pressed="${!current}"><span class="grow">Don't show a ${what}</span></button></li>
+      ${tip && !q ? row(tip, ' <span class="tag">Suggested</span>') : ""}
+      ${list.filter((c) => q || c !== tip).map((c) => row(c)).join("")}
+    </ul>
+    ${!all.length ? `<p class="note">${kind === "item" ? "Nothing obtained in your collection log yet. Open it in-game and click Search, then sync."
+      : kind === "boss" ? "No bosses in this profile yet. Open a boss's collection log page in-game, then sync." : "Nothing in this profile yet."}</p>`
+      : q && !list.length ? `<p class="note">Nothing matches that.</p>` : ""}`;
+}
+
 const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+
+/**
+ * For the owner of an uploaded profile: a switch to the view-only page visitors get. Opening
+ * your own share link in your own browser shows your owner view (this browser has your edit
+ * token), so the page says so here rather than looking like the link didn't work.
+ */
+function ownerToggleHTML() {
+  const s = state.source;
+  if (s?.kind !== "sync" || !s.edit) return "";
+  if (state.viewAsVisitor) {
+    return ` · <button type="button" id="visitorbtn" class="link small" title="Back to your own view, where you can change goals">Back to owner view</button>`;
+  }
+  const why = s.ownerViaShare
+    ? "You opened your share link in your own browser, so it shows your owner view. Anyone else with the link sees a view-only page."
+    : "Your own profile: only this browser (and Open website in RuneLite) can change it.";
+  return ` · <span class="ownerpill" title="${esc(why)}">${s.ownerViaShare ? "Your profile (owner view)" : "Owner"}</span>
+    <button type="button" id="visitorbtn" class="link small" title="Preview the view-only page your share link shows other people">See it as others do</button>`;
+}
 
 /** On the sample data: a drop-down to view it as another account type. */
 function sampleTypeHTML() {
@@ -450,7 +821,7 @@ function reachHTML(e, i) {
       ${barHTML(e)}
       <ul class="reqs">${e.missing.map(need).join("")}${metLine}${unknownLine}</ul>
       <div class="actions">
-        ${goal && !isGoal ? `<button class="btn tiny ghost" data-reach-goal="${i}" type="button">Make it a goal</button>` : ""}
+        ${goal && !isGoal && !isReadOnly() ? `<button class="btn tiny ghost" data-reach-goal="${i}" type="button">Make it a goal</button>` : ""}
         ${markButton(e)}
         ${wikiLink(e)}
       </div>
@@ -470,7 +841,9 @@ const isMix = () => state.style === "mix";
 
 function renderControls() {
   document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.style === state.style)));
-  $("#tierhint").textContent = TIER_HINT[state.style] ?? "";
+  $("#tierhint").textContent = isReadOnly()
+    ? `View only: ${state.name ?? "this player"}'s ${{ quick: "Quick wins", balanced: "Balanced", long: "Long haul", mix: "Mixed" }[state.style] ?? "Balanced"} suggestions, as they've set them up. Only they can change goals or what's shown.`
+    : TIER_HINT[state.style] ?? "";
   $("#gridtitle").textContent = isMix() ? "Your next seven grinds" : "Your next three grinds";
   const { done } = completions(state.snap);
   $("#chips").innerHTML = Object.entries(CATEGORIES).map(([k, label]) => done[k]
@@ -495,6 +868,7 @@ function currentList() {
 const visibleAll = () => listCache.all.filter((c) => !isHidden(c));
 
 function renderOptIns() {
+  renderFastest();
   $("#optins").innerHTML = Object.entries(CONTENT_TOGGLES).map(([k, label]) =>
     `<button type="button" class="toggle" data-content="${k}" aria-pressed="${!!state.content[k]}"${k === "wilderness" ? ` title="${esc(wildTip())}"` : ""}>${k === "wilderness" ? `${skullHTML()} ` : ""}${esc(label)}</button>`).join("");
   // Count across every tier, so the number doesn't jump when switching tiers.
@@ -507,6 +881,14 @@ function renderOptIns() {
   renderHiddenList();
 }
 
+// "Fastest logs first": only offered while the collection log or pets are switched on.
+function renderFastest() {
+  const btn = $("#fastest");
+  const relevant = [...HUNT_CATEGORIES].some((k) => state.cats.has(k));
+  btn.closest(".optin").hidden = !relevant;
+  btn.setAttribute("aria-pressed", String(state.fastest));
+}
+
 // ---- "Hidden until unlocked": make what unlocks a row a goal, then offer to plan a route --------
 // Goal ids added since the dialog opened, by row (content name), for Undo and so closing it can
 // offer a route for them.
@@ -516,7 +898,8 @@ const lockedIds = () => new Set([...lockedAdded.values()].flat());
 function renderLockedList() {
   const rows = state.locked ?? [];
   const action = (l, i) => {
-    if (!l.goals?.length) return "";
+    // View-only pages can't change goals.
+    if (!l.goals?.length || isReadOnly()) return "";
     const adds = l.goals.map(goalTitle).join(", ");
     const ids = lockedAdded.get(l.content) ?? [];
     if (state.goals.some((g) => ids.includes(g.id))) return `<span class="lockgoal">Added ✓ <button type="button" class="link small" data-lock-undo="${i}">Undo</button></span>`;
@@ -598,11 +981,12 @@ function renderHiddenList() {
 function renderCards(fresh = false, keep = null) {
   const list = currentList();
   if (fresh) state.picks = isMix()
-    ? pickMix(list, { seed: state.seed, exclude: state.excluded })
-    : pickThree(list, { seed: state.seed, exclude: state.excluded });
-  else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep });
-  if (fresh) state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.excluded });
+    ? pickMix(list, { seed: state.seed, exclude: state.excluded, fastest: state.fastest })
+    : pickThree(list, { seed: state.seed, exclude: state.excluded, fastest: state.fastest });
+  else if (keep) state.picks = pickThree(list, { seed: state.seed, exclude: state.excluded, keep, fastest: state.fastest });
+  if (fresh) state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.excluded, fastest: state.fastest });
   renderChallenge();
+  schedulePicks();
   const el = $("#cards");
   el.classList.toggle("mix", isMix());
   if (!state.picks.length) {
@@ -668,9 +1052,9 @@ function renderChallenge() {
       <p class="detail">${esc(c.detail)}</p>
       ${barHTML(c)}
       <div class="actions">
-        <button class="btn tiny" data-challenge-swap type="button">Another challenge</button>
-        ${toGoal(c) ? `<button class="btn tiny ghost" data-challenge-goal type="button">Take on this challenge</button>` : ""}
-        <button class="btn tiny ghost" data-challenge-notforme type="button" title="Hide this challenge for a week or for good">Not for me</button>
+        ${!isReadOnly() ? `<button class="btn tiny" data-challenge-swap type="button">Another challenge</button>` : ""}
+        ${!isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-challenge-goal type="button">Take on this challenge</button>` : ""}
+        ${!isReadOnly() ? `<button class="btn tiny ghost" data-challenge-notforme type="button" title="Hide this challenge for a week or for good">Not for me</button>` : ""}
         ${wikiLink(c)}
       </div>
     </article>`;
@@ -798,9 +1182,9 @@ function cardHTML(c, i) {
   const colour = isMix() ? `--c:var(--t-${c.effort}); --cat:var(--c-${c.category})` : `--c:var(--c-${c.category})`;
   return `
     <article class="card t-${c.effort}${spinning ? " spin" : ""}" style="${colour}; --i:${spin === "all" ? i : 0}">
-      <div class="cat"><span class="catname">${esc(CATEGORIES[c.category])}</span>${isMix()
+      <div class="cat"><span class="catname">${esc(CATEGORIES[c.category])}</span><span class="catright">${estHTML(c)}${isMix()
         ? `<span class="tierbadge t-${c.effort}" title="${TIER_METAL[c.effort]} tier">${esc(TIER_LABEL[c.effort])}</span>`
-        : `<span class="effort">${esc(c.effort)}</span>`}</div>
+        : `<span class="effort">${esc(c.effort)}</span>`}</span></div>
       ${wildBadge(c)}${titleHTML(c)}
       <p class="detail">${esc(c.detail)}</p>
       ${barHTML(c)}
@@ -809,12 +1193,26 @@ function cardHTML(c, i) {
     </article>`;
 }
 
+/** Under "Fastest logs first", the rough time a log or pet card takes, so the order makes sense. */
+function estHTML(c) {
+  const text = estText(c);
+  return text ? `<span class="est" title="Rough time on average, from drop rates where known: what Fastest logs first orders by">${esc(text)}</span>` : "";
+}
+/** "~12 h", "20+ h" or "under 1 h" for a log or pet suggestion under Fastest logs first, else null. */
+function estText(c) {
+  if (!state.fastest || c.hours == null || !HUNT_CATEGORIES.has(c.category)) return null;
+  const h = c.hours;
+  // At its tier's floor (the drop rates alone say quicker): "20+ h" rather than a precise-looking number.
+  return c.hoursRaw < h ? `${fmtHours(h)}+ h` : h < 1 ? "under 1 h" : `~${fmtHours(h)} h`;
+}
+const fmtHours = (h) => Math.round(h).toLocaleString();
+
 function actionsHTML(c, i) {
   return `
-        <button class="btn tiny" data-swap="${i}" type="button">Swap</button>
-        ${c.category !== "goals" && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
+        ${!isReadOnly() ? `<button class="btn tiny" data-swap="${i}" type="button">Swap</button>` : ""}
+        ${c.category !== "goals" && !isReadOnly() && toGoal(c) ? `<button class="btn tiny ghost" data-goal="${i}" type="button">Make it a goal</button>` : ""}
         ${markButton(c)}
-        ${c.category !== "goals" ? `<button class="btn tiny ghost" data-notforme="${i}" type="button" title="Hide this suggestion for a week or for good">Not for me</button>` : ""}
+        ${c.category !== "goals" && !isReadOnly() ? `<button class="btn tiny ghost" data-notforme="${i}" type="button" title="Hide this suggestion for a week or for good">Not for me</button>` : ""}
         ${wikiLink(c)}`;
 }
 
@@ -866,24 +1264,27 @@ function addGoalFrom(c) {
 }
 
 // Which category's icon a goal gets when it has no item, skill or tier of its own.
-const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask: "combat", cabundle: "combat", clog: "clog", pet: "pets", item: "clog", family: "clog" };
+const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask: "combat", cabundle: "combat", caboss: "combat", clog: "clog", pet: "pets", item: "clog", family: "clog" };
 
 function renderGoals() {
   const el = $("#goals");
+  const ro = isReadOnly();
+  $("#goalform").hidden = ro;
   // The planner only reads goals (so view-only pages can use it too).
   $("#planbtn").hidden = !openGoals().length;
+  $("#cleargoals").hidden = ro || !state.goals.length;
   if ($("#plandlg").open) renderPlan();
   renderRoute();
   if (!state.goals.length) {
-    el.innerHTML = `<li class="muted small">No goals yet. Add one below, or press "Make it a goal" on a suggestion.</li>`;
+    el.innerHTML = `<li class="muted small">${ro ? "No goals set." : `No goals yet. Add one below, or press "Make it a goal" on a suggestion.`}</li>`;
     return;
   }
   el.innerHTML = state.goals.map((g) => {
     const p = goalProgress(g, state.snap);
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
-      <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}> ` : cardIcon({ goal: g, category: GOAL_CATEGORY[g.type] })}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
-      <span class="l"${p.counterTip ? ` title="${esc(p.counterTip)}"` : ""}>${esc(p.label)} ${wikiLink({ goal: g }, "wikimini")}<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button></span>
+      <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}${ro ? " disabled" : ""}> ` : cardIcon({ goal: g, category: GOAL_CATEGORY[g.type] })}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
+      <span class="l"${p.counterTip ? ` title="${esc(p.counterTip)}"` : ""}>${esc(p.label)} ${g.type === "ca" && !p.done && !ro ? `<button type="button" class="link small" data-ca-goal="${esc(g.tier)}" title="Choose the bosses that get you to ${esc(g.tier)}">Pick bosses</button> ` : ""}${wikiLink({ goal: g }, "wikimini")}${ro ? "" : `<button class="x" data-del="${esc(g.id)}" aria-label="Remove goal" title="Remove">×</button>`}</span>
       ${!p.done && goalHint(g) ? `<span class="gd">${esc(goalHint(g))}</span>` : ""}
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
     </li>`;
@@ -907,6 +1308,10 @@ function goalHint(g) {
     case "cabundle": {
       const left = tasks.filter((t) => t.monster === g.monster && t.tier === g.tier && !t.done).map((t) => t.name);
       return left.length ? `Still to do: ${list(left)}` : null;
+    }
+    case "caboss": {
+      const left = caTierPlan(state.snap, g.forTier ?? g.tier, { maxTier: g.tier }).bosses.find((b) => b.monster === g.monster);
+      return left ? `Still to do: ${list(left.tasks.map((t) => t.name))}` : null;
     }
     case "family": {
       const items = itemIndex(state.snap);
@@ -999,22 +1404,24 @@ function renderTabs() {
 
 const TAB_RENDER = {
   skills(s) {
+    const shown = picks().skill;
     return `<div class="skillgrid">${SKILLS.filter((k) => s.skills?.[k]).map((k) => {
       const { level, xp } = s.skills[k];
       // At 99 the level can't move, so show XP instead.
-      return `<div class="sk ${level >= 99 ? "max" : ""}" title="${xp.toLocaleString()} XP${level < 99 ? ` · ${fmt(xpForLevel(level + 1) - xp)} to ${level + 1}` : ""}"><span>${iconImg(spriteUrl(`skill-${k}`), { cls: "gicon tiny" })}${cap(k)}</span><b>${level >= 99 ? fmt(xp) : level}</b></div>`;
+      return `<div class="sk ${level >= 99 ? "max" : ""}" title="${xp.toLocaleString()} XP${level < 99 ? ` · ${fmt(xpForLevel(level + 1) - xp)} to ${level + 1}` : ""}"><span>${iconImg(spriteUrl(`skill-${k}`), { cls: "gicon tiny" })}${cap(k)}</span><span class="q">${starHTML("skill", k, shown, cap(k))}<b>${level >= 99 ? fmt(xp) : level}</b></span></div>`;
     }).join("")}</div>`;
   },
   quests(s) {
     const order = { IN_PROGRESS: 0, NOT_STARTED: 1, FINISHED: 2 };
+    const shown = picks().quest;
     const qs = [...(s.quests ?? [])].sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name));
     // Marking by hand: every quest the last sync didn't show as finished gets a toggle.
     const mark = (q) => {
-      if (!state.manualMode || (q.state === "FINISHED" && !q.manual)) return "";
+      if (!canMark() || (q.state === "FINISHED" && !q.manual)) return "";
       return `<button type="button" class="markmini" data-mark="quests" data-key="${esc(q.name)}" aria-pressed="${!!q.manual}" title="${q.manual ? "Undo your mark" : "Mark as finished until your next sync"}">${q.manual ? "Undo" : "Mark done"}</button>`;
     };
-    return `${state.manualMode ? `<p class="note manualnote">Marking by hand: tick off quests you've finished since your last sync.</p>` : ""}
-      <table class="list"><tbody>${qs.map((q) => `<tr><td><a class="plainlink" href="${esc(wikiPage(q.name))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(q.name)} on the OSRS Wiki">${esc(q.name)}</a></td><td class="num">${mark(q)}<span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.manual ? "finished (marked)" : q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
+    return `${canMark() ? `<p class="note manualnote">Marking by hand: tick off quests you've finished since your last sync.</p>` : ""}
+      <table class="list"><tbody>${qs.map((q) => `<tr><td><a class="plainlink" href="${esc(wikiPage(q.name))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(q.name)} on the OSRS Wiki">${esc(q.name)}</a></td><td class="num">${starHTML("quest", q.name, shown)}${mark(q)}<span class="pill ${q.state === "FINISHED" ? "ok" : q.state === "IN_PROGRESS" ? "mid" : ""}">${esc(q.manual ? "finished (marked)" : q.state.replace("_", " ").toLowerCase())}</span></td></tr>`).join("")}</tbody></table>`;
   },
   diaries(s) {
     // One column per tier; each square links to that tier on the wiki. A region counts as started
@@ -1028,7 +1435,7 @@ const TAB_RENDER = {
         const status = done[t] ? "done" : started && t === nextTier ? "started" : "todo";
         const label = `${region} ${cap(t)}: ${marked ? "complete (marked by hand)" : { done: "complete", started: "in progress", todo: "not started" }[status]}`;
         // Marking by hand: tiers the last sync didn't show as done become toggles.
-        if (state.manualMode && (!done[t] || marked)) {
+        if (canMark() && (!done[t] || marked)) {
           return `<td class="tiercell"><button type="button" class="tierbox ${status}${marked ? " marked" : ""}" data-mark="diaries" data-key="${esc(`${region}|${t}`)}" aria-pressed="${marked}" title="${esc(label)}. Click to ${marked ? "undo your mark" : "mark it done until your next sync"}" aria-label="${esc(label)}"></button></td>`;
         }
         return `<td class="tiercell"><a class="tierbox ${status}${marked ? " marked" : ""}" href="${esc(wikiPage(`${region} Diary`, cap(t)))}" target="_blank" rel="noopener noreferrer" title="${esc(label)}. Open on the OSRS Wiki" aria-label="${esc(label)}"></a></td>`;
@@ -1036,7 +1443,7 @@ const TAB_RENDER = {
       return `<tr><td><a class="plainlink" href="${esc(wikiPage(`${region} Diary`))}" target="_blank" rel="noopener noreferrer">${esc(region)}</a></td>${cells}</tr>`;
     }).join("");
     return `<table class="list diarytable"><thead><tr><th>Region</th>${tiers.map((t) => `<th class="tiercell">${cap(t)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
-      <p class="note legend"><span class="tierbox done"></span> Complete <span class="tierbox started"></span> In progress <span class="tierbox todo"></span> Not started${markCount() ? ` <span class="tierbox done marked"></span> Marked by hand` : ""} · ${state.manualMode
+      <p class="note legend"><span class="tierbox done"></span> Complete <span class="tierbox started"></span> In progress <span class="tierbox todo"></span> Not started${markCount() ? ` <span class="tierbox done marked"></span> Marked by hand` : ""} · ${canMark()
         ? "Marking by hand: click a tier you've finished since your last sync."
         : "Click a square to open that tier on the wiki."}</p>
       ${isMissing("diaryStarted") ? `<p class="note missing"><span aria-hidden="true">ⓘ</span> Diaries in progress aren't in this profile, so none show as started. ${esc(missingWhy())}</p>` : ""}`;
@@ -1070,7 +1477,7 @@ const TAB_RENDER = {
         </details>`;
     }).join("");
     return `<table class="list"><thead><tr><th>Tier</th><th class="num">Tasks</th><th class="num">Points needed</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="note">${ca.points ?? 0} points · current reward tier: ${esc(a.caRank)}${a.caNext ? ` · ${a.caNext.gap} to ${a.caNext.tier}` : ""}</p>
+      <p class="note">${ca.points ?? 0} points · current reward tier: ${esc(a.caRank)}${a.caNext ? ` · ${a.caNext.gap} to ${a.caNext.tier}` : ""}${a.caNext && tasks.length && !isReadOnly() ? `<button id="cabtn" type="button" class="btn tiny" data-ca-plan>Plan a tier</button>` : ""}</p>
       ${lists ? `<div class="clogpages">${lists}</div>` : ""}`;
   },
   clog(s) {
@@ -1081,13 +1488,14 @@ const TAB_RENDER = {
       const got = p.items.filter((i) => i.quantity > 0).length;
       return { n, got, total: p.items.length, tab: p.tab, items: p.items };
     }).sort((a, b) => byPageName(a.n, b.n));
+    const shown = picks().item;
     return `<table class="list"><thead><tr><th>Tab</th><th class="num">Slots</th></tr></thead><tbody>${cats}</tbody></table>
       ${pages.length ? `<div class="clogpages">${pages.map((p) => `
         <details class="clogpage" name="clogpage" data-page="${esc(p.n)}" ${state.clogOpen === p.n ? "open" : ""}>
           <summary><span>${esc(pageLabel(p.n))} <span class="muted small">${esc(p.tab)}</span></span>
             <span class="pill ${p.got === p.total ? "ok" : ""}">${p.got}/${p.total}</span></summary>
           <ul class="clogitems">${p.items.map((i) => i.quantity > 0
-            ? `<li class="have"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
+            ? `<li class="have"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">${starHTML("item", i.name, shown)}${i.quantity > 1 ? `×${i.quantity.toLocaleString()}` : "✓"}</span></li>`
             : `<li class="need"><span>${iconImg(itemUrl(i.id), { cls: "gicon tiny item" })}${esc(i.name)}</span><span class="q">not obtained</span></li>`).join("")}</ul>
         </details>`).join("")}</div>`
       : `<p class="note">No pages recorded yet. Open the collection log in-game and click Search, then sync.</p>`}`;
@@ -1095,12 +1503,20 @@ const TAB_RENDER = {
   pets(s) {
     const { pets, owned } = petInfo(s);
     if (!pets.length) return `<p class="note">No pet data yet. Sync with the latest plugin to load the All Pets page.</p>`;
+    const shown = picks().item;
     const sorted = [...pets].sort((a, b) => Number(b.owned) - Number(a.owned) || a.name.localeCompare(b.name));
     return `<p class="note" style="margin:0 0 10px">${owned} of ${pets.length} pets</p>
       <div class="petgrid">${sorted.map((p) =>
-        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${iconImg(itemUrl(p.id), { cls: "gicon tiny item" })}${esc(p.name)}</span><i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></div>`).join("")}</div>`;
+        `<div class="pet ${p.owned ? "owned" : ""}" title="${esc(p.source ? `From ${p.source}` : "")}"><span>${iconImg(itemUrl(p.id), { cls: "gicon tiny item" })}${esc(p.name)}</span><span class="q">${p.owned ? starHTML("item", p.name, shown) : ""}<i aria-label="${p.owned ? "Obtained" : "Missing"}">${p.owned ? "✓" : ""}</i></span></div>`).join("")}</div>`;
   },
 };
+
+/** The ☆ in the tabs: shows that item, quest or skill in the showcase; ★ when it is (click again to remove). */
+function starHTML(kind, key, shown, label = key) {
+  if (isReadOnly()) return "";
+  const on = shown?.key.toLowerCase() === String(key).toLowerCase();
+  return `<button type="button" class="star${on ? " on" : ""}" data-star="${kind}" data-key="${esc(on ? "" : key)}" aria-pressed="${on}" title="${on ? "In your showcase. Click to remove" : "Add to your showcase"}" aria-label="${esc(`Show ${label} in your showcase`)}">${on ? "★" : "☆"}</button>`;
+}
 
 // ---- Events --------------------------------------------------------------------------------
 
@@ -1108,6 +1524,7 @@ $("#lookup").addEventListener("submit", (e) => { e.preventDefault(); load($("#na
 $("#sample").addEventListener("click", () => load(SAMPLE));
 
 $("#shuffle").addEventListener("click", () => {
+  if (isReadOnly()) return;
   state.seed = (state.seed + 1) * 7919 % 100003;
   // Never show the same cards twice in a row.
   for (const c of state.picks) state.excluded.add(c.id);
@@ -1127,7 +1544,7 @@ $("#shuffle").addEventListener("click", () => {
 
 document.querySelector(".seg").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-style]");
-  if (!b) return;
+  if (!b || isReadOnly()) return;
   state.style = b.dataset.style;
   localStorage.setItem("tm.style", state.style);
   renderControls();
@@ -1136,7 +1553,7 @@ document.querySelector(".seg").addEventListener("click", (e) => {
 
 $("#chips").addEventListener("click", (e) => {
   const b = e.target.closest("[data-cat]");
-  if (!b) return;
+  if (!b || isReadOnly()) return;
   const k = b.dataset.cat;
   if (state.cats.has(k)) { if (state.cats.size > 1) state.cats.delete(k); } else state.cats.add(k);
   localStorage.setItem("tm.off", JSON.stringify(Object.keys(CATEGORIES).filter((c) => !state.cats.has(c))));
@@ -1152,25 +1569,42 @@ function swapAt(i) {
     const old = state.picks[i];
     const shown = new Set(state.picks.map((c) => c.id));
     const tierList = currentList().filter((c) => c.effort === old.effort && !shown.has(c.id));
-    const [next] = pickThree(tierList, { seed: state.seed, exclude: state.excluded, keep: state.picks.filter((_, j) => j !== i), n: 7 })
+    const [next] = pickThree(tierList, { seed: state.seed, exclude: state.excluded, keep: state.picks.filter((_, j) => j !== i), n: 7, fastest: state.fastest })
       .filter((c) => !shown.has(c.id));
     // A hidden card must go even when nothing can replace it.
     if (next) state.picks = state.picks.map((c, j) => (j === i ? next : c));
     else if (isHidden(old)) state.picks = state.picks.filter((_, j) => j !== i);
     spin = i;
+    if (next) keepFastestOrder(next);
     renderCards();
     return;
   }
   const keep = state.picks.filter((_, j) => j !== i);
   // Put the replacement back in the same slot.
-  const next = pickThree(currentList(), { seed: state.seed, exclude: state.excluded, keep });
+  const next = pickThree(currentList(), { seed: state.seed, exclude: state.excluded, keep, fastest: state.fastest });
   const added = next.find((c) => !keep.includes(c));
   state.picks = added ? [...keep.slice(0, i), added, ...keep.slice(i)] : keep;
   spin = i;
+  if (added) keepFastestOrder(added);
   renderCards();
 }
 
+/**
+ * Under "Fastest logs first", a swapped-in log or pet card moves to its place in time order
+ * (within its tier in Mixed), and the spin follows it there.
+ */
+function keepFastestOrder(added) {
+  if (!state.fastest || !HUNT_CATEGORIES.has(added.category)) return;
+  const tiers = [...new Set(state.picks.map((c) => c.effort))];
+  state.picks = isMix()
+    ? tiers.flatMap((t) => fastestFirst(state.picks.filter((c) => c.effort === t)))
+    : fastestFirst(state.picks);
+  spin = state.picks.indexOf(added);
+}
+
 $("#cards").addEventListener("click", (e) => {
+  // View only: the carousel arrows still scroll; nothing else on the cards changes anything.
+  if (isReadOnly() && !e.target.closest("[data-scroll]")) return;
   const swap = e.target.closest("[data-swap]");
   if (swap) { swapAt(+swap.dataset.swap); return; }
   // "Not for me": ask how long, then hide it and fill the slot like Swap does.
@@ -1198,13 +1632,13 @@ $("#cards").addEventListener("click", (e) => {
 });
 
 $("#challenge").addEventListener("click", (e) => {
-  if (!state.challenge) return;
+  if (!state.challenge || isReadOnly()) return;
   if (e.target.closest("[data-challenge-swap]")) {
     // Cycle through the challenges; when they've all been seen, start over.
     const old = state.challenge.id;
     (state.challengeSeen ??= new Set()).add(old);
-    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen });
-    if (!state.challenge) { state.challengeSeen = new Set([old]); state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.challengeSeen }); }
+    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen, fastest: state.fastest });
+    if (!state.challenge) { state.challengeSeen = new Set([old]); state.challenge = pickChallenge(visibleAll(), { seed: state.seed, exclude: state.challengeSeen, fastest: state.fastest }); }
     renderChallenge();
     $("#challenge .card")?.classList.add("spin");
     return;
@@ -1216,7 +1650,7 @@ $("#challenge").addEventListener("click", (e) => {
   if (hide) {
     hideSuggestion(state.challenge, +hide.dataset.days);
     currentList();
-    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen ?? new Set() })
+    state.challenge = pickChallenge(visibleAll(), { seed: ++state.seed, exclude: state.challengeSeen ?? new Set(), fastest: state.fastest })
       ?? pickChallenge(visibleAll(), { seed: state.seed });
     renderOptIns();
     renderChallenge();
@@ -1228,9 +1662,16 @@ $("#challenge").addEventListener("click", (e) => {
 
 $("#optins").addEventListener("click", (e) => {
   const b = e.target.closest("[data-content]");
-  if (!b) return;
+  if (!b || isReadOnly()) return;
   state.content[b.dataset.content] = !state.content[b.dataset.content];
   localStorage.setItem("tm.content", JSON.stringify(state.content));
+  state.excluded.clear();
+  renderControls();
+  renderCards(true);
+});
+$("#fastest").addEventListener("click", () => {
+  state.fastest = !state.fastest;
+  localStorage.setItem("tm.fastest", state.fastest ? "1" : "0");
   state.excluded.clear();
   renderControls();
   renderCards(true);
@@ -1239,6 +1680,7 @@ $("#lockedbtn").addEventListener("click", openLocked);
 $("#hiddenbtn").addEventListener("click", () => $("#hiddendlg").showModal());
 $("#hiddendlg").addEventListener("click", (e) => {
   if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
+  if (isReadOnly()) return;
   const one = e.target.closest("[data-unhide]");
   if (one) return unhide([one.dataset.unhide]);
   if (e.target.closest("[data-unhide-all]")) return unhide(Object.keys(state.hidden));
@@ -1246,7 +1688,7 @@ $("#hiddendlg").addEventListener("click", (e) => {
 $("#lockeddlg").addEventListener("click", (e) => {
   const add = e.target.closest("[data-lock-goal]");
   const undo = e.target.closest("[data-lock-undo]");
-  if (add || undo) {
+  if ((add || undo) && !isReadOnly()) {
     const row = state.locked[+(add ? add.dataset.lockGoal : undo.dataset.lockUndo)];
     if (add) addLockedGoals(row);
     else {
@@ -1284,8 +1726,12 @@ const openGoals = () => state.goals.filter((g) => g.type !== "custom" && !goalPr
 function stepHTML(s, { showFor = true } = {}) {
   const quest = s.key.startsWith("quest:") ? s.key.slice(6) : null;
   const title = quest ? `<a href="${esc(wikiPage(quest))}" target="_blank" rel="noopener noreferrer" title="Open ${esc(quest)} on the OSRS Wiki">${esc(s.title)}</a>` : esc(s.title);
-  const forText = showFor && !(s.completes.length && s.forGoals.length === 1) ? `For: ${s.forGoals.join(", ")}` : "";
-  const sub = [forText, s.note].filter(Boolean).join(". ");
+  // What asks for this step directly ("Needed for The Hand in the Sand"), then the goals it's on
+  // the way to when that doesn't already say so.
+  const needed = (s.neededBy ?? []).filter((n) => !s.completes.includes(n));
+  const neededText = needed.length && !needed.every((n) => s.forGoals.includes(n)) ? `Needed for ${needed.join(", ")}` : "";
+  const forText = showFor && !(s.completes.length && s.forGoals.length === 1) && !(neededText && s.forGoals.every((g) => needed.includes(g))) ? `For: ${s.forGoals.join(", ")}` : "";
+  const sub = [neededText, forText, s.note].filter(Boolean).join(". ");
   return `<span class="pt">${title}</span>${s.completes.length ? " ✓ goal" : ""}${s.shared ? `<span class="shared" title="${esc(s.forGoals.join(", "))}">shared by ${s.forGoals.length}</span>` : ""}
     ${s.hours ? `<span class="ph">· ${esc(hoursRangeText(s.hours))}</span>` : ""}
     ${sub ? `<span class="pf">${esc(sub)}</span>` : ""}`;
@@ -1323,7 +1769,7 @@ function renderPlan() {
   $("#planbody").innerHTML = `
     <p class="plansum"><b>${plan.steps.length} steps</b> for ${goalsIn} goal${goalsIn === 1 ? "" : "s"}. ${esc(planTimeText(plan))}.</p>
     <ol class="planlist">${plan.steps.map((s) => `<li class="${s.completes.length ? "goalstep" : ""}">${stepHTML(s)}</li>`).join("")}</ol>
-    <div class="planfoot">
+    <div class="planfoot" ${isReadOnly() ? "hidden" : ""}>
       <button id="planpin" type="button" class="btn primary" ${pinned ? "disabled" : ""}>${pinned ? "Pinned to the page ✓" : state.route ? "Pin this route instead" : "Pin this route to the page"}</button>
       <span class="muted small">${pinned ? "It's shown above your goals and updates as you progress." : "Keeps it above your goals, updating as you progress."}</span>
     </div>
@@ -1340,10 +1786,25 @@ const sameIds = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
 const ROUTE_SHOWN = 4;
 
 function saveRoute(route) {
+  if (isReadOnly()) return;
   state.route = route;
   // Per sample account too, like marks and hidden suggestions (storeName).
   if (route) localStorage.setItem(routeKey(storeName(state.name)), JSON.stringify(route));
   else localStorage.removeItem(routeKey(storeName(state.name)));
+  schedulePicks(); // the RuneLite panel shows the pinned route too
+}
+
+/** The pinned route as the RuneLite panel shows it (sent with the picks), or null. */
+function routeForPanel() {
+  const p = pinnedRoute();
+  if (!p?.plan?.steps.length) return null;
+  return {
+    goals: p.goals.map(goalTitle), done: p.done, total: p.total, left: p.plan.steps.length, time: planTimeText(p.plan),
+    steps: p.plan.steps.slice(0, 30).map((s) => ({
+      key: s.key, title: s.title, hours: s.hours ? hoursRangeText(s.hours) : null,
+      for: s.forGoals, goal: s.completes.length > 0, note: s.note,
+    })),
+  };
 }
 
 /**
@@ -1377,11 +1838,12 @@ function renderRoute() {
   const p = pinnedRoute();
   el.hidden = !p;
   if (!p) return;
+  const ro = isReadOnly();
   const head = (extra = "") => `
     <div class="panelhead">
-      <h3 id="route-h">Your route</h3>
+      <h3 id="route-h">${ro ? "Their route" : "Your route"}</h3>
       <span class="muted small">${p.goals.length ? `For: ${esc(p.goals.map(goalTitle).join(", "))}` : ""}</span>
-      <span class="routeacts">${extra}<button type="button" class="btn tiny ghost" data-route="unpin">Unpin</button></span>
+      <span class="routeacts">${ro ? "" : `${extra}<button type="button" class="btn tiny ghost" data-route="unpin">Unpin</button>`}</span>
     </div>`;
   if (!p.goals.length) {
     el.innerHTML = `${head()}<p class="muted small">The goals this route was for have been removed. Plan a new one from your goals.</p>`;
@@ -1421,6 +1883,7 @@ function openPlanner(withIds = null) {
 $("#planbtn").addEventListener("click", () => openPlanner());
 $("#plandlg").addEventListener("click", (e) => {
   if (e.target.closest("#planpin")) {
+    if (isReadOnly()) return;
     const picked = openGoals().filter((g) => !planOff.has(g.id));
     const plan = planRoute(state.snap, picked);
     saveRoute({ goals: picked.map((g) => g.id), keys: plan.steps.map((s) => s.key), at: Date.now() });
@@ -1434,7 +1897,7 @@ $("#plandlg").addEventListener("click", (e) => {
 $("#route").addEventListener("click", (e) => {
   const b = e.target.closest("[data-route]");
   if (!b) return;
-  if (b.dataset.route === "unpin") { saveRoute(null); renderRoute(); return; }
+  if (b.dataset.route === "unpin") { if (!isReadOnly()) { saveRoute(null); renderRoute(); } return; }
   openPlanner();
 });
 $("#plandlg").addEventListener("change", (e) => {
@@ -1444,9 +1907,127 @@ $("#plandlg").addEventListener("change", (e) => {
   renderPlan();
 });
 
+// ---- Combat achievement planner ----------------------------------------------------------------
+// Choose a reward tier and the bosses to get there with (tasks up to a tier you pick), then add
+// them as goals: the tier itself plus one "every task up to X at boss" goal each, and plan a route.
+const caPick = { tier: null, maxTier: null, on: new Set() };
+/** Reward tiers not reached yet, easiest first. */
+const caTiersLeft = () => {
+  const ca = state.snap.combatAchievements ?? {};
+  return CA_TIERS.filter((t) => ca.thresholds?.[t] && (ca.points ?? 0) < ca.thresholds[t]);
+};
+const caBossName = (b) => (b.general ? "Tasks not tied to a boss" : b.monster);
+const plural = (n, w, many = `${w}s`) => `${n} ${n === 1 ? w : many}`;
+
+/** Start over for a tier: tick the bosses already on your goals for it, or else the suggestion. */
+function caReset(tier, maxTier = tier) {
+  Object.assign(caPick, { tier, maxTier });
+  const plan = caTierPlan(state.snap, tier, { maxTier });
+  const chosen = state.goals.filter((g) => g.type === "caboss" && g.forTier === tier && g.tier === maxTier && !goalProgress(g, state.snap).done).map((g) => g.monster);
+  caPick.on = new Set(chosen.length ? chosen : plan.suggested);
+}
+
+function openCaPlanner(tier = null) {
+  const left = caTiersLeft();
+  caReset(left.includes(tier) ? tier : left[0] ?? null);
+  renderCaPlanner();
+  $("#cadlg").showModal();
+}
+
+function renderCaPlanner() {
+  const left = caTiersLeft();
+  if (!caPick.tier) {
+    $("#cacontrols").innerHTML = "";
+    $("#cabody").innerHTML = `<p class="muted small">${(state.snap.combatAchievements?.tasks ?? []).length ? "You've reached every reward tier. ✓" : "This profile has no combat achievement tasks. Copy a fresh profile from the plugin."}</p>`;
+    return;
+  }
+  const opt = (list, v) => list.map((t) => `<option value="${t}" ${t === v ? "selected" : ""}>${t}</option>`).join("");
+  $("#cacontrols").innerHTML = `
+    <label>Reward tier <select data-ca="tier">${opt(left, caPick.tier)}</select></label>
+    <label>Count tasks up to <select data-ca="max">${opt(CA_TIERS, caPick.maxTier)}</select></label>`;
+  const plan = caTierPlan(state.snap, caPick.tier, { maxTier: caPick.maxTier });
+  const picked = plan.bosses.filter((b) => caPick.on.has(b.monster));
+  const pts = picked.reduce((n, b) => n + b.points, 0);
+  const pct = Math.min(100, Math.round(((plan.have + pts) / plan.need) * 100));
+  const status = pts >= plan.gap
+    ? `<span class="ok">Enough to reach ${esc(plan.tier)} ✓${pts > plan.gap ? ` (${pts - plan.gap} to spare)` : ""}</span>`
+    : `<span class="short">${plan.gap - pts} more points needed</span>`;
+  const short = plan.available < plan.gap
+    ? `<p class="plannote">Every task up to ${esc(plan.maxTier)} is worth ${plan.available} points, ${plan.gap - plan.available} short of ${esc(plan.tier)}. Count harder tasks to get there.</p>` : "";
+  const row = (b) => {
+    const tiers = CA_TIERS.filter((t) => b.byTier[t]).map((t) => `${b.byTier[t]} ${t}`).join(", ");
+    const sub = [tiers, TIER_LABEL[b.effort],
+      b.locked ? `<span class="lock">Needs ${esc(b.locked.needs.join(", "))} (planned on the route)</span>` : "",
+      b.wilderness ? "Wilderness" : ""].filter(Boolean).join(" · ");
+    return `<li class="${b.locked ? "locked" : ""}"><label>
+      <input type="checkbox" data-ca-boss="${esc(b.monster)}" ${caPick.on.has(b.monster) ? "checked" : ""}>
+      <span class="cn">${esc(caBossName(b))}</span>
+      <span class="cp">${b.points} pts · ${plural(b.tasks.length, "task")}</span>
+      <span class="cs">${sub}</span></label></li>`;
+  };
+  $("#cabody").innerHTML = `
+    <div class="casum">
+      <span>You have <b>${plan.have}</b> of the <b>${plan.need}</b> points for ${esc(plan.tier)}: ${plan.gap} to go. Picked: <b>${pts}</b> points from ${plural(picked.length, "boss", "bosses")}. ${status}</span>
+      <div class="bar" style="--c:${pts >= plan.gap ? "var(--good)" : "var(--c-combat)"}"><i style="width:${pct}%"></i></div>
+    </div>
+    <div class="caacts">
+      <button type="button" class="btn tiny" data-ca-act="suggest" ${plan.suggested.length ? "" : "disabled"} title="The fewest bosses that cover the gap, best points for the work first">Pick for me</button>
+      <button type="button" class="btn tiny ghost" data-ca-act="clear" ${picked.length ? "" : "disabled"}>Clear</button>
+    </div>
+    ${plan.bosses.length ? `<ul class="cabosses">${plan.bosses.map(row).join("")}</ul>` : `<p class="muted small">No unfinished tasks up to ${esc(plan.maxTier)}.</p>`}
+    ${short}
+    <div class="planfoot">
+      <button type="button" class="btn primary" data-ca-act="add" ${picked.length ? "" : "disabled"}>Add as goals and plan a route</button>
+      <span class="muted small">Adds the ${esc(plan.tier)} tier and ${plural(picked.length, "boss goal")}.</span>
+    </div>
+    <p class="plannote">Bosses are ordered by points for the work (easier tasks are quicker points), with locked ones last. Tasks marked done by hand count as done.</p>`;
+}
+
+/** Add the tier and the picked bosses as goals (reusing ones you have), then open the route planner. */
+function addCaGoals() {
+  const plan = caTierPlan(state.snap, caPick.tier, { maxTier: caPick.maxTier });
+  const ids = [];
+  const add = (g) => {
+    const have = state.goals.find((x) => goalTitle(x) === goalTitle(g));
+    if (have) { if (g.forTier) have.forTier = g.forTier; ids.push(have.id); return; }
+    const goal = { id: newGoalId(), ...g };
+    state.goals.push(goal);
+    ids.push(goal.id);
+  };
+  add({ type: "ca", tier: caPick.tier });
+  for (const b of plan.bosses) if (caPick.on.has(b.monster)) add({ type: "caboss", monster: b.monster, tier: caPick.maxTier, forTier: caPick.tier });
+  saveGoals();
+  renderGoals();
+  renderReach();
+  renderCards(true);
+  $("#cadlg").close();
+  openPlanner(ids);
+}
+
+$("#cadlg").addEventListener("change", (e) => {
+  const sel = e.target.closest("[data-ca]");
+  if (sel?.dataset.ca === "tier") caReset(sel.value);
+  else if (sel?.dataset.ca === "max") caReset(caPick.tier, sel.value);
+  const box = e.target.closest("[data-ca-boss]");
+  if (box) { if (box.checked) caPick.on.add(box.dataset.caBoss); else caPick.on.delete(box.dataset.caBoss); }
+  if (sel || box) {
+    const list = $("#cadlg .cabosses"), top = list?.scrollTop;
+    renderCaPlanner();
+    if (box && $("#cadlg .cabosses")) $("#cadlg .cabosses").scrollTop = top;
+  }
+});
+$("#cadlg").addEventListener("click", (e) => {
+  const act = e.target.closest("[data-ca-act]")?.dataset.caAct;
+  if (act === "suggest") { caPick.on = new Set(caTierPlan(state.snap, caPick.tier, { maxTier: caPick.maxTier }).suggested); renderCaPlanner(); return; }
+  if (act === "clear") { caPick.on.clear(); renderCaPlanner(); return; }
+  if (act === "add") { addCaGoals(); return; }
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
+});
+
 $("#gtype").addEventListener("change", renderGoalFields);
 $("#goalform").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (isReadOnly()) return;
   const f = new FormData(e.target);
   const type = f.get("type") ?? $("#gtype").value;
   const g = { id: newGoalId(), type };
@@ -1479,15 +2060,17 @@ $("#goalform").addEventListener("submit", (e) => {
 });
 
 $("#goals").addEventListener("click", (e) => {
+  const pick = e.target.closest("[data-ca-goal]");
+  if (pick && !isReadOnly()) { openCaPlanner(pick.dataset.caGoal); return; }
   const del = e.target.closest("[data-del]");
-  if (del) {
+  if (del && !isReadOnly()) {
     state.goals = state.goals.filter((g) => g.id !== del.dataset.del);
     saveGoals(); renderGoals(); renderCards(true);
   }
 });
 $("#goals").addEventListener("change", (e) => {
   const c = e.target.closest("[data-check]");
-  if (!c) return;
+  if (!c || isReadOnly()) return;
   const g = state.goals.find((x) => x.id === c.dataset.check);
   if (g) { g.done = c.checked; saveGoals(); renderGoals(); renderCards(true); }
 });
@@ -1505,6 +2088,46 @@ $("#tabbody").addEventListener("toggle", (e) => {
   }
 }, true);
 
+$("#tabbody").addEventListener("click", (e) => {
+  if (isReadOnly()) return;
+  if (e.target.closest("[data-ca-plan]")) return openCaPlanner();
+  const b = e.target.closest("[data-star]");
+  if (b) setShowcase(b.dataset.star, b.dataset.key);
+});
+$("#showcasedlg").addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
+  const tab = e.target.closest("[data-showcase-tab]");
+  if (tab) {
+    state.showcaseTab = tab.dataset.showcaseTab;
+    $("#showcasefilter").value = "";
+    return renderShowcasePicker();
+  }
+  // Picking keeps the picker open, so several slots can be set in one go.
+  const pick = e.target.closest("[data-showcase-pick]");
+  if (pick) setShowcase(state.showcaseTab, pick.dataset.showcasePick);
+});
+$("#showcasefilter").addEventListener("input", renderShowcasePicker);
+
+// Clear all goals, after a confirmation saying what goes with them and where it's kept.
+$("#cleargoals").addEventListener("click", () => {
+  if (isReadOnly() || !state.goals.length) return;
+  const n = state.goals.length;
+  const where = state.name === SAMPLE ? "from this sample in this browser"
+    : state.source?.kind === "sync" ? "from your uploaded profile, on every browser and in the RuneLite panel"
+    : "from this browser";
+  $("#clearbody").textContent = `This removes all ${n} goal${n === 1 ? "" : "s"} ${where}${state.route ? ", and unpins your route" : ""}. It can't be undone.`;
+  $("#cleardlg").showModal();
+});
+$("#cleardlg").addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]") || e.target === e.currentTarget) return e.currentTarget.close();
+  if (!e.target.closest("#clearconfirm")) return;
+  e.currentTarget.close();
+  if (isReadOnly()) return;
+  state.goals = [];
+  if (state.route) saveRoute(null);
+  saveGoals(); renderGoals(); renderCards(true);
+});
+
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab]");
   if (!b) return;
@@ -1513,7 +2136,29 @@ $("#tabs").addEventListener("click", (e) => {
 });
 
 // Marking by hand: the toggle in the summary, and every "Mark done" control on cards and tabs.
-$("#summary").addEventListener("click", (e) => {
+$("#summary").addEventListener("click", async (e) => {
+  // The owner previewing the visitor view, or back again. Nothing is saved while previewing.
+  if (e.target.closest("#visitorbtn") && state.source?.edit) {
+    state.viewAsVisitor = !state.viewAsVisitor;
+    renderAll();
+    return;
+  }
+  // Owners share a view-only link (the id only), never their own link with the edit token.
+  const share = e.target.closest("#sharebtn");
+  if (share && state.source?.kind === "sync") {
+    const link = `${location.origin}${location.pathname}#id=${state.source.id}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      share.textContent = "Copied: view-only link";
+    } catch {
+      prompt("Copy this view-only link:", link);
+    }
+    setTimeout(() => { share.textContent = "Copy share link"; }, 2500);
+    return;
+  }
+  // Only the owner changes the showcase: on a view-only page it is just shown.
+  const open = e.target.closest("[data-showcase-open], #showcaseedit");
+  if (open && !isReadOnly()) return openShowcase(open.dataset.showcaseOpen);
   if (!e.target.closest("#manualbtn")) return;
   state.manualMode = !state.manualMode;
   localStorage.setItem("tm.manualMode", state.manualMode ? "1" : "0");
@@ -1524,7 +2169,7 @@ $("#summary").addEventListener("change", (e) => {
 });
 $("#app").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-mark]");
-  if (!b || !state.raw) return;
+  if (!b || !state.raw || isReadOnly()) return;
   setMark(b.dataset.mark, b.dataset.key, b.getAttribute("aria-pressed") !== "true");
 });
 
@@ -1542,11 +2187,22 @@ $("#reach").addEventListener("click", (e) => {
 
 // ---- Boot --------------------------------------------------------------------------------
 
+/** The address after #: either a profile link (id=…&edit=…) or a player name. */
+function readHash() {
+  const raw = location.hash.slice(1);
+  if (/^id=/.test(raw)) {
+    const p = new URLSearchParams(raw);
+    return { id: p.get("id"), edit: p.get("edit"), focus: p.get("focus") };
+  }
+  return { name: decodeURIComponent(raw) };
+}
+
 window.addEventListener("hashchange", () => {
-  const n = decodeURIComponent(location.hash.slice(1));
-  const sample = sampleFromHash(n);
+  const h = readHash();
+  const sample = h.name ? sampleFromHash(h.name) : null;
   if (sample) { if (state.name !== SAMPLE || sample !== state.sampleType) setSampleType(sample); return; }
-  if (n && n !== state.name) { $("#name").value = n; load(n); }
+  if (h.id && (h.id !== state.source?.id || h.focus)) load(null, h);
+  else if (h.name && h.name !== state.name) { $("#name").value = h.name; load(h.name); }
 });
 
 // ---- Importing a profile (browser mode) --------------------------------------------------
@@ -1582,7 +2238,7 @@ function importProfile(text) {
   $("#importdlg").close();
   refreshKnown();
   $("#name").value = snap.player.name;
-  load(snap.player.name);
+  load(snap.player.name, { local: true });
 }
 
 async function importFile(file) {
@@ -1592,8 +2248,12 @@ async function importFile(file) {
 }
 
 function refreshKnown() {
-  const names = serverMode ? refreshKnown.server : local.names();
-  $("#known").innerHTML = (names ?? []).map((n) => `<option value="${esc(n.replace(/_/g, " "))}">`).join("");
+  // Profiles this browser knows about: pasted ones (or the local server's), plus opened links.
+  const names = [];
+  for (const n of [...((serverMode ? refreshKnown.server : local.names()) ?? []).map((n) => n.replace(/_/g, " ")), ...links.all().map((l) => l.name)]) {
+    if (n && !names.some((m) => keyOf(m) === keyOf(n))) names.push(n);
+  }
+  $("#known").innerHTML = names.map((n) => `<option value="${esc(n)}">`).join("");
   const list = $("#knownlist");
   if (!serverMode && names.length) {
     list.hidden = false;
@@ -1616,6 +2276,7 @@ function goHome() {
 }
 
 function setupImport() {
+  $("#uploadhint").hidden = !UPLOAD_LIVE;
   $("#importslot").innerHTML = importBoxHTML();
   $("#importdlgslot").innerHTML = importBoxHTML();
   document.addEventListener("paste", (e) => {
@@ -1638,13 +2299,22 @@ function setupImport() {
     e.preventDefault();
     importFile(e.dataTransfer.files[0]);
   });
-  $("#importbtn").addEventListener("click", () => { importError(null); $("#forget").parentElement.hidden = !state.name || state.name === SAMPLE; $("#importdlg").showModal(); });
+  $("#importbtn").addEventListener("click", () => {
+    importError(null);
+    $("#forget").parentElement.hidden = !["local", "sync"].includes(state.source?.kind);
+    $("#importdlg").showModal();
+  });
   $("#importdlg").addEventListener("click", (e) => {
     if (e.target.closest("[data-close]") || e.target === e.currentTarget) e.currentTarget.close();
   });
   $("#forget").addEventListener("click", () => {
-    if (!state.name || !confirm(`Remove ${state.name}'s profile and goals from this browser?`)) return;
-    local.forget(state.name);
+    const synced = state.source?.kind === "sync";
+    if (!state.name || !confirm(synced
+      ? `Forget ${state.name}'s link in this browser? The uploaded profile itself stays on the server; delete it from the RuneLite plugin's panel.`
+      : `Remove ${state.name}'s profile and goals from this browser?`)) return;
+    if (synced) links.remove(state.source.id);
+    else local.forget(state.name);
+    state.source = null;
     localStorage.removeItem("tm.last");
     $("#importdlg").close();
     $("#name").value = "";
@@ -1682,13 +2352,14 @@ function setupImport() {
     goHome();
   });
   refreshKnown();
-  const fromHash = decodeURIComponent(location.hash.slice(1));
-  const sample = sampleFromHash(fromHash);
+  const h = readHash();
+  if (h.id) return load(null, h);
+  const sample = h.name ? sampleFromHash(h.name) : null;
   if (sample) return setSampleType(sample);
-  const last = fromHash || localStorage.getItem("tm.last");
+  const last = h.name || localStorage.getItem("tm.last");
   if (last) {
     $("#name").value = last;
-    // In browser mode the profile is right here, so open it straight away.
-    if (fromHash || (!serverMode && local.get(last))) load(last);
+    // Profiles this browser already has (pasted or linked) open straight away.
+    if (h.name || (!serverMode && local.get(last)) || links.byName(last)) load(last);
   }
 })();

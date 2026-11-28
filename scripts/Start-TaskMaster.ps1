@@ -9,7 +9,11 @@
 # Keep this file ASCII-only: Windows PowerShell 5.1 misreads other characters in scripts without a BOM.
 
 param(
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  # Started by Start-AutoUploadTest.ps1: profiles upload, so skip the copy-and-paste hint.
+  [switch]$AutoUploadTest,
+  # Also from Start-AutoUploadTest.ps1: -P settings for this run of RuneLite (see plugin/build.gradle).
+  [string[]]$GradleArgs = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,7 +36,8 @@ function Stop-Launcher($text) {
   Write-Host "   $text" -ForegroundColor Red
   Write-Host ""
   Read-Host "Press Enter to close"
-  exit 1
+  # 2, not 1: the .bat files pause on 1, which means PowerShell itself failed (this already paused).
+  exit 2
 }
 
 Write-Host ""
@@ -132,14 +137,19 @@ if (-not $NoBrowser) {
 
 Write-Step "Starting RuneLite with OSRS TaskMaster"
 Write-Info "The first start downloads RuneLite and can take a few minutes. Later starts are quicker."
-Write-Info "When you're in game: open the OSRS TaskMaster panel on the right-hand sidebar,"
-Write-Info "click 'Copy my profile', then paste it on the website (Ctrl+V)."
+if ($AutoUploadTest) {
+  Write-Info "When you're in game: open the OSRS TaskMaster panel and click Open website."
+  Write-Info "Your progress uploads by itself from then on (at most every 5 minutes as it changes)."
+} else {
+  Write-Info "When you're in game: open the OSRS TaskMaster panel on the right-hand sidebar,"
+  Write-Info "click 'Copy my profile', then paste it on the website (Ctrl+V)."
+}
 Write-Info "Close RuneLite when you're done; this window closes with it."
 Write-Host ""
 
 Push-Location $PluginDir
 try {
-  & .\gradlew.bat run --console=plain -q
+  & .\gradlew.bat run --console=plain -q @GradleArgs
   $code = $LASTEXITCODE
 } finally {
   Pop-Location

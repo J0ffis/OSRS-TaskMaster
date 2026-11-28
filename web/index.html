@@ -32,6 +32,7 @@
           <li><b>Copy your profile.</b> Open the OSRS TaskMaster panel on RuneLite's sidebar and click <b>Copy my profile</b>.</li>
           <li><b>Paste it here.</b> Your profile stays in this browser; nothing is uploaded.</li>
         </ol>
+        <p id="uploadhint" class="muted small" hidden>Rather not copy and paste each time? Switch on <b>Automatic upload</b> in the plugin's settings, then click <b>Open website</b> in its panel: your latest progress and goals will be here on any browser. Public profiles can also be looked up by name above.</p>
         <div id="importslot"></div>
       </div>
       <ol class="steps only-server">
@@ -62,6 +63,10 @@
       </div>
       <p id="tierhint" class="muted small tierhint"></p>
       <div id="chips" class="chips" aria-label="Categories to include"></div>
+      <div class="optin">
+        <span class="muted small">Clog hunting:</span>
+        <button id="fastest" type="button" class="toggle" aria-pressed="false" title="Collection log and pet cards come quickest first, by their rough time on average. Shuffle and Swap move on to the next quickest. Tip: switch off the other categories to see only log cards.">Fastest logs first</button>
+      </div>
       <div class="optin">
         <span class="muted small">Also include:</span>
         <span id="optins" class="optins"></span>
@@ -100,6 +105,7 @@
               <h3 id="goals-h">Goals</h3>
               <span class="muted small">Goals push matching suggestions to the top.</span>
               <button id="planbtn" type="button" class="btn tiny" hidden>Plan a route</button>
+              <button id="cleargoals" type="button" class="btn tiny ghost" title="Remove every goal" hidden>Clear all</button>
             </div>
             <ul id="goals" class="goals"></ul>
             <form id="goalform" class="goalform">
@@ -130,6 +136,37 @@
     <p class="muted small">Tick the goals to plan for. You get one list in a sensible order: requirements that several goals share come once, and each goal is finished as early as its steps allow. Pin it to keep it on the page.</p>
     <div id="planpick" class="planpick"></div>
     <div id="planbody"></div>
+  </dialog>
+  <dialog id="showcasedlg" class="dlg" aria-labelledby="showcase-h">
+    <div class="dlghead">
+      <h3 id="showcase-h">Showcase</h3>
+      <button type="button" class="x" data-close aria-label="Close">×</button>
+    </div>
+    <p class="muted small">Show off favourites next to your name. Every one is optional: pick only the ones you want, and the rest don't show. You can also click ☆ in the Skills, Quests, Collection log and Pets tabs. Kept in this browser only.</p>
+    <div id="showcasetabs" class="seg showcasetabs" role="tablist" aria-label="Showcase slot"></div>
+    <input id="showcasefilter" type="search" aria-label="Filter" autocomplete="off">
+    <div id="showcasebody"></div>
+    <p class="dlgfoot"><button type="button" class="btn" data-close>Done</button></p>
+  </dialog>
+  <dialog id="cadlg" class="dlg plandlg" aria-labelledby="ca-h">
+    <div class="dlghead">
+      <h3 id="ca-h">Combat achievement planner</h3>
+      <button type="button" class="x" data-close aria-label="Close">×</button>
+    </div>
+    <p class="muted small">Pick a reward tier, then the bosses whose unfinished tasks get you there. Only tasks up to the tier you choose are counted, so you can stay below the hardest content. The bosses become goals and get a route, with their quest and Slayer unlocks.</p>
+    <div id="cacontrols" class="cacontrols"></div>
+    <div id="cabody"></div>
+  </dialog>
+  <dialog id="cleardlg" class="dlg" aria-labelledby="clear-h">
+    <div class="dlghead">
+      <h3 id="clear-h">Clear all goals?</h3>
+      <button type="button" class="x" data-close aria-label="Close">×</button>
+    </div>
+    <p id="clearbody"></p>
+    <p class="dlgfoot">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="button" class="btn primary danger" id="clearconfirm">Remove all goals</button>
+    </p>
   </dialog>
   <dialog id="importdlg" class="dlg" aria-labelledby="import-h">
     <div class="dlghead">

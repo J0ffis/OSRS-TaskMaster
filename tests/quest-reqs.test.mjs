@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseRequirements, gameName, buildQuests, missingQuests } from "../scripts/update-quest-reqs.mjs";
+import { parseRequirements, gameName, buildQuests, missingQuests, parseQuestPoints } from "../scripts/update-quest-reqs.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (...p) => JSON.parse(readFileSync(join(root, ...p), "utf8"));
@@ -90,4 +90,25 @@ test("quest requirement snapshot: covers every quest in the game, with no broken
     state.set(n, "done");
   };
   for (const n of Object.keys(quests)) visit(n, []);
+});
+
+test("quest points: read from the wiki's quest list rows, and kept in the snapshot", () => {
+  const html = `<table><tr><th>#</th></tr>
+<tr data-rowid="Druidic Ritual">
+<td data-sort-value="18">18
+</td>
+<td data-sort-value="Druidic Ritual"><a href="/w/Druidic_Ritual" title="Druidic Ritual">Druidic Ritual</a></td>
+<td data-sort-value="1">Novice
+</td>
+<td data-sort-value="1">Very Short</td>
+<td>4</td>
+<td>N/A</td></tr>
+<tr data-rowid="Romeo &amp; Juliet"><td>1</td><td>Romeo &amp; Juliet</td><td>Novice</td><td>Short</td><td>5</td></tr>
+<tr data-rowid="Broken"><td>1</td><td>Broken</td></tr></table>`;
+  assert.deepEqual(parseQuestPoints(html), { "Druidic Ritual": 4, "Romeo & Juliet": 5 });
+  const built = buildQuests([{ page_name: "Druidic Ritual", requirements: "None", official_length: "Very Short" }], { "Druidic Ritual": 4 });
+  assert.deepEqual(built["Druidic Ritual"], { length: "Very Short", points: 4 });
+  // The real snapshot has a reward for (nearly) every quest.
+  const file = JSON.parse(readFileSync(new URL("../web/data/quest-reqs.json", import.meta.url), "utf8"));
+  assert.ok(Object.values(file.quests).filter((q) => q.points > 0).length > 150);
 });
