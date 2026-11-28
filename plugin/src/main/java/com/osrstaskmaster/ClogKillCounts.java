@@ -1,6 +1,8 @@
 package com.osrstaskmaster;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,6 +59,36 @@ final class ClogKillCounts
 		{
 			return null;
 		}
+	}
+
+	/**
+	 * Every kill count among a page header's texts (widget text, possibly with colour tags or
+	 * several lines), skipping the page title. Null and blank texts are ignored.
+	 */
+	static List<Map.Entry<String, Integer>> parseAll(List<String> texts, String title)
+	{
+		List<Map.Entry<String, Integer>> out = new ArrayList<>();
+		for (String raw : texts)
+		{
+			if (raw == null)
+			{
+				continue;
+			}
+			for (String line : raw.split("(?i)<br>|\\n"))
+			{
+				String text = line.replaceAll("<[^>]*>", "").trim();
+				if (text.isEmpty() || text.equalsIgnoreCase(title))
+				{
+					continue;
+				}
+				Map.Entry<String, Integer> kc = parse(text);
+				if (kc != null && out.stream().noneMatch(e -> e.getKey().equalsIgnoreCase(kc.getKey())))
+				{
+					out.add(kc);
+				}
+			}
+		}
+		return out;
 	}
 
 	/**

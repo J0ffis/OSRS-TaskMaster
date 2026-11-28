@@ -296,34 +296,42 @@ public class TaskMasterPlugin extends Plugin
 			}
 		}
 		store.clogPages.put(title, page);
-		readClogKillCounts(header, title);
+		readClogKillCounts(title);
 		store.save();
 		dirty = true;
 	}
 
 	/**
 	 * The page header's kill count lines ("Zulrah kills: 87"), so bosses killed before the plugin
-	 * was installed get a count without waiting for the next kill message.
+	 * was installed get a count without waiting for the next kill message. The lines are children
+	 * of the header container (Collection.HEADER: title, "Obtained: x/y", then the counts), not of
+	 * its title text (HEADER_TEXT), so both are read, with every kind of child.
 	 */
-	private void readClogKillCounts(Widget header, String title)
+	private void readClogKillCounts(String title)
 	{
-		Widget[] lines = header.getDynamicChildren();
-		if (lines == null)
+		List<String> texts = new ArrayList<>();
+		for (int id : new int[]{InterfaceID.Collection.HEADER, InterfaceID.Collection.HEADER_TEXT})
 		{
-			return;
-		}
-		for (Widget w : lines)
-		{
-			String text = w.getText() == null ? "" : Text.removeTags(w.getText()).trim();
-			if (text.isEmpty() || text.equals(title))
+			Widget w = client.getWidget(id);
+			if (w == null)
 			{
 				continue;
 			}
-			Map.Entry<String, Integer> kc = ClogKillCounts.parse(text);
-			if (kc != null)
+			texts.add(w.getText());
+			for (Widget[] kids : new Widget[][]{w.getDynamicChildren(), w.getStaticChildren(), w.getNestedChildren()})
 			{
-				ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue());
+				if (kids != null)
+				{
+					for (Widget k : kids)
+					{
+						texts.add(k.getText());
+					}
+				}
 			}
+		}
+		for (Map.Entry<String, Integer> kc : ClogKillCounts.parseAll(texts, title))
+		{
+			ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue());
 		}
 	}
 
