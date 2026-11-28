@@ -199,6 +199,17 @@ public class TaskMasterPlugin extends Plugin
 	public void onGameTick(GameTick t)
 	{
 		readSlayerRewards();
+		// A collection log page whose kill counts weren't drawn yet when it was read: once more.
+		if (clogRetryTitle != null)
+		{
+			String title = clogRetryTitle;
+			clogRetryTitle = null;
+			if (title.equals(clogTitle()) && readClogKillCounts(title) > 0)
+			{
+				store.save();
+				dirty = true;
+			}
+		}
 		if (ticksUntilLoginSync > 0 && --ticksUntilLoginSync == 0)
 		{
 			if (config.autoSync())
@@ -254,24 +265,64 @@ public class TaskMasterPlugin extends Plugin
 		clientThread.invokeLater(this::readClogPage);
 	}
 
+	/** The page whose kill counts to read again next tick, if they weren't drawn yet. */
+	private String clogRetryTitle;
+
+	/** The open page's title: the header's title text, or the header container's first line. */
+	private String clogTitle()
+	{
+		for (int id : new int[]{InterfaceID.Collection.HEADER_TEXT, InterfaceID.Collection.HEADER})
+		{
+			Widget w = client.getWidget(id);
+			if (w == null)
+			{
+				continue;
+			}
+			String t = w.getText();
+			Widget[] kids = w.getDynamicChildren();
+			if ((t == null || Text.removeTags(t).trim().isEmpty()) && kids != null && kids.length > 0)
+			{
+				t = kids[0].getText();
+			}
+			t = t == null ? "" : Text.removeTags(t).replace(' ', ' ').trim();
+			if (!t.isEmpty())
+			{
+				return t;
+			}
+		}
+		return "";
+	}
+
 	private void readClogPage()
 	{
-		Widget header = client.getWidget(InterfaceID.Collection.HEADER_TEXT);
-		Widget itemsWidget = client.getWidget(InterfaceID.Collection.ITEMS);
-		if (header == null || itemsWidget == null)
+		String title = clogTitle();
+		if (title.isEmpty())
 		{
+			log.info("OSRS TaskMaster: a collection log page was drawn, but its title wasn't found");
 			return;
 		}
-		String title = header.getText();
-		Widget[] headerKids = header.getDynamicChildren();
-		if ((title == null || title.isEmpty()) && headerKids != null && headerKids.length > 0)
+		// Kill counts first: they don't depend on reading the item tiles below.
+		boolean found = readClogKillCounts(title) > 0;
+		// The header may be filled in after the item list: try once more next tick.
+		clogRetryTitle = found ? null : title;
+		Widget[] items = null;
+		for (int id : new int[]{InterfaceID.Collection.ITEMS, InterfaceID.Collection.ITEMS_CONTENTS})
 		{
-			title = headerKids[0].getText();
+			Widget w = client.getWidget(id);
+			Widget[] kids = w == null ? null : w.getDynamicChildren();
+			if (kids != null && kids.length > 0)
+			{
+				items = kids;
+				break;
+			}
 		}
-		title = title == null ? "" : Text.removeTags(title).trim();
-		Widget[] items = itemsWidget.getDynamicChildren();
-		if (title.isEmpty() || items == null || items.length == 0)
+		if (items == null)
 		{
+			if (found)
+			{
+				store.save();
+				dirty = true;
+			}
 			return;
 		}
 		int tabIdx = client.getVarbitValue(VarbitID.COLLECTION_LAST_TAB);
@@ -296,7 +347,6 @@ public class TaskMasterPlugin extends Plugin
 			}
 		}
 		store.clogPages.put(title, page);
-		readClogKillCounts(title);
 		store.save();
 		dirty = true;
 	}
@@ -307,31 +357,56 @@ public class TaskMasterPlugin extends Plugin
 	 * of the header container (Collection.HEADER: title, "Obtained: x/y", then the counts), not of
 	 * its title text (HEADER_TEXT), so both are read, with every kind of child.
 	 */
-	private void readClogKillCounts(String title)
+	private int readClogKillCounts(String title)
 	{
 		List<String> texts = new ArrayList<>();
 		for (int id : new int[]{InterfaceID.Collection.HEADER, InterfaceID.Collection.HEADER_TEXT})
 		{
-			Widget w = client.getWidget(id);
-			if (w == null)
-			{
-				continue;
-			}
-			texts.add(w.getText());
-			for (Widget[] kids : new Widget[][]{w.getDynamicChildren(), w.getStaticChildren(), w.getNestedChildren()})
-			{
-				if (kids != null)
-				{
-					for (Widget k : kids)
-					{
-						texts.add(k.getText());
-					}
-				}
-			}
+			collectTexts(client.getWidget(id), texts, 3);
 		}
-		for (Map.Entry<String, Integer> kc : ClogKillCounts.parseAll(texts, title))
+		List<Map.Entry<String, Integer>> found = ClogKillCounts.parseAll(texts, title);
+		for (Map.Entry<String, Integer> kc : found)
 		{
 			ClogKillCounts.merge(store.killCounts, kc.getKey(), kc.getValue());
+		}
+		// One line per page in RuneLite's log (client.log), so a page that yields nothing can be
+		// diagnosed from what its header actually held.
+		if (found.isEmpty())
+		{
+			List<String> shown = new ArrayList<>();
+			for (String t : texts)
+			{
+				if (t != null && !t.trim().isEmpty())
+				{
+					shown.add(Text.removeTags(t).replace(' ', ' ').trim());
+				}
+			}
+			log.info("OSRS TaskMaster: collection log page '{}': no kill counts found in its header {}", title, shown);
+		}
+		else
+		{
+			log.info("OSRS TaskMaster: collection log page '{}': kill counts {}", title, found);
+		}
+		return found.size();
+	}
+
+	/** A widget's text and its children's (every kind), down to `depth` levels. */
+	private static void collectTexts(Widget w, List<String> out, int depth)
+	{
+		if (w == null || depth < 0)
+		{
+			return;
+		}
+		out.add(w.getText());
+		for (Widget[] kids : new Widget[][]{w.getDynamicChildren(), w.getStaticChildren(), w.getNestedChildren()})
+		{
+			if (kids != null)
+			{
+				for (Widget k : kids)
+				{
+					collectTexts(k, out, depth - 1);
+				}
+			}
 		}
 	}
 
