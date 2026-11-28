@@ -82,10 +82,13 @@ class TaskMasterPanel extends PluginPanel
 		+ "1. Click <b>Copy my profile</b>.<br>"
 		+ "2. Click <b>Open website</b> and paste it there (Ctrl+V).<br>"
 		+ "Do this again whenever you want fresh suggestions.<br><br>"
-		// Until the upload service is live (see TaskMasterConfig's upload section), don't send players
-		// to a setting that can't work yet.
-		+ "<b>Automatic upload</b> (no copy and paste, suggestions shown right here) isn't live yet. "
-		+ "Testers can try it with <b>Test Auto-Upload.bat</b>.<br><br>"
+		// Until Automatic upload is live (TaskMasterConfig.UPLOAD_LIVE), don't send players to a
+		// setting that can't work yet.
+		+ (TaskMasterConfig.UPLOAD_LIVE
+			? "<b>Skip the copy and paste:</b> switch on <b>Automatic upload</b> in this plugin's settings. "
+				+ "Your suggestions then show up right here too.<br><br>"
+			: "<b>Automatic upload</b> (no copy and paste, suggestions shown right here) isn't live yet. "
+				+ "Testers can try it with <b>Test Auto-Upload.bat</b>.<br><br>")
 		+ "<b>For a complete profile</b><br>"
 		+ "&bull; Open the <b>collection log</b> and click <b>Search</b> once to record every obtained item.<br>"
 		+ "&bull; Kill counts are picked up from chat as you play, and from a boss's collection log page when you open it.<br><br>"

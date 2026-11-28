@@ -11,7 +11,7 @@ it never reads your bank, inventory or gear.
 The download has the same plugin either way. Which file you double-click decides how your
 progress gets to the website:
 
-| | **Copy and paste** (everyone) | **Automatic upload** (if you were asked to try it) |
+| | **Copy and paste** | **Automatic upload** |
 |---|---|---|
 | Start with | **Start TaskMaster.bat** | **Test Auto-Upload.bat** |
 | Getting your progress to the website | Click **Copy my profile** in RuneLite, press **Ctrl+V** on the website | Nothing to do: it uploads by itself as you play |
@@ -77,9 +77,9 @@ Then click **Copy my profile** again and use **Update profile** on the website.
 
 ## 4. Automatic upload (Test Auto-Upload.bat)
 
-If you were asked to test **Automatic upload**, start this way instead. Your progress then goes to
+If you want to test **Automatic upload**, start this way instead. Your progress then goes to
 the website by itself, and the RuneLite panel shows your next grinds. Everything runs on your PC
-only; nothing is sent anywhere else.
+only; nothing is sent anywhere else just yet.
 
 1. Close RuneLite if it's open. Double-click **Test Auto-Upload.bat** in the extracted folder.
 2. The first time, it asks to download **Node.js**: type **Y** and press Enter. Like Java, it's a

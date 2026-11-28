@@ -18,6 +18,15 @@ public interface TaskMasterConfig extends Config
 	/** The OSRS TaskMaster upload service (sync/ in the project). Set when it's deployed. */
 	String DEFAULT_UPLOAD_SERVER = "https://osrs-taskmaster-sync.j0ffis.workers.dev";
 
+	/**
+	 * The go-live switch for Automatic upload, shared with UPLOAD_LIVE in web/config.js. Flip both
+	 * with scripts\Set-UploadLive.ps1 (tests/upload-switch.test.mjs fails if they differ). While
+	 * false, the upload settings are closed and marked "not live yet", and the panel points testers
+	 * to Test Auto-Upload.bat: switching it on here would upload to a server that isn't running.
+	 * Test Auto-Upload.bat turns uploading on for its run whatever this says.
+	 */
+	boolean UPLOAD_LIVE = false;
+
 	@ConfigItem(
 		keyName = "websiteUrl",
 		name = "Website",
@@ -53,16 +62,15 @@ public interface TaskMasterConfig extends Config
 		return 5;
 	}
 
-	// Closed and marked "not live yet" until the upload service (sync/) is deployed: switching it on
-	// here would upload to a server that isn't running. Testers try it with Test Auto-Upload.bat,
-	// which turns it on for that run only. Once deployed, open this section again and set
-	// UPLOAD_LIVE in web/config.js.
+	// Wording and closed-by-default follow UPLOAD_LIVE (constant expressions, so they work here).
 	@ConfigSection(
-		name = "Automatic upload (not live yet)",
-		description = "The OSRS TaskMaster upload server isn't running yet, so leave this off and use Copy my profile."
-			+ " To try Automatic upload, start TaskMaster with Test Auto-Upload.bat instead (see TESTER-GUIDE.md).",
+		name = UPLOAD_LIVE ? "Automatic upload" : "Automatic upload (not live yet)",
+		description = UPLOAD_LIVE
+			? "Optional: keep your profile on the OSRS TaskMaster server so the website is always up to date."
+			: "The OSRS TaskMaster upload server isn't running yet, so leave this off and use Copy my profile."
+				+ " To try Automatic upload, start TaskMaster with Test Auto-Upload.bat instead (see TESTER-GUIDE.md).",
 		position = 10,
-		closedByDefault = true
+		closedByDefault = !UPLOAD_LIVE
 	)
 	String uploadSection = "upload";
 
@@ -72,7 +80,7 @@ public interface TaskMasterConfig extends Config
 		description = "Upload your profile to the OSRS TaskMaster server, so the website always shows your latest"
 			+ " progress without copying and pasting. This sends your levels, quests, diaries, combat achievements"
 			+ " and collection log (never your bank or gear). Off unless you switch it on."
-			+ " Not live yet: to try it, use Test Auto-Upload.bat, which doesn't need this setting.",
+			+ (UPLOAD_LIVE ? "" : " Not live yet: to try it, use Test Auto-Upload.bat, which doesn't need this setting."),
 		section = uploadSection,
 		position = 11
 	)

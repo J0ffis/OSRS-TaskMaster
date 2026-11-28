@@ -78,8 +78,8 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
   - `knowledge-base.js` – hand-written game facts (quest requirements, diary rewards, effort
     estimates). Edit this to tune suggestions.
   - `app.js` – the page itself: importing profiles, rendering cards, managing goals.
-  - `config.js` – where the Automatic upload service runs (local or live), and `UPLOAD_LIVE`,
-    whether the site mentions Automatic upload (only on the local test site until it's deployed).
+  - `config.js` – where the Automatic upload service runs (local or live), and the website's
+    half of the go-live switch (see [Going live](#going-live-one-switch)).
   - `samples/` – the made-up accounts behind **Load sample data**, one per account type (made by
     `tests/make-sample-profiles.mjs`, `npm run samples`).
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
@@ -106,6 +106,7 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
   - `Update-GameData.ps1` – after a game update: game names, icons, drop rates, quest
     requirements and checks in one go.
   - `Format-Json.ps1` – lays JSON files out one entry per line so they're easy to read.
+  - `Set-UploadLive.ps1` – the go-live switch for Automatic upload (plugin and website together).
 - `docs/` – reference notes: [how suggestions work](docs/how-suggestions-work.md) (start here
   to tune them), [what the plugin reads](docs/data-sources.md), and
   [publishing to the Plugin Hub](docs/plugin-hub.md).
@@ -174,11 +175,26 @@ Set the plugin's **Upload server** setting to `http://127.0.0.1:8789` to test ag
 one-click test sets it for that run only, without changing your settings).
 Deploying it to Cloudflare is covered in [sync/README.md](sync/README.md).
 
-**Until it's deployed**, the plugin's *Automatic upload* settings section is closed and marked
-"not live yet", the panel's copy-and-paste note points testers to `Test Auto-Upload.bat`, and the
-website only mentions Automatic upload on the local test site (`UPLOAD_LIVE` in `web/config.js`).
-After deploying, undo all three: `TaskMasterConfig.java`, `HELP_MANUAL` in `TaskMasterPanel.java`
-and `UPLOAD_LIVE`.
+#### Going live: one switch
+
+Whether Automatic upload is offered to everyone is one switch with a value on each side:
+`UPLOAD_LIVE` in `TaskMasterConfig.java` (plugin) and `LIVE` in `web/config.js` (website). Set
+both with one command:
+
+```powershell
+.\scripts\Set-UploadLive.ps1 -Status   # show the switch
+.\scripts\Set-UploadLive.ps1           # go live: checks the live service answers first
+.\scripts\Set-UploadLive.ps1 -Off      # back to not live
+```
+
+While it's off (now, until the service is deployed): the plugin's *Automatic upload* settings
+section is closed and labelled as not live, the panel's copy-and-paste note points testers to
+`Test Auto-Upload.bat`, and the website only mentions Automatic upload on the local test site.
+When it's on, all three switch to their normal wording. `Test Auto-Upload.bat` and copy and paste
+work the same either way. `tests/upload-switch.test.mjs` fails if the two sides differ or point at
+different services, and once live, if the tester guide or plugin README still says it isn't.
+Going live reaches the website on the next push to `main` and RuneLite players with the next
+Plugin Hub update.
 
 ### Running the local server (optional)
 

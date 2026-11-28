@@ -6,7 +6,9 @@ const LOCAL = ["127.0.0.1", "localhost"].includes(globalThis.location?.hostname)
 
 export const SYNC_API = LOCAL ? "http://127.0.0.1:8789" : "https://osrs-taskmaster-sync.j0ffis.workers.dev";
 
-// Whether to tell players about Automatic upload. The live service isn't deployed yet, so only the
-// local test site (Test Auto-Upload.bat) mentions it. Set this to true once sync/ is deployed, and
-// open the plugin's "Automatic upload" settings section again (TaskMasterConfig.java).
-export const UPLOAD_LIVE = LOCAL;
+// The go-live switch for Automatic upload, shared with UPLOAD_LIVE in the plugin's
+// TaskMasterConfig.java. Flip both with scripts\Set-UploadLive.ps1 (tests/upload-switch.test.mjs
+// fails if they differ). While false, the live site doesn't mention Automatic upload; the local
+// test site (Test Auto-Upload.bat) always does, since it has its own service.
+export const LIVE = false;
+export const UPLOAD_LIVE = LIVE || LOCAL;
