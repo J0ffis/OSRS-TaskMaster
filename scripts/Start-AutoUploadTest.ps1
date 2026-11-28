@@ -1,5 +1,5 @@
-# Try Automatic upload on this PC: a local upload service, this branch's website and RuneLite with
-# this branch's plugin. Nothing is sent anywhere else; uploads go into a local database in
+# Try Automatic upload on this PC: a local upload service, the website and RuneLite with the plugin,
+# all from this folder. Nothing is sent anywhere else; uploads go into a local database in
 # sync\.wrangler (ignored by Git). No Cloudflare account is needed.
 # Run it by double-clicking "Test Auto-Upload.bat" in the project folder.
 #

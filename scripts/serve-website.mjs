@@ -29,4 +29,4 @@ createServer(async (req, res) => {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not found");
   }
-}).listen(port, "127.0.0.1", () => console.log(`OSRS TaskMaster website (this branch): http://127.0.0.1:${port}/`));
+}).listen(port, "127.0.0.1", () => console.log(`OSRS TaskMaster website (this folder): http://127.0.0.1:${port}/`));

@@ -21,16 +21,15 @@ progress gets to the website:
 | Black window | Stays open while RuneLite runs, and closes with it | The same, and it also runs the test server |
 
 You can switch between them whenever you like: close RuneLite and start the other file. One
-doesn't change the other's settings. Automatic upload isn't live for everyone yet, which is why it
-only works through **Test Auto-Upload.bat** for now.
+doesn't change the other's settings, and both have the same website features. Automatic upload
+isn't live for everyone yet, which is why it only works through **Test Auto-Upload.bat** for now.
 
 ## 1. Download it
 
-1. Download the test version:
-   **https://github.com/J0ffis/OSRS-TaskMaster/archive/refs/heads/feature/auto-upload.zip**
-   (it's the test build, so it isn't what the green **Code** button on the project page gives
-   you).
-2. Find the ZIP in your Downloads folder, right-click it → **Extract All…** → **Extract**.
+1. Go to **https://github.com/J0ffis/OSRS-TaskMaster**
+2. Click the green **Code** button → **Download ZIP**. This one download has both ways of
+   testing in it.
+3. Find the ZIP in your Downloads folder, right-click it → **Extract All…** → **Extract**.
    Don't run anything from inside the ZIP itself; it has to be extracted first.
 
 ## 2. First start (both ways)
@@ -112,12 +111,13 @@ when it happened.
 Your test uploads are kept between runs on your PC (in the `sync\.wrangler` folder). To start
 again with none, delete that folder.
 
-## New on the website
+## Getting a newer version
 
-Some website features in this test build, such as **Showcase**, the **combat achievement
-planner** and **Fastest logs first**, are only on the live site once they're released. Until then
-you'll see them with **Test Auto-Upload.bat** (its website comes from this download) and not yet
-with copy and paste.
+When you're told there's a new version, download the ZIP again and extract it over the old
+folder (or into a new one). Java, Node.js and the login step aren't asked for again. With copy and
+paste, website changes reach you straight away, since the live site is always the newest; with
+**Test Auto-Upload.bat**, the website comes from your download, so it updates when you download
+again.
 
 ## Tips
 

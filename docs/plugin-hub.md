@@ -24,5 +24,10 @@ when the plugin is stable:
 
 - Deploy the sync service (`sync/README.md`) and make sure `DEFAULT_UPLOAD_SERVER` and
   `DEFAULT_WEBSITE` in `TaskMasterConfig.java` are the live addresses.
+- Then switch Automatic upload on for everyone (it's "not live yet" until the service is
+  deployed): open the plugin's settings section again (`closedByDefault` and the "not live yet"
+  wording in `TaskMasterConfig.java`), put back the Automatic upload line in `HELP_MANUAL`
+  (`TaskMasterPanel.java`), set `UPLOAD_LIVE` to `true` in `web/config.js`, and drop the "not live
+  yet" notes from `TESTER-GUIDE.md`, `README.md` and `plugin/README.md`.
 - Automatic upload is the reason `runelite-plugin.properties` carries a `warning`: it's off by
   default, and the warning tells players what's sent if they switch it on.

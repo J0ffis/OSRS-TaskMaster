@@ -29,15 +29,21 @@ testing; the plugin is the same, and the file you double-click picks the mode:
 | | `Start TaskMaster.bat` | `Test Auto-Upload.bat` (optional) |
 |---|---|---|
 | Mode | Copy and paste | Automatic upload |
-| Website | The live site (GitHub Pages, built from `main`) | This download's `web/`, served on http://127.0.0.1:8790/ |
+| Website | The live site (GitHub Pages, published from `main`) | This download's `web/`, served on http://127.0.0.1:8790/ |
 | Upload service | None | A local copy of `sync/` on http://127.0.0.1:8789, data in `sync\.wrangler` |
 | Plugin settings | Saved settings (Automatic upload off by default) | Automatic upload on and pointed at the local service, for that run only |
 | Needs | Java (downloaded if missing) | Java and Node.js (both downloaded if missing) |
 
 Neither launcher changes the other's settings, so a tester can switch back and forth. Nothing in
-the test mode reaches the live website or any server off the PC. Website changes in a test build
-show up with `Test Auto-Upload.bat` straight away, and with copy and paste only once they're on
-`main` (and so on the live site).
+the test mode reaches the live website or any server off the PC.
+
+Both ways ship from `main`: testers download it with **Code → Download ZIP**, and every push to
+`main` that touches `web/` republishes the live site. So anything merged to `main` reaches copy
+and paste testers on their next visit to the site, and Automatic upload testers when they
+download again (their website and plugin both come from the download). Keep both working: a
+change to `main` must not need the upload service for copy and paste, and the website must not
+mention Automatic upload on the live site until the service is deployed (see
+[Running the Automatic upload service](#running-the-automatic-upload-service)).
 
 ## How it works
 
@@ -177,8 +183,8 @@ and `UPLOAD_LIVE`.
 ### Running the local server (optional)
 
 The local server serves the website at http://localhost:8787 and lists any profiles saved in
-`server/data/profiles`. (On this branch the plugin no longer sends to it: Automatic upload, above,
-replaced that.)
+`server/data/profiles`. (The plugin no longer sends to it: Automatic upload, above, replaced its
+old "Send to my own server" setting.)
 
 ```powershell
 .\scripts\Start-LocalServer.ps1

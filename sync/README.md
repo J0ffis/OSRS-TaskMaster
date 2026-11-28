@@ -66,8 +66,8 @@ only from the sites in `ALLOWED_ORIGINS` (`wrangler.toml`), and no wealth data.
 ## Try it on your PC (one click)
 
 Double-click **`Test Auto-Upload.bat`** in the project folder. It starts this service
-(http://127.0.0.1:8789, local database in `sync/.wrangler`), this branch's website
-(http://127.0.0.1:8790, served like GitHub Pages) and RuneLite with this branch's plugin, set
+(http://127.0.0.1:8789, local database in `sync/.wrangler`), the project's website
+(http://127.0.0.1:8790, served like GitHub Pages) and RuneLite with the project's plugin, set
 for that run only to upload to this service and open this website, with Automatic upload on.
 There's nothing to set in RuneLite. Closing RuneLite stops everything. Nothing leaves your PC and
 no Cloudflare account is needed. The first run offers to download a private copy of Node.js if
