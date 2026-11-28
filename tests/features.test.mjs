@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { candidates, compactProfile, sinceLast, accountKind } from "../web/recommender.js";
+import { candidates, compactProfile, sinceLast, accountKind, showcaseOptions, showcaseChoices, showcasePicks, showcaseSuggestion, SHOWCASE_KINDS } from "../web/recommender.js";
 import { loadDropRates, sampleAccount, SAMPLE_IDS, fullAccount } from "./test-account.mjs";
 import { WILDERNESS_PAGES } from "../web/knowledge-base.js";
 
@@ -314,4 +314,65 @@ test("fastest logs first: log and pet cards come quickest first, other categorie
   // Off by default: picks are unchanged.
   const all = candidates(sampleAccount(), [], {});
   assert.deepEqual(pickThree(all, { seed: 3 }).map((c) => c.id), pickThree(all, { seed: 3, fastest: false }).map((c) => c.id));
+});
+
+// ---- Showcase ----------------------------------------------------------------------------
+
+test("showcase: strictly opt-in, so nothing is shown until the player picks it", () => {
+  const snap = sampleAccount("main");
+  for (const saved of [undefined, null, {}, { item: "", boss: "" }]) {
+    assert.deepEqual(showcasePicks(snap, saved), { item: null, boss: null, quest: null, skill: null });
+  }
+});
+
+test("showcase: picks resolve against the profile, ignoring capitalisation", () => {
+  const snap = sampleAccount("main");
+  const p = showcasePicks(snap, { item: "abyssal WHIP", boss: "vorkath", quest: snap.quests[0].name, skill: "slayer" });
+  assert.equal(p.item.name, "Abyssal whip");
+  assert.equal(p.boss.name, "Vorkath");
+  assert.equal(p.boss.kc, 640);
+  assert.equal(p.quest.name, snap.quests[0].name);
+  assert.equal(p.skill.name, "Slayer");
+  assert.equal(p.skill.level, snap.skills.slayer.level);
+  // Not owned, or not in this profile: not shown (and never swapped for something else).
+  const gone = showcasePicks(snap, { item: "Twisted bow", boss: "Not a boss", quest: "Not a quest", skill: "sorcery" });
+  assert.deepEqual(gone, { item: null, boss: null, quest: null, skill: null });
+});
+
+test("showcase: suggestions are the rarest pet, the most-killed boss and the top skill", () => {
+  const main = sampleAccount("main");
+  assert.equal(showcaseSuggestion(main, "item").name, "Vorki", "rarest of Vorki 1/3,000, Callisto cub 1/1,500 and TzRek-Jad 1/200");
+  assert.equal(showcaseSuggestion(main, "boss").name, "Vorkath", "640 KC, the most");
+  const top = Object.entries(main.skills).filter(([k]) => k !== "overall").sort((a, b) => b[1].xp - a[1].xp)[0][0];
+  assert.equal(showcaseSuggestion(main, "skill").key, top);
+  assert.equal(showcaseSuggestion(main, "quest"), null);
+  // No pets: the rarest item, and never a clue reward (their rates are per roll, not per clue).
+  const iron = sampleAccount("iron");
+  const item = showcaseSuggestion(iron, "item");
+  assert.ok(!item.pet && item.p != null && !/Treasure Trails/.test(item.page), `${item.name} from ${item.page}`);
+  assert.ok(showcaseOptions(iron).filter((o) => o.p != null).every((o) => o.p >= item.p));
+  assert.ok(showcaseOptions(iron).filter((o) => /Treasure Trails/.test(o.page)).every((o) => o.p == null));
+});
+
+test("showcase: choices are owned items once each, bosses most-killed first, every quest and skill", () => {
+  const snap = fullAccount();
+  const items = showcaseChoices(snap, "item");
+  assert.equal(new Set(items.map((o) => o.key.toLowerCase())).size, items.length);
+  // By name: an item on several pages counts as owned when any of them has it.
+  const owned = new Set(Object.values(snap.collectionLog.pages).flatMap((p) => p.items.filter((i) => i.quantity > 0).map((i) => i.name.toLowerCase())));
+  assert.ok(items.every((o) => owned.has(o.key.toLowerCase())));
+  const bosses = showcaseChoices(snap, "boss");
+  assert.ok(bosses.length > 20);
+  const kcs = bosses.map((b) => b.kc ?? -1);
+  assert.deepEqual(kcs, [...kcs].sort((a, b) => b - a));
+  assert.equal(showcaseChoices(snap, "quest").length, snap.quests.length);
+  assert.ok(showcaseChoices(snap, "skill").length >= 23);
+  assert.deepEqual(SHOWCASE_KINDS, ["item", "boss", "quest", "skill"]);
+});
+
+test("showcase: an empty profile has nothing to pick and nothing to suggest", () => {
+  for (const kind of SHOWCASE_KINDS) {
+    assert.deepEqual(showcaseChoices({}, kind), []);
+    assert.equal(showcaseSuggestion({}, kind), null);
+  }
 });

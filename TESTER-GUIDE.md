@@ -90,6 +90,10 @@ Your normal **Start TaskMaster.bat** isn't affected: it still uses copy and past
   **Take on this challenge** adds it to your goals; **Another challenge** shows a different one.
 - In the **Diaries** tab, green tiers are done and yellow ones are in progress. Click a square to
   open that tier on the wiki.
+- **★ Showcase** under your name lets you show off a favourite item or pet, boss, quest and
+  skill. Each is optional: only the ones you pick appear. You can also click **☆** next to
+  anything in the **Skills**, **Quests**, **Collection log** and **Pets** tabs (click **★** again
+  to remove it).
 - Click the **OSRS TaskMaster** logo at the top left to go back to the start page.
 - Minigames, Wilderness and clue tasks are hidden until you switch them on under
   **Also include**. Wilderness tasks are marked **☠ Wilderness: PvP risk**: other players can
