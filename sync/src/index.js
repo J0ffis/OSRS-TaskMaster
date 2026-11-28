@@ -21,7 +21,7 @@
 //   PUT    /v1/picks/:id          X-Edit-Token: <token>          the website's current suggestions,
 //                                                               the pinned route and the owner's
 //                                                               view (for visitors)
-//   GET    /v1/picks/:id                                        those suggestions (the RuneLite panel)
+//   GET    /v1/picks/:id                                        those suggestions and the goals (the RuneLite panel)
 //                                                               tiers: Quick, Medium, Long, Challenge,
 //                                                               and Clog (log and pet rows, quickest
 //                                                               first) under "Fastest logs first"
@@ -351,11 +351,12 @@ const cleanText = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
 
 async function readPicks(env, id) {
   if (!ID_RE.test(id)) throw new HttpError(404, "No profile here");
-  const row = await env.DB.prepare("SELECT picks, picks_at, updated_at FROM profiles WHERE id = ?").bind(id).first();
+  const row = await env.DB.prepare("SELECT picks, picks_at, updated_at, goals FROM profiles WHERE id = ?").bind(id).first();
   if (!row) throw new HttpError(404, "No profile here");
   const picks = row.picks ? JSON.parse(row.picks) : null;
   if (picks) picks.tiers = withChallenge(picks.tiers);
-  return json({ picks, picksAt: row.picks_at ?? null, uploadedAt: row.updated_at }, 200);
+  // The goals too, so the panel can say "Goal completed" in game (GET /v1/profile/:id shows them anyway).
+  return json({ picks, picksAt: row.picks_at ?? null, uploadedAt: row.updated_at, goals: JSON.parse(row.goals || "[]") }, 200);
 }
 
 function profileResponse(row) {

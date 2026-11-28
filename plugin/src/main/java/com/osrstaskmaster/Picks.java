@@ -92,11 +92,13 @@ class Picks
 		String note;
 	}
 
-	/** The service's reply: the picks plus when the website saved them. */
+	/** The service's reply: the picks plus when the website saved them, and the goals. */
 	static class Reply
 	{
 		Picks picks;
 		Long picksAt;
 		Long uploadedAt;
+		/** The website's goals (web/recommender.js shapes); null from a service older than this. */
+		List<Map<String, Object>> goals;
 	}
 }

@@ -118,6 +118,15 @@ test("picks: the owner's website saves them, anyone with the id reads them", asy
   assert.ok(got.data.picksAt > 0);
 });
 
+test("picks: the reply carries the goals, for the plugin's completion alerts", async () => {
+  const key = newKey(), { id, edit } = await ids(key);
+  await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });
+  assert.deepEqual((await api("GET", `/v1/picks/${id}`)).data.goals, [], "no goals yet");
+  const goals = [{ id: "g1", type: "skill", skill: "slayer", level: 85 }];
+  assert.equal((await api("PUT", `/v1/goals/${id}`, { body: goals, headers: { "X-Edit-Token": edit } })).status, 200);
+  assert.deepEqual((await api("GET", `/v1/picks/${id}`)).data.goals, goals);
+});
+
 test("picks: odd input is cleaned or refused", async () => {
   const key = newKey(), { id, edit } = await ids(key);
   await api("PUT", "/v1/profile", { key, body: { profile: profile(uniq()) } });

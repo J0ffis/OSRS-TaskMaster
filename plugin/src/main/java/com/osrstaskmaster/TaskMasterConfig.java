@@ -62,6 +62,32 @@ public interface TaskMasterConfig extends Config
 		return 5;
 	}
 
+	// Completion alerts need the goals and suggestions from the website, so for now they work with
+	// Automatic upload (or Test Auto-Upload.bat) only.
+	@ConfigItem(
+		keyName = "completionChat",
+		name = "Chat message when done",
+		description = "Say in the chat box when you finish one of your goals or a suggestion from the panel"
+			+ " (needs Automatic upload).",
+		position = 4
+	)
+	default boolean completionChat()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "completionPopup",
+		name = "Pop-up when done",
+		description = "Show \"... completed!\" above your character when you finish one of your goals or a"
+			+ " suggestion from the panel (needs Automatic upload).",
+		position = 5
+	)
+	default boolean completionPopup()
+	{
+		return true;
+	}
+
 	// Wording and closed-by-default follow UPLOAD_LIVE (constant expressions, so they work here).
 	@ConfigSection(
 		name = UPLOAD_LIVE ? "Automatic upload" : "Automatic upload (not live yet)",

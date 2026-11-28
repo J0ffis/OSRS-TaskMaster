@@ -41,7 +41,7 @@ goals from a link, on any browser. Copy and paste keeps working for everyone els
 | `PUT /v1/goals/:id` | website (`X-Edit-Token`) | replace the goals list; with `{ goals, known }`, goals added elsewhere since the page loaded are kept |
 | `POST /v1/goals/:id` | plugin (`X-Edit-Token`) | `{ pick }`: add the goal that saved pick carries (the panel's *Make it a goal*) |
 | `PUT /v1/picks/:id` | website (`X-Edit-Token`) | save its current top picks per tier, the pinned route and the owner's view |
-| `GET /v1/picks/:id` | plugin | those picks and the route, for the panel's *Your next grinds* and *Your route* |
+| `GET /v1/picks/:id` | plugin | those picks, the route and the goals, for the panel's *Your next grinds* and *Your route*, and the in-game "completed" alerts |
 
 **Why picks come from the website:** the recommendation engine (`web/recommender.js`) needs about
 9–12 ms of CPU per run (≈ 30 ms cold), over the free Workers plan's 10 ms per request. So the
