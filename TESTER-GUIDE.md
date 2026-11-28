@@ -2,23 +2,41 @@
 
 OSRS TaskMaster suggests what to grind next, based on your levels, quests, diaries, combat
 achievements, collection log and pets. It uses a RuneLite plugin that reads your own game client;
-it never reads your bank, inventory or gear. Your profile stays on your PC and in your browser,
-and nothing is uploaded anywhere.
+it never reads your bank, inventory or gear.
 
 **You'll need:** a Windows PC, about 1 GB of free space, and 10–15 minutes the first time.
+
+## Two ways to test, one download
+
+The download has the same plugin either way. Which file you double-click decides how your
+progress gets to the website:
+
+| | **Copy and paste** (everyone) | **Automatic upload** (if you were asked to try it) |
+|---|---|---|
+| Start with | **Start TaskMaster.bat** | **Test Auto-Upload.bat** |
+| Getting your progress to the website | Click **Copy my profile** in RuneLite, press **Ctrl+V** on the website | Nothing to do: it uploads by itself as you play |
+| Website | The live site, **https://j0ffis.github.io/OSRS-TaskMaster/** | A test copy on your PC, **http://127.0.0.1:8790/** |
+| Where your profile goes | Your PC and your browser only | Also a small test server on your PC (nothing leaves your PC) |
+| Extra setup the first time | Java | Java, plus Node.js and a few tools (about 85 MB more) |
+| Black window | Stays open while RuneLite runs, and closes with it | The same, and it also runs the test server |
+
+You can switch between them whenever you like: close RuneLite and start the other file. One
+doesn't change the other's settings. Automatic upload isn't live for everyone yet, which is why it
+only works through **Test Auto-Upload.bat** for now.
 
 ## 1. Download it
 
 1. Download the test version:
    **https://github.com/J0ffis/OSRS-TaskMaster/archive/refs/heads/feature/auto-upload.zip**
-   (it's the Automatic upload test build, so it isn't what the green **Code** button on the
-   project page gives you).
+   (it's the test build, so it isn't what the green **Code** button on the project page gives
+   you).
 2. Find the ZIP in your Downloads folder, right-click it → **Extract All…** → **Extract**.
    Don't run anything from inside the ZIP itself; it has to be extracted first.
 
-## 2. Start it
+## 2. First start (both ways)
 
-1. In the extracted folder, double-click **Start TaskMaster.bat**.
+1. In the extracted folder, double-click **Start TaskMaster.bat** (or **Test Auto-Upload.bat**,
+   see [Automatic upload](#4-automatic-upload-test-auto-uploadbat) below).
 2. If Windows shows **"Windows protected your PC"**, click **More info** → **Run anyway**.
 3. A black window opens and walks you through setup:
    - **Java:** if it asks to download Java, type **Y** and press Enter. This is a private copy
@@ -33,54 +51,73 @@ and nothing is uploaded anywhere.
      5. Go back to the black window and press **Enter**.
 
      If you log in with an email and password instead, type **S** and press Enter to skip this.
-4. The TaskMaster website opens in your browser, and a separate copy of RuneLite starts.
-   **The first start takes a few minutes** while it downloads; later starts are quicker.
+4. A separate copy of RuneLite starts. **The first start takes a few minutes** while it
+   downloads; later starts are quicker. Setup is skipped from then on.
 
-## 3. Get your suggestions
+## 3. Copy and paste (Start TaskMaster.bat)
 
-1. Log in to the game in the RuneLite window that opened.
-2. On RuneLite's right-hand sidebar, click the **OSRS TaskMaster** icon (a small gold square
+1. The website opens in your browser by itself, on a start page that says to copy and paste your
+   profile.
+2. Log in to the game in the RuneLite window that opened.
+3. On RuneLite's right-hand sidebar, click the **OSRS TaskMaster** icon (a small gold square
    with bars).
-3. Click **Copy my profile**.
-4. Go to the website (**https://j0ffis.github.io/OSRS-TaskMaster/**) and press **Ctrl+V**.
-   Your suggestions appear straight away.
+4. Click **Copy my profile**. The panel says *Copied at 14:05. Open the website and press Ctrl+V.*
+5. Go to the website and press **Ctrl+V**. Your suggestions appear straight away.
+
+**What it looks like:** the panel has **Open website**, **Copy my profile** and, further down,
+**Show profile file**, with a short *How to use* note. There's no suggestions list in the panel in
+this mode. On the website, your name shows *Synced … ago*: that's when you last copied your
+profile. For fresh suggestions later, click **Copy my profile** again, then on the website
+**Update profile** → **Ctrl+V**.
+
+Goals you add on the website are saved in that browser. Using a different browser or PC means
+pasting your profile again.
 
 **For a complete collection log:** open the collection log in game and click **Search** once.
 Then click **Copy my profile** again and use **Update profile** on the website.
 
-## Trying Automatic upload (no copy and paste)
+## 4. Automatic upload (Test Auto-Upload.bat)
 
-If you were asked to test **Automatic upload**, start it this way instead. Your progress then
-goes to the website by itself, and the RuneLite panel shows your next grinds. Everything runs on
-your PC only; nothing is sent anywhere else.
+If you were asked to test **Automatic upload**, start this way instead. Your progress then goes to
+the website by itself, and the RuneLite panel shows your next grinds. Everything runs on your PC
+only; nothing is sent anywhere else.
 
 1. Close RuneLite if it's open. Double-click **Test Auto-Upload.bat** in the extracted folder.
 2. The first time, it asks to download **Node.js**: type **Y** and press Enter. Like Java, it's a
    private copy (about 35 MB) that doesn't install anything system-wide. It then installs a few
-   more tools, which takes a minute or two. Java and the Jagex login step work as in step 2 above.
-3. It starts a small test server in the background (up to a minute the first time). Leave the
-   black window open while you test; closing RuneLite stops everything. If it can't start, the
-   black window shows why: send a screenshot of it.
+   more tools (about 50 MB), which takes a minute or two. Java and the Jagex login step work as in
+   [First start](#2-first-start-both-ways).
+3. It starts a small test server in the background (up to a minute the first time). The black
+   window then shows *Upload service: http://127.0.0.1:8789* and *Website: http://127.0.0.1:8790/*.
+   **Leave the black window open** while you test; closing RuneLite stops everything. If it can't
+   start, the black window shows why: send a screenshot of it.
 4. Log in to the game. Open the **OSRS TaskMaster** panel and click **Open website**. There's
-   nothing to set up in RuneLite's settings.
+   nothing to set up in RuneLite's settings, and the browser doesn't open until you click it.
 5. Just play. Your progress uploads by itself, at most every 5 minutes as it changes, and the
    website picks it up when you switch back to it. **Your next grinds** in the panel fills in once
    you've opened the website; click **Sync** there to update it.
 
-**Worth trying:** add and finish goals, **Not for me**, **Make it a goal** from the panel,
-**Copy share link** (open it in another browser: it's view only), **Reset my links** (your old
-link should stop working) and **Delete my uploaded data**. Note anything that seems wrong, slow or
-confusing, and roughly when it happened.
+**What it looks like:** the panel's note says *Automatic upload is on*, and it has two more
+buttons, **Upload now** and **Copy share link**, plus **Your next grinds** (your suggestions, a
+tier at a time) and **Reset my links**. Once you pin a route on the website, **Your route** shows
+above the suggestions. The website opens at `http://127.0.0.1:8790/#id=…`, and your name shows
+*Uploaded … ago* and **Owner**. Links only work on this PC.
 
-Your normal **Start TaskMaster.bat** isn't affected: it still uses copy and paste.
+**Worth trying:** add and finish goals, **Not for me**, **Make it a goal** from the panel
+(right-click a suggestion), **Copy share link** (open it in a private window: it's view only),
+**See it as others do** on your own page, **Reset my links** (your old link should stop working)
+and **Delete my uploaded data**. Note anything that seems wrong, slow or confusing, and roughly
+when it happened.
 
-## Using it again later
+Your test uploads are kept between runs on your PC (in the `sync\.wrangler` folder). To start
+again with none, delete that folder.
 
-- Double-click **Start TaskMaster.bat**. Setup is skipped from now on.
-- Whenever you want fresh suggestions: **Copy my profile** in RuneLite, then on the website
-  **Update profile** → **Ctrl+V**.
-- Goals you add on the website are saved in that browser. Using a different browser or PC means
-  pasting your profile again.
+## New on the website
+
+Some website features in this test build, such as **Showcase**, the **combat achievement
+planner** and **Fastest logs first**, are only on the live site once they're released. Until then
+you'll see them with **Test Auto-Upload.bat** (its website comes from this download) and not yet
+with copy and paste.
 
 ## Tips
 
@@ -90,6 +127,8 @@ Your normal **Start TaskMaster.bat** isn't affected: it still uses copy and past
   **Take on this challenge** adds it to your goals; **Another challenge** shows a different one.
 - In the **Diaries** tab, green tiers are done and yellow ones are in progress. Click a square to
   open that tier on the wiki.
+- In the **Combat** tab, **Plan a tier** picks the bosses whose tasks get you to the next combat
+  achievement reward tier, and adds them as goals with a route.
 - **★ Showcase** under your name lets you show off a favourite item or pet, boss, quest and
   skill. Each is optional: only the ones you pick appear. You can also click **☆** next to
   anything in the **Skills**, **Quests**, **Collection log** and **Pets** tabs (click **★** again
@@ -117,7 +156,10 @@ anyone. When you're done testing, delete it with **Forget TaskMaster login.bat**
 
 - Double-click **Forget TaskMaster login.bat** to delete the saved Jagex login.
 - On the website: **Update profile** → **Remove this profile from this browser**.
-- Delete the extracted folder, and optionally the Java copy at `%LOCALAPPDATA%\Programs\jdk17`.
+- If you tried Automatic upload: **Delete my uploaded data** in the panel first (while
+  **Test Auto-Upload.bat** is running).
+- Delete the extracted folder, and optionally the Java copy at `%LOCALAPPDATA%\Programs\jdk17` and
+  the Node.js copy at `%LOCALAPPDATA%\Programs\node`.
 
 ## Something went wrong?
 

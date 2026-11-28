@@ -17,11 +17,27 @@ collection log, pets and any goals you set yourself, including goals to get spec
 
 Your data comes from a small RuneLite plugin that reads your own game client. By default you
 copy your profile from the plugin and paste it on the website, which keeps it in your browser.
-Players who'd rather skip that can switch on **Automatic upload** in the plugin. Nothing calls
+**Automatic upload**, which skips the copy and paste, is in testing and not live yet. Nothing calls
 the hiscores, the wiki, Wise Old Man, TempleOSRS or any other community service, and the plugin
 never reads your bank, inventory or equipment.
 
-**Testing it?** Follow the step-by-step **[tester guide](TESTER-GUIDE.md)**.
+## Testing it
+
+Follow the step-by-step **[tester guide](TESTER-GUIDE.md)**. One download covers both ways of
+testing; the plugin is the same, and the file you double-click picks the mode:
+
+| | `Start TaskMaster.bat` | `Test Auto-Upload.bat` (optional) |
+|---|---|---|
+| Mode | Copy and paste | Automatic upload |
+| Website | The live site (GitHub Pages, built from `main`) | This download's `web/`, served on http://127.0.0.1:8790/ |
+| Upload service | None | A local copy of `sync/` on http://127.0.0.1:8789, data in `sync\.wrangler` |
+| Plugin settings | Saved settings (Automatic upload off by default) | Automatic upload on and pointed at the local service, for that run only |
+| Needs | Java (downloaded if missing) | Java and Node.js (both downloaded if missing) |
+
+Neither launcher changes the other's settings, so a tester can switch back and forth. Nothing in
+the test mode reaches the live website or any server off the PC. Website changes in a test build
+show up with `Test Auto-Upload.bat` straight away, and with copy and paste only once they're on
+`main` (and so on the live site).
 
 ## How it works
 
@@ -37,7 +53,8 @@ reads your client                          keeps your profile in this browser
    `%USERPROFILE%\.runelite\osrs-taskmaster\<name>.json`.
 3. The website turns it into suggestions. It runs entirely in your browser; your profile and
    goals live in `localStorage`.
-4. With **Automatic upload** on, the plugin also uploads the profile to the sync service
+4. With **Automatic upload** on (testing only for now: see [Testing it](#testing-it)), the
+   plugin also uploads the profile to the sync service
    (`sync/`): the website then loads it from a link on any browser, goals are saved with it, and
    the plugin's panel shows the website's latest picks. Profiles are private by default, with an
    optional public lookup by name. Details in [sync/README.md](sync/README.md).
@@ -55,7 +72,8 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
   - `knowledge-base.js` – hand-written game facts (quest requirements, diary rewards, effort
     estimates). Edit this to tune suggestions.
   - `app.js` – the page itself: importing profiles, rendering cards, managing goals.
-  - `config.js` – where the Automatic upload service runs (local or live).
+  - `config.js` – where the Automatic upload service runs (local or live), and `UPLOAD_LIVE`,
+    whether the site mentions Automatic upload (only on the local test site until it's deployed).
   - `samples/` – the made-up accounts behind **Load sample data**, one per account type (made by
     `tests/make-sample-profiles.mjs`, `npm run samples`).
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
@@ -106,7 +124,7 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
 
 This runs `gradlew run` in `plugin/`, which starts RuneLite in developer mode with the plugin
 side-loaded. The first start takes a few minutes. Jagex accounts need the one-time login step
-described in the [tester guide](TESTER-GUIDE.md#2-start-it).
+described in the [tester guide](TESTER-GUIDE.md#2-first-start-both-ways).
 
 ### Running the website
 
@@ -149,6 +167,12 @@ npm test           # end-to-end tests, in a second terminal
 Set the plugin's **Upload server** setting to `http://127.0.0.1:8789` to test against it (the
 one-click test sets it for that run only, without changing your settings).
 Deploying it to Cloudflare is covered in [sync/README.md](sync/README.md).
+
+**Until it's deployed**, the plugin's *Automatic upload* settings section is closed and marked
+"not live yet", the panel's copy-and-paste note points testers to `Test Auto-Upload.bat`, and the
+website only mentions Automatic upload on the local test site (`UPLOAD_LIVE` in `web/config.js`).
+After deploying, undo all three: `TaskMasterConfig.java`, `HELP_MANUAL` in `TaskMasterPanel.java`
+and `UPLOAD_LIVE`.
 
 ### Running the local server (optional)
 

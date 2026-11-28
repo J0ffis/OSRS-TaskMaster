@@ -53,10 +53,16 @@ public interface TaskMasterConfig extends Config
 		return 5;
 	}
 
+	// Closed and marked "not live yet" until the upload service (sync/) is deployed: switching it on
+	// here would upload to a server that isn't running. Testers try it with Test Auto-Upload.bat,
+	// which turns it on for that run only. Once deployed, open this section again and set
+	// UPLOAD_LIVE in web/config.js.
 	@ConfigSection(
-		name = "Automatic upload",
-		description = "Optional: keep your profile on the OSRS TaskMaster server so the website is always up to date.",
-		position = 10
+		name = "Automatic upload (not live yet)",
+		description = "The OSRS TaskMaster upload server isn't running yet, so leave this off and use Copy my profile."
+			+ " To try Automatic upload, start TaskMaster with Test Auto-Upload.bat instead (see TESTER-GUIDE.md).",
+		position = 10,
+		closedByDefault = true
 	)
 	String uploadSection = "upload";
 
@@ -65,7 +71,8 @@ public interface TaskMasterConfig extends Config
 		name = "Automatic upload",
 		description = "Upload your profile to the OSRS TaskMaster server, so the website always shows your latest"
 			+ " progress without copying and pasting. This sends your levels, quests, diaries, combat achievements"
-			+ " and collection log (never your bank or gear). Off unless you switch it on.",
+			+ " and collection log (never your bank or gear). Off unless you switch it on."
+			+ " Not live yet: to try it, use Test Auto-Upload.bat, which doesn't need this setting.",
 		section = uploadSection,
 		position = 11
 	)

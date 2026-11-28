@@ -33,7 +33,12 @@ uploaded.
 The latest profile is also saved on your PC in `.runelite/osrs-taskmaster/<name>.json`
 (**Show profile file** in the panel), so you can load the file on the website instead of pasting.
 
-## Automatic upload (optional)
+## Automatic upload (optional, not live yet)
+
+> **Not live yet.** The upload server isn't running for everyone yet, so leave this setting off
+> and use copy and paste. Testers can try it with `Test Auto-Upload.bat` from the project
+> download, which runs a test server on their own PC and switches this on for that run only
+> (see the [tester guide](../TESTER-GUIDE.md#4-automatic-upload-test-auto-uploadbat)).
 
 Rather not copy and paste? Switch on **Automatic upload** in the plugin's settings. Your profile
 then uploads on login and as you play, and **Open website** shows your latest suggestions on any
@@ -70,7 +75,8 @@ browser, with your goals.
 
 - **Website**: the page opened by *Open website*.
 - **Keep profile up to date**: refresh your profile on login and when your progress changes.
-- **Automatic upload**, **Show my profile publicly**: see above. Both off by default.
+- **Automatic upload**, **Show my profile publicly**: see above. Both off by default, in a
+  section that stays closed until Automatic upload is live.
 - **Upload server**: leave as it is unless you run your own copy of the service.
 
 ## Support

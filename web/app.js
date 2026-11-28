@@ -13,7 +13,7 @@ import {
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
-import { SYNC_API } from "./config.js";
+import { SYNC_API, UPLOAD_LIVE } from "./config.js";
 // Data guards (tests/guards.test.mjs): values a profile can't really have.
 import { profileIssues } from "./recommender.js";
 
@@ -205,7 +205,7 @@ async function load(name, opts = {}) {
       refreshKnown();
       return showError("That link doesn't work any more: its owner reset their links or deleted their uploaded data. If it's yours, click Open website in the RuneLite panel for your current link.");
     }
-    if (e.status === 404) return showError(`No profile for "${name}" yet. If it's yours: in RuneLite, open the OSRS TaskMaster panel and either click Copy my profile and paste it here, or switch on Automatic upload and click Open website.`);
+    if (e.status === 404) return showError(`No profile for "${name}" yet. If it's yours: in RuneLite, open the OSRS TaskMaster panel and ${UPLOAD_LIVE ? "either click Copy my profile and paste it here, or switch on Automatic upload and click Open website" : "click Copy my profile, then paste it here"}.`);
     if (e.status === 400) return showError("That doesn't look like an OSRS name (1–12 letters, numbers, spaces, - or _).");
     return showError(serverMode ? "Couldn't reach the OSRS TaskMaster server. Is Start-LocalServer.ps1 running?" : "Something went wrong loading that profile. Try again in a moment.");
   }
@@ -2249,6 +2249,7 @@ function goHome() {
 }
 
 function setupImport() {
+  $("#uploadhint").hidden = !UPLOAD_LIVE;
   $("#importslot").innerHTML = importBoxHTML();
   $("#importdlgslot").innerHTML = importBoxHTML();
   document.addEventListener("paste", (e) => {
