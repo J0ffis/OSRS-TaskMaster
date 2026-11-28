@@ -9,7 +9,7 @@ import {
   candidates, lockedContent, pickThree, pickMix, pickChallenge, fastestFirst, HUNT_CATEGORIES, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
-  planRoute, hoursRangeText, caTierPlan, SHOWCASE_KINDS, showcaseChoices, showcasePicks, showcaseSuggestion,
+  planRoute, hoursRangeText, caTierPlan, isGeneralCa, SHOWCASE_KINDS, showcaseChoices, showcasePicks, showcaseSuggestion,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
@@ -1836,6 +1836,42 @@ function pinnedRoute() {
   return { goals, plan, done, total: done + planned.size };
 }
 
+/** Bullets the "For" list starts with while it's collapsed. */
+const ROUTE_FOR_SHOWN = 3;
+/** Whether the route's "For" list is expanded (this page view only). */
+let routeForOpen = false;
+
+/**
+ * The goals a route is for, as bullets: "every task up to a tier" goals for two or more bosses
+ * fold into one bullet ("Every task up to Elite at 42 bosses") whose boss names show when the
+ * list is expanded. A toggle (bottom right) shows or hides the rest.
+ */
+function routeForHTML(goals) {
+  const items = [];
+  const groups = new Map();
+  for (const g of goals) {
+    if (g.type === "caboss" && !isGeneralCa(g.monster)) {
+      const k = g.tier;
+      if (!groups.has(k)) { groups.set(k, { tier: g.tier, bosses: [], goal: g }); items.push(groups.get(k)); }
+      groups.get(k).bosses.push(g.monster);
+    } else items.push({ goal: g });
+  }
+  const lines = items.map((it) => {
+    if (!it.bosses || it.bosses.length === 1) return { text: esc(goalTitle(it.goal)) };
+    const lead = it.tier === "Easy" ? "Every Easy task" : `Every task up to ${esc(it.tier)}`;
+    return { text: `${lead} at ${it.bosses.length} bosses`, sub: it.bosses.map((b) => `<li>${esc(b)}</li>`).join("") };
+  });
+  const open = routeForOpen;
+  const hidden = Math.max(0, lines.length - ROUTE_FOR_SHOWN);
+  const canToggle = hidden > 0 || lines.some((l) => l.sub);
+  const shown = open ? lines : lines.slice(0, ROUTE_FOR_SHOWN);
+  return `<div class="routefor">
+      <span class="muted small">For ${goals.length === 1 ? "1 goal" : `${goals.length} goals`}:</span>
+      <ul>${shown.map((l) => `<li>${l.text}${open && l.sub ? `<ul class="rfsub">${l.sub}</ul>` : ""}</li>`).join("")}</ul>
+      ${canToggle ? `<button type="button" class="btn tiny ghost rftoggle" data-route="for" aria-expanded="${open}">${open ? "Show less ▴" : hidden ? `+${hidden} more ▾` : "Show bosses ▾"}</button>` : ""}
+    </div>`;
+}
+
 function renderRoute() {
   const el = $("#route");
   const p = pinnedRoute();
@@ -1845,9 +1881,9 @@ function renderRoute() {
   const head = (extra = "") => `
     <div class="panelhead">
       <h3 id="route-h">${ro ? "Their route" : "Your route"}</h3>
-      <span class="muted small">${p.goals.length ? `For: ${esc(p.goals.map(goalTitle).join(", "))}` : ""}</span>
       <span class="routeacts">${ro ? "" : `${extra}<button type="button" class="btn tiny ghost" data-route="unpin">Unpin</button>`}</span>
-    </div>`;
+    </div>
+    ${p.goals.length ? routeForHTML(p.goals) : ""}`;
   if (!p.goals.length) {
     el.innerHTML = `${head()}<p class="muted small">The goals this route was for have been removed. Plan a new one from your goals.</p>`;
     return;
@@ -1901,6 +1937,7 @@ $("#route").addEventListener("click", (e) => {
   const b = e.target.closest("[data-route]");
   if (!b) return;
   if (b.dataset.route === "unpin") { if (!isReadOnly()) { saveRoute(null); renderRoute(); } return; }
+  if (b.dataset.route === "for") { routeForOpen = !routeForOpen; renderRoute(); return; }
   openPlanner();
 });
 $("#plandlg").addEventListener("change", (e) => {

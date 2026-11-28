@@ -281,7 +281,9 @@ class TaskMasterPanel extends PluginPanel
 		picksSection.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		picksSection.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
 
-		JPanel head = new JPanel(new BorderLayout(6, 0));
+		// Title on its own row and the buttons on the next: side by side, a narrow panel (or a
+		// bigger font) cut the title to "Your next g...".
+		JPanel head = new JPanel(new BorderLayout(0, 6));
 		head.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		JLabel title = new JLabel("Your next grinds");
 		title.setFont(FontManager.getRunescapeBoldFont());
@@ -304,8 +306,8 @@ class TaskMasterPanel extends PluginPanel
 		buttons.setOpaque(false);
 		buttons.add(nextButton);
 		buttons.add(sync);
-		head.add(title, BorderLayout.CENTER);
-		head.add(buttons, BorderLayout.EAST);
+		head.add(title, BorderLayout.NORTH);
+		head.add(buttons, BorderLayout.CENTER);
 
 		tierBox.setToolTipText("Which tier of suggestions to show");
 		tierBox.addActionListener(e -> renderPicks());

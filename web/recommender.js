@@ -1340,7 +1340,7 @@ function goalCandidates(snap, goals, others = []) {
 // (by default the one you're aiming for), so "Elite" plans with Easy to Elite tasks only.
 
 /** "Other" and "None" tasks aren't tied to one boss. */
-const isGeneralCa = (m) => !m || m === "Other" || m === "None";
+export const isGeneralCa = (m) => !m || m === "Other" || m === "None";
 
 /** A boss's tasks of `maxTier` or easier: unfinished ones, or all of them with `all`. */
 function caBossTasks(snap, monster, maxTier, all = false) {
