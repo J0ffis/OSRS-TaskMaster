@@ -463,6 +463,13 @@ body.static .only-server, body:not(.static) .only-static { display: none !import
 .goal .gd { grid-column: 1 / -1; color: var(--muted); font-size: 12.5px; line-height: 1.35; }
 .goal .x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 2px; }
 .goal .x:hover { color: var(--bad); }
+/* Combat achievement goals folded into one block that opens and closes. */
+.goalgroup > details > summary { list-style: none; cursor: pointer; }
+.goalgroup > details > summary::-webkit-details-marker { display: none; }
+.goalgroup > details > summary:hover .t { color: var(--c-goals); }
+.goalgroup .chev { display: inline-block; margin-left: 4px; transition: transform .15s; transform: rotate(-90deg); }
+.goalgroup > details[open] .chev { transform: none; }
+.goals.sub { margin: 0; padding: 8px 0 0 12px; border-left: 2px solid var(--panel-2); }
 .goalform { display: flex; flex-wrap: wrap; gap: 8px; }
 .gfields { display: contents; }
 .goalform input[type=number] { width: 80px; }
