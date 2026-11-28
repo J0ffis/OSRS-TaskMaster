@@ -161,6 +161,26 @@ export const KC_REWARDS = [
   /^Victor's cape \(\d+\)$/i,
 ];
 
+// Kill counts are kept under the name the game counts them by ("Your Dagannoth Rex kill count
+// is", or a collection log page's "Callisto kills: 12" header line), which isn't always the page's
+// name. Pages that count under other names, or several: their counts add up for the page (the
+// showcase's "N KC"). Matching already ignores capitals, a leading "The" ("Nightmare" = The
+// Nightmare) and raid modes ("Theatre of Blood: Hard Mode" counts for Theatre of Blood), so
+// those need no entry here.
+export const KC_PAGE_NAMES = {
+  "Barrows Chests": ["Barrows"],
+  "Callisto and Artio": ["Callisto", "Artio"],
+  "Dagannoth Kings": ["Dagannoth Rex", "Dagannoth Prime", "Dagannoth Supreme"],
+  "Fortis Colosseum": ["Sol Heredit"],
+  "Moons of Peril": ["Lunar", "Lunar Chest", "Lunar Chests"],
+  "The Fight Caves": ["TzTok-Jad"],
+  "The Gauntlet": ["Corrupted Gauntlet"],
+  "The Inferno": ["TzKal-Zuk"],
+  "The Nightmare": ["Phosani's Nightmare"],
+  "Venenatis and Spindel": ["Venenatis", "Spindel"],
+  "Vet'ion and Calvar'ion": ["Vet'ion", "Calvar'ion"],
+};
+
 // Items with duplicate protection (you always get a piece you're missing): always Balanced.
 export const PROTECTED_ITEMS = [
   /^Bludgeon (spine|claw|axon)$/i, // Abyssal Sire / Unsired

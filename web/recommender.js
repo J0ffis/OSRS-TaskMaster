@@ -23,7 +23,7 @@ import {
   SLAYER_KILLS_PER_HOUR, SLAYER_DEFAULT_KILLS_PER_HOUR, SLAYER_EFFORT_MINUTES,
   MINUTES_PER_ATTEMPT, TAB_MINUTES, EFFORT_HOURS, EFFORT_FALLBACK_HOURS, SOURCE_RULES, ITEM_EFFORT,
   QUEST_PREREQS, DIARY_REQS, IRON_PRIORITIES, GROUP_CONTENT_BOOST, TEAM_PAGES, XP_RATES,
-  SKILL_UNLOCK_QUESTS,
+  SKILL_UNLOCK_QUESTS, KC_PAGE_NAMES,
 } from "./knowledge-base.js";
 
 // Item names are matched without caring about capitalisation.
@@ -1043,15 +1043,47 @@ const BOSS_TABS = new Set(["Bosses", "Raids"]);
  * sprite?, ... }. `key` is what gets saved. Items: only ones they own. Bosses: boss and raid log
  * pages and anything with a kill count, most killed first. Quests: finished first. Skills: game order.
  */
-function showcaseChoicesRaw(snap) {
+/** A kill count or page name, compared without capitals, a leading "The" or curly apostrophes. */
+const kcName = (s) => String(s).toLowerCase().replace(/[‘’`]/g, "'").replace(/\s+/g, " ").trim().replace(/^the /, "");
+/** The same, without a raid mode: "Theatre of Blood: Hard Mode" counts for Theatre of Blood. */
+const kcModeless = (s) => kcName(s).replace(/:?\s+(?:challenge|hard|entry|expert) mode$/, "");
+
+/**
+ * Kill counts per boss page: { [page]: { kc, parts: [{ name, kc }] } }, plus `unmatched`, the
+ * recorded counts that belong to no page. Counts are kept under the game's own names, which
+ * aren't always the page's (KC_PAGE_NAMES); a page that counts under several adds them up.
+ */
+export function pageKillCounts(snap, pageNames) {
   const kc = snap.killCounts ?? {};
+  const out = {};
+  const used = new Set();
+  for (const page of pageNames) {
+    const wanted = new Set([page, ...(KC_PAGE_NAMES[page] ?? [])].map(kcName));
+    const parts = Object.entries(kc)
+      .filter(([k, n]) => Number.isFinite(n) && (wanted.has(kcName(k)) || wanted.has(kcModeless(k))))
+      .map(([name, n]) => (used.add(name), { name, kc: n }));
+    if (parts.length) out[page] = { kc: parts.reduce((t, p) => t + p.kc, 0), parts };
+  }
+  const unmatched = Object.fromEntries(Object.entries(kc).filter(([k]) => !used.has(k)));
+  return { pages: out, unmatched };
+}
+
+function showcaseChoicesRaw(snap) {
   const pages = snap.collectionLog?.pages ?? {};
   const petByPage = {};
   for (const p of petInfo(snap).pets) if (p.source && !petByPage[p.source]) petByPage[p.source] = p.id;
-  const bossNames = new Set([...Object.keys(pages).filter((n) => BOSS_TABS.has(pages[n].tab)), ...Object.keys(kc)]);
-  const boss = [...bossNames].map((n) => ({
-    key: n, name: n, kc: kc[n] ?? null,
-    detail: kc[n] != null ? `${kc[n].toLocaleString()} KC` : "",
+  const bossPages = Object.keys(pages).filter((n) => BOSS_TABS.has(pages[n].tab));
+  const counts = pageKillCounts(snap, bossPages);
+  // Every boss and raid page, plus any count that belongs to none (a boss without a log page).
+  const entries = [
+    ...bossPages.map((n) => ({ name: n, ...(counts.pages[n] ?? { kc: null, parts: [] }) })),
+    ...Object.entries(counts.unmatched).map(([n, k]) => ({ name: n, kc: k, parts: [{ name: n, kc: k }] })),
+  ];
+  const boss = entries.map(({ name: n, kc, parts }) => ({
+    key: n, name: n, kc,
+    // "1,234 KC", and what it adds up when the page counts under other names.
+    detail: kc == null ? "" : `${kc.toLocaleString()} KC${parts.length > 1 || (parts[0] && kcName(parts[0].name) !== kcName(n))
+      ? ` (${parts.map((p) => `${p.name} ${p.kc.toLocaleString()}`).join(", ")})` : ""}`,
     // The boss's pet if it has one, otherwise the first item on its log page.
     itemId: petByPage[n] ?? pages[n]?.items?.[0]?.id ?? null,
   })).sort((a, b) => (b.kc ?? -1) - (a.kc ?? -1) || a.name.localeCompare(b.name));

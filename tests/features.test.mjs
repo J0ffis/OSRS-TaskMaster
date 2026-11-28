@@ -483,3 +483,46 @@ test("planner: quest points are made up with quests on the route, then the quick
   // The quest that needs the points comes after them.
   assert.ok(plan.steps.findIndex((s) => s.key === "quest:Heroes' Quest") > qpAt);
 });
+
+// ---- Showcase: kill counts under the game's own names ---------------------------------------
+
+test("showcase KC: every page in KC_PAGE_NAMES is a real boss or raid page", async () => {
+  const { KC_PAGE_NAMES } = await import("../web/knowledge-base.js");
+  const { pages } = JSON.parse(readFileSync(new URL("./fixtures/game-names.json", import.meta.url), "utf8"));
+  for (const page of Object.keys(KC_PAGE_NAMES)) {
+    assert.ok(pages[page] && ["Bosses", "Raids"].includes(pages[page].tab), `${page} is a boss or raid page`);
+  }
+});
+
+test("showcase KC: counts reach their page whatever the game calls them", async () => {
+  const { pageKillCounts } = await import("../web/recommender.js");
+  const snap = clone(sampleAccount("main"));
+  snap.killCounts = {
+    "Dagannoth Rex": 10, "Dagannoth Prime": 20, "Dagannoth Supreme": 30, // several bosses, one page
+    "TzTok-Jad": 4, // the page is "The Fight Caves"
+    "Nightmare": 7, "Phosani's Nightmare": 3, // "The" dropped, plus another name
+    "Theatre of Blood": 50, "Theatre of Blood: Hard Mode": 5, // raid modes count for the raid
+    "thermonuclear smoke devil": 12, // capitals
+    "Brutus": 99, // a page of its own
+    "Bryophyta": 2,
+    "Not a boss at all": 1, // no page: still offered on its own
+  };
+  const pages = Object.keys(snap.collectionLog.pages);
+  const { pages: by, unmatched } = pageKillCounts(snap, pages);
+  const kcOf = (p) => by[p]?.kc;
+  assert.equal(kcOf("Dagannoth Kings"), 60);
+  if (pages.includes("The Fight Caves")) assert.equal(kcOf("The Fight Caves"), 4);
+  if (pages.includes("The Nightmare")) assert.equal(kcOf("The Nightmare"), 10);
+  if (pages.includes("Theatre of Blood")) assert.equal(kcOf("Theatre of Blood"), 55);
+  if (pages.includes("Thermonuclear Smoke Devil")) assert.equal(kcOf("Thermonuclear Smoke Devil"), 12);
+  assert.deepEqual(Object.keys(unmatched), pages.includes("Brutus") ? ["Not a boss at all"] : ["Brutus", "Not a boss at all"]);
+
+  // In the picker: one entry per page (no separate "Dagannoth Rex"), with what it adds up.
+  const bosses = showcaseChoices(snap, "boss");
+  const dks = bosses.find((b) => b.key === "Dagannoth Kings");
+  assert.equal(dks.kc, 60);
+  assert.match(dks.detail, /^60 KC \(Dagannoth Rex 10, Dagannoth Prime 20, Dagannoth Supreme 30\)$/);
+  assert.ok(!bosses.some((b) => b.key === "Dagannoth Rex"), "the kings are counted on their page only");
+  assert.ok(bosses.some((b) => b.key === "Not a boss at all" && b.kc === 1));
+  assert.equal(showcasePicks(snap, { boss: "dagannoth kings" }).boss.kc, 60);
+});

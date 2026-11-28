@@ -657,7 +657,7 @@ function showcaseChipsHTML() {
   const p = picks();
   const text = { boss: (c) => `${c.name}${c.kc ? ` · ${c.kc.toLocaleString()} KC` : ""}`, quest: (c) => c.name, skill: (c) => `${c.name} ${c.level}` };
   const chips = ["boss", "quest", "skill"].filter((k) => p[k]).map((k) =>
-    `<button type="button" class="favchip ${k}${k === "skill" && p[k].level >= 99 ? " max" : ""}" data-showcase-open="${k}" title="${esc(`Favourite ${k}. Click to change`)}">${choiceIcon(p[k])}<span>${esc(text[k](p[k]))}</span></button>`);
+    `<button type="button" class="favchip ${k}${k === "skill" && p[k].level >= 99 ? " max" : ""}" data-showcase-open="${k}" title="${esc(`Favourite ${k}${k === "boss" && p[k].detail ? `: ${p[k].detail}` : ""}. Click to change`)}">${choiceIcon(p[k])}<span>${esc(text[k](p[k]))}</span></button>`);
   return chips.length ? `<div class="favs" aria-label="Favourites">${chips.join("")}</div>` : "";
 }
 

@@ -132,7 +132,9 @@ again.
 - **★ Showcase** under your name lets you show off a favourite item or pet, boss, quest and
   skill. Each is optional: only the ones you pick appear. You can also click **☆** next to
   anything in the **Skills**, **Quests**, **Collection log** and **Pets** tabs (click **★** again
-  to remove it).
+  to remove it). A boss shows its kill count once the plugin has one: open that boss's
+  collection log page in game, or get a kill. Pages with several bosses, such as **Dagannoth
+  Kings**, add their counts up (hover over it to see each one).
 - Click the **OSRS TaskMaster** logo at the top left to go back to the start page.
 - Minigames, Wilderness and clue tasks are hidden until you switch them on under
   **Also include**. Wilderness tasks are marked **☠ Wilderness: PvP risk**: other players can
