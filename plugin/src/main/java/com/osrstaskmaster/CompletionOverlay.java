@@ -32,6 +32,7 @@ class CompletionOverlay extends Overlay
 	private static final int MAX_CHARS = 48;
 	static final Color GOAL_COLOR = new Color(0xFF981F);
 	static final Color PICK_COLOR = new Color(0xFFFF00);
+	static final Color SLAYER_COLOR = new Color(0xFF5050);
 
 	private final Client client;
 	private final Deque<Toast> queue = new ArrayDeque<>();
@@ -58,14 +59,14 @@ class CompletionOverlay extends Overlay
 		setLayer(OverlayLayer.ABOVE_SCENE);
 	}
 
-	/** Queue "<label> completed!"; goals in orange, suggestions in yellow. */
-	void show(String label, boolean goal)
+	/** Queue "<label> completed!": goals in orange, suggestions in yellow, Slayer tasks in red. */
+	void show(String label, Color color)
 	{
 		if (queue.size() >= MAX_QUEUED)
 		{
 			return; // the chat box still lists everything
 		}
-		queue.add(new Toast(text(label), goal ? GOAL_COLOR : PICK_COLOR));
+		queue.add(new Toast(text(label), color));
 	}
 
 	void clear()

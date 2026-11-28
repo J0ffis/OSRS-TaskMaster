@@ -121,6 +121,7 @@ public class TaskMasterPlugin extends Plugin
 	private static final Pattern MAYBE_DONE = Pattern.compile(
 		"(?i)congratulations|well done|collection log");
 	private final CompletionTracker completions = new CompletionTracker();
+	private final SlayerTaskWatch slayerWatch = new SlayerTaskWatch();
 	private final Map<Skill, Integer> lastLevels = new java.util.EnumMap<>(Skill.class);
 	private int ticksUntilCompletionCheck = -1;
 
@@ -241,6 +242,10 @@ public class TaskMasterPlugin extends Plugin
 		}
 		if (ticksUntilLoginSync > 0 && --ticksUntilLoginSync == 0)
 		{
+			// The login's varbits are in: from now on a higher task count is a finished task.
+			slayerWatch.baseline(client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED),
+				client.getVarbitValue(VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED));
+			noteSlayerTask();
 			if (config.autoSync())
 			{
 				sync(false);
@@ -492,6 +497,41 @@ public class TaskMasterPlugin extends Plugin
 			|| varp == VarPlayerID.SLAYER_AREA || varp == VarPlayerID.SLAYER_STORED_VARP)
 		{
 			dirty = true;
+		}
+		if (varp == VarPlayerID.SLAYER_COUNT || varp == VarPlayerID.SLAYER_TARGET)
+		{
+			noteSlayerTask();
+		}
+		int varbit = e.getVarbitId();
+		if (varbit == VarbitID.SLAYER_TASKS_COMPLETED || varbit == VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED)
+		{
+			SlayerTaskWatch.Done done = slayerWatch.streakChanged(varbit == VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED, e.getValue());
+			if (done != null)
+			{
+				announceSlayerTask(done);
+			}
+		}
+	}
+
+	/** Remember the task while it's being done: by the time it counts as finished, it's gone. */
+	private void noteSlayerTask()
+	{
+		if (client.getVarpValue(VarPlayerID.SLAYER_COUNT) > 0)
+		{
+			slayerWatch.taskSeen(collector.currentSlayerTaskName(), collector.currentSlayerTaskSize());
+		}
+	}
+
+	/** "Abyssal demons task completed!" above the player, and a chat line. Needs no upload. */
+	private void announceSlayerTask(SlayerTaskWatch.Done done)
+	{
+		if (config.completionChat())
+		{
+			chatLine("Slayer task completed: " + done.chatText());
+		}
+		if (config.completionPopup())
+		{
+			completionOverlay.show(done.popupLabel(), CompletionOverlay.SLAYER_COLOR);
 		}
 	}
 
@@ -762,27 +802,34 @@ public class TaskMasterPlugin extends Plugin
 		{
 			if (config.completionChat())
 			{
-				String message = new ChatMessageBuilder()
-					.append(ChatColorType.HIGHLIGHT)
-					.append("TaskMaster: ")
-					.append(ChatColorType.NORMAL)
-					.append((i.goal ? "Goal completed: " : "Suggestion completed: ") + i.label)
-					.build();
-				chatMessageManager.queue(QueuedMessage.builder()
-					.type(ChatMessageType.GAMEMESSAGE)
-					.runeLiteFormattedMessage(message)
-					.build());
+				chatLine((i.goal ? "Goal completed: " : "Suggestion completed: ") + i.label);
 			}
 			if (config.completionPopup())
 			{
-				completionOverlay.show(i.label, i.goal);
+				completionOverlay.show(i.label, i.goal ? CompletionOverlay.GOAL_COLOR : CompletionOverlay.PICK_COLOR);
 			}
 		}
+	}
+
+	/** "TaskMaster: <text>" in the chat box. */
+	private void chatLine(String text)
+	{
+		String message = new ChatMessageBuilder()
+			.append(ChatColorType.HIGHLIGHT)
+			.append("TaskMaster: ")
+			.append(ChatColorType.NORMAL)
+			.append(text)
+			.build();
+		chatMessageManager.queue(QueuedMessage.builder()
+			.type(ChatMessageType.GAMEMESSAGE)
+			.runeLiteFormattedMessage(message)
+			.build());
 	}
 
 	private void resetCompletions()
 	{
 		completions.reset();
+		slayerWatch.reset();
 		completionOverlay.clear();
 		live = LiveProgress.NONE;
 		if (panel != null)

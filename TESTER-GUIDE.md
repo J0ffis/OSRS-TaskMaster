@@ -72,6 +72,10 @@ profile. For fresh suggestions later, click **Copy my profile** again, then on t
 Goals you add on the website are saved in that browser. Using a different browser or PC means
 pasting your profile again.
 
+**Worth trying:** finish a Slayer task. "… task completed!" should rise above your character in
+red, and the chat box should say *TaskMaster: Slayer task completed: …*. This works in both ways
+of testing.
+
 **For a complete collection log:** open the collection log in game and click **Search** once.
 Then click **Copy my profile** again and use **Update profile** on the website.
 

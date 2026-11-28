@@ -84,7 +84,10 @@ browser, with your goals.
 - **Website**: the page opened by *Open website*.
 - **Keep profile up to date**: refresh your profile on login and when your progress changes.
 - **Chat message when done**, **Pop-up when done**: the *Completed!* alerts above. Both on by
-  default; they need Automatic upload, because that's how the plugin gets your goals.
+  default. Goal and suggestion alerts need Automatic upload, because that's how the plugin gets
+  your goals. Finishing a **Slayer task** works without it: "Abyssal demons task completed!"
+  rises in red, and the chat box says *TaskMaster: Slayer task completed: 150 Abyssal demons
+  (25 in a row)*. Wilderness tasks from Krystilia count too.
 - **Automatic upload**, **Show my profile publicly**: see above. Both off by default, in a
   section that stays closed until Automatic upload is live.
 - **Upload server**: leave as it is unless you run your own copy of the service.
