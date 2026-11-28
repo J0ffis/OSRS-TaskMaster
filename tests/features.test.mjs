@@ -376,3 +376,110 @@ test("showcase: an empty profile has nothing to pick and nothing to suggest", ()
     assert.equal(showcaseSuggestion({}, kind), null);
   }
 });
+
+test("CA tier planner: bosses with tasks up to a tier, and a pick that covers the points", async () => {
+  const { caTierPlan, planRoute, goalTitle, goalProgress } = await import("../web/recommender.js");
+  const { CA_TIERS, CA_TIER_POINTS } = await import("../web/knowledge-base.js");
+  const snap = sampleAccount();
+  const ca = snap.combatAchievements;
+  const tier = CA_TIERS.find((t) => ca.thresholds[t] > ca.points);
+  const plan = caTierPlan(snap, tier);
+  assert.equal(plan.gap, ca.thresholds[tier] - ca.points);
+  const top = CA_TIERS.indexOf(tier);
+  for (const b of plan.bosses) {
+    assert.ok(b.tasks.every((t) => !t.done && CA_TIERS.indexOf(t.tier) <= top), `${b.monster}: only unfinished tasks up to ${tier}`);
+    assert.equal(b.points, b.tasks.reduce((n, t) => n + CA_TIER_POINTS[t.tier], 0));
+  }
+  // Locked bosses come after open ones.
+  const firstLocked = plan.bosses.findIndex((b) => b.locked);
+  if (firstLocked >= 0) assert.ok(plan.bosses.slice(firstLocked).every((b) => b.locked || b.general));
+  // The suggestion covers the gap, and dropping any one boss from it wouldn't.
+  const pts = (ms) => ms.reduce((n, m) => n + plan.bosses.find((b) => b.monster === m).points, 0);
+  if (plan.available >= plan.gap) {
+    assert.ok(pts(plan.suggested) >= plan.gap);
+    for (const m of plan.suggested) assert.ok(pts(plan.suggested.filter((x) => x !== m)) < plan.gap, `${m} is needed`);
+  } else assert.equal(plan.suggested.length, plan.bosses.length);
+
+  // Counting fewer tiers only ever leaves easier tasks.
+  const easy = caTierPlan(snap, tier, { maxTier: "Easy" });
+  assert.ok(easy.bosses.every((b) => b.tasks.every((t) => t.tier === "Easy")));
+  assert.ok(easy.available <= plan.available);
+
+  // As goals: each boss tracks its tasks, and the route ends with the tier after its bosses.
+  const goals = [{ id: "t", type: "ca", tier },
+    ...plan.suggested.slice(0, 3).map((monster, i) => ({ id: `b${i}`, type: "caboss", monster, tier, forTier: tier }))];
+  for (const g of goals.slice(1)) {
+    assert.match(goalTitle(g), new RegExp(`up to ${tier} at`));
+    assert.equal(goalProgress(g, snap).done, false);
+  }
+  const route = planRoute(snap, goals);
+  const at = (title) => route.steps.findIndex((s) => s.completes.includes(title));
+  for (const g of goals.slice(1)) assert.ok(at(goalTitle(g)) < at(goalTitle(goals[0])), `${goalTitle(g)} before the tier`);
+  assert.ok(route.steps.every((s) => !s.shared), "the tier goal doesn't make boss steps shared");
+});
+
+test("CA tier planner: a reached tier needs nothing, and a boss goal is done when its tasks are", async () => {
+  const { caTierPlan, goalProgress } = await import("../web/recommender.js");
+  const snap = clone(sampleAccount());
+  const ca = snap.combatAchievements;
+  const reached = caTierPlan(snap, "Easy");
+  assert.equal(reached.gap, 0);
+  assert.deepEqual(reached.suggested, []);
+  const t = ca.tasks.find((x) => !x.done && x.monster !== "Other" && x.monster !== "None");
+  const g = { id: "b", type: "caboss", monster: t.monster, tier: "Grandmaster" };
+  for (const x of ca.tasks) if (x.monster === t.monster) x.done = true;
+  assert.equal(goalProgress(g, snap).done, true);
+});
+
+// A fresh-ish account: no quests, diaries or quest points, skills capped at 40, no Herblore.
+function freshAccount() {
+  const snap = clone(sampleAccount());
+  for (const q of snap.quests) q.state = "NOT_STARTED";
+  for (const s of Object.values(snap.skills)) { s.level = Math.min(s.level, 40); s.xp = Math.min(s.xp, 37224); }
+  snap.skills.herblore = { level: 1, xp: 0 };
+  snap.questPoints = 0;
+  for (const d of Object.values(snap.diaries)) for (const t in d) d[t] = false;
+  return snap;
+}
+
+test("planner: each step says what needs it, down to the quest that asks for a level", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const plan = planRoute(freshAccount(), [{ id: "d", type: "diary", region: "Ardougne", tier: "medium" }]);
+  const step = (title) => plan.steps.find((s) => s.title === title);
+  // The diary needs The Hand in the Sand, which needs 49 Crafting: the step names the quest.
+  assert.deepEqual(step("Train Crafting to 49").neededBy, ["The Hand in the Sand"]);
+  assert.ok(step("Do Plague City").neededBy.includes("Biohazard"));
+  for (const s of plan.steps) if (!s.completes.length) assert.ok(s.neededBy.length, `${s.title} says what needs it`);
+});
+
+test("planner: a skill a quest unlocks gets that quest first (Herblore: Druidic Ritual)", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const snap = freshAccount();
+  const plan = planRoute(snap, [{ id: "h", type: "skill", skill: "herblore", level: 30 }]);
+  const keys = plan.steps.map((s) => s.key);
+  assert.ok(keys.indexOf("quest:Druidic Ritual") >= 0, "Druidic Ritual is planned");
+  assert.ok(keys.indexOf("quest:Druidic Ritual") < keys.findIndex((k) => k.startsWith("skill:herblore")));
+  assert.ok(plan.steps[0].neededBy.includes("training Herblore"));
+  // Done already: nothing extra. (A new copy: the analysis is cached per profile object.)
+  const done = clone(snap);
+  done.quests.find((q) => q.name === "Druidic Ritual").state = "FINISHED";
+  assert.ok(!planRoute(done, [{ id: "h", type: "skill", skill: "herblore", level: 30 }]).steps.some((s) => s.key === "quest:Druidic Ritual"));
+});
+
+test("planner: quest points are made up with quests on the route, then the quickest ones you can do", async () => {
+  const { planRoute } = await import("../web/recommender.js");
+  const quests = JSON.parse(readFileSync(new URL("../web/data/quest-reqs.json", import.meta.url), "utf8")).quests;
+  const plan = planRoute(freshAccount(), [{ id: "q", type: "quest", quest: "Heroes' Quest" }]);
+  const qpAt = plan.steps.findIndex((s) => s.kind === "qp");
+  assert.ok(qpAt > 0, "there's a quest point step");
+  assert.equal(plan.steps[qpAt].title, "Reach 55 quest points");
+  // Every quest before the step adds up to at least 55, and the ones picked for points are named.
+  const before = plan.steps.slice(0, qpAt).filter((s) => s.kind === "quest").map((s) => s.key.slice(6));
+  assert.ok(before.reduce((t, q) => t + (quests[q]?.points ?? 0), 0) >= 55);
+  const picked = plan.steps.filter((s) => s.neededBy.includes("quest points"));
+  assert.ok(picked.length, "quick quests were added");
+  for (const s of picked) assert.match(s.note, /quest points?, picked/);
+  assert.doesNotMatch(plan.steps[qpAt].note, /short/, "nothing left over");
+  // The quest that needs the points comes after them.
+  assert.ok(plan.steps.findIndex((s) => s.key === "quest:Heroes' Quest") > qpAt);
+});

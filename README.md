@@ -59,8 +59,8 @@ full list of what the plugin reads is in [docs/data-sources.md](docs/data-source
   - `samples/` – the made-up accounts behind **Load sample data**, one per account type (made by
     `tests/make-sample-profiles.mjs`, `npm run samples`).
   - `data/drop-rates.json` – a snapshot of collection log drop rates from the OSRS Wiki.
-  - `data/quest-reqs.json` – a snapshot of every quest's requirements from the OSRS Wiki (the
-    route planner and **Within reach** use it).
+  - `data/quest-reqs.json` – a snapshot of every quest's requirements, length and quest point
+    reward from the OSRS Wiki (the route planner and **Within reach** use it).
   - `icons/game/` and `game-icons.js` – game icons exported from the game cache (see
     [Game icons](#game-icons)).
 - `sync/` – the Automatic upload service (Cloudflare Worker + D1 database), with end-to-end tests.
@@ -213,8 +213,8 @@ file. Effort is estimated as (1 ÷ chance per attempt) × minutes per attempt, u
 
 ### Quest requirements
 
-`web/data/quest-reqs.json` holds every quest's and miniquest's requirements from the OSRS Wiki
-(the route planner and **Within reach** use it):
+`web/data/quest-reqs.json` holds every quest's and miniquest's requirements, length and quest
+point reward from the OSRS Wiki (the route planner and **Within reach** use it):
 
 ```powershell
 npm run quest-reqs                                  # only if the game has quests the file doesn't
@@ -222,8 +222,9 @@ node scripts/update-quest-reqs.mjs --dry-run        # say whether it would ask; 
 node scripts/update-quest-reqs.mjs --full           # ask anyway, e.g. after a quest's requirements changed
 ```
 
-It compares the quests in `tests/fixtures/game-names.json` with the file and sends one request
-(the wiki's whole quest list) only when there's a new one. Game names the wiki has no page for
+It compares the quests in `tests/fixtures/game-names.json` with the file and sends three requests
+(the wiki's whole quest bucket, plus the free-to-play and members quest lists for quest points)
+only when there's a new one. Game names the wiki has no page for
 are remembered in `notOnWiki`, so they don't send a request every time.
 
 If you edit a JSON file by hand, `.\scripts\Format-Json.ps1 <file>` puts it back in the same

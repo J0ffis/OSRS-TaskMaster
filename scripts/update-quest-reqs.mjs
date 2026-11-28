@@ -5,7 +5,8 @@
 // the wiki itself. By default the wiki is only asked when tests/fixtures/game-names.json has a
 // quest the file doesn't cover yet, so a re-run usually sends nothing. When it does ask, it's one
 // request to the wiki's "quest" bucket. The file only changes (and only gets a new date) when the
-// requirements themselves changed.
+// requirements themselves changed. Quest point rewards come from the wiki's quest lists (two more
+// requests: free-to-play and members), since the bucket doesn't have them.
 //
 //   node scripts/update-quest-reqs.mjs            # ask the wiki only if there are new quests
 //   node scripts/update-quest-reqs.mjs --dry-run  # say whether it would ask; contact nothing
@@ -112,8 +113,25 @@ export function gameName(page) {
   return `Recipe for Disaster - ${m[1].replace(/^(Freeing|Defeating) (the )?/, "")}`;
 }
 
-/** The parsed bucket rows -> the file's `quests` object (sorted, empty fields dropped). */
-export function buildQuests(rows) {
+/** Pages listing every quest with its quest point reward (rendered HTML). */
+const QP_PAGES = ["Quests/Free-to-play", "Quests/Members"];
+
+/**
+ * A rendered wiki quest list -> { "Quest name": quest points }. Each quest is a table row
+ * `<tr data-rowid="Name">` whose cells are: number, name, difficulty, length, quest points, ...
+ */
+export function parseQuestPoints(html) {
+  const out = {};
+  for (const m of html.matchAll(/<tr data-rowid="([^"]+)">([\s\S]*?)<\/tr>/g)) {
+    const cells = [...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => c[1].replace(/<[^>]+>/g, "").trim());
+    const qp = Number(cells[4]);
+    if (cells.length >= 5 && Number.isInteger(qp) && qp >= 0) out[decode(m[1])] = qp;
+  }
+  return out;
+}
+
+/** The parsed bucket rows (and quest points by name) -> the file's `quests` object (sorted, empty fields dropped). */
+export function buildQuests(rows, points = {}) {
   const names = new Set(rows.map((r) => decode(r.page_name)));
   const isQuest = (n) => names.has(n);
   const quests = {};
@@ -130,6 +148,7 @@ export function buildQuests(rows) {
     if (p.other.length) e.other = p.other;
     if (p.fights.length) e.fights = p.fights;
     if (r.official_length) e.length = plainText(r.official_length);
+    if (points[name] != null) e.points = points[name];
     quests[name] = e;
   }
   return quests;
@@ -154,22 +173,31 @@ async function main() {
   // Requirements of quests already in the file almost never change, so by default the wiki is
   // only asked when the game has a quest the file doesn't know yet. --full asks anyway.
   const todo = missingQuests(game, old);
-  if (!full && old && !todo.length) {
+  // Files from before quest point rewards were kept need one full refresh.
+  const noPoints = old && !Object.values(old.quests ?? {}).some((q) => q.points != null);
+  if (!full && old && !todo.length && !noPoints) {
     console.log(`All ${game.length} quests in the game names are already in web/data/quest-reqs.json; the wiki was not contacted (--full to re-check).`);
     return;
   }
-  const why = full ? "--full" : !old ? "no file yet" : `${todo.length} new quest(s): ${todo.slice(0, 5).join(", ")}${todo.length > 5 ? ", ..." : ""}`;
+  const why = full ? "--full" : !old ? "no file yet" : noPoints ? "no quest point rewards yet" : `${todo.length} new quest(s): ${todo.slice(0, 5).join(", ")}${todo.length > 5 ? ", ..." : ""}`;
   const query = "bucket('quest').select('page_name','requirements','official_length').limit(1000).run()";
   const url = `${API}?action=bucket&format=json&query=${encodeURIComponent(query)}`;
-  if (dry) { console.log(`Dry run: would send 1 request to ${API} (the "quest" bucket) because of ${why}.`); return; }
-  console.log(`Asking the wiki for quest requirements (1 request) because of ${why}.`);
+  if (dry) { console.log(`Dry run: would send ${1 + QP_PAGES.length} requests to ${API} (the "quest" bucket and the quest lists) because of ${why}.`); return; }
+  console.log(`Asking the wiki for quest requirements and quest points (${1 + QP_PAGES.length} requests) because of ${why}.`);
   const res = await fetch(url, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`Wiki request failed: HTTP ${res.status}`);
   const json = await res.json();
   if (json.error) throw new Error(`Wiki query failed: ${json.error}`);
   const rows = json.bucket ?? [];
   if (rows.length < 150) throw new Error(`Only ${rows.length} quests came back; expected over 150. Not writing.`);
-  const quests = buildQuests(rows);
+  const points = {};
+  for (const page of QP_PAGES) {
+    const r = await fetch(`${API}?action=parse&format=json&formatversion=2&prop=text&page=${encodeURIComponent(page)}`, { headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error(`Wiki request for ${page} failed: HTTP ${r.status}`);
+    Object.assign(points, parseQuestPoints((await r.json()).parse?.text ?? ""));
+  }
+  if (Object.keys(points).length < 150) throw new Error(`Only ${Object.keys(points).length} quest point rewards came back; expected over 150. Not writing.`);
+  const quests = buildQuests(rows, points);
   const notOnWiki = game.filter((q) => !quests[q]).sort();
 
   if (old && JSON.stringify(old.quests) === JSON.stringify(quests)

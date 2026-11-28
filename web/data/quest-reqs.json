@@ -20,7 +20,8 @@
     "Tale of the Righteous",
     "Client of Kourend"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "A New Leaf": {
    "skills": {
@@ -34,22 +35,26 @@
    "other": [
     "Have completed at least one farming contract"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "A Night at the Theatre": {
    "quests": [
     "A Taste of Hope"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "A Porcine of Interest": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "A Ruff Situation": {
    "skills": {
     "crafting": 15
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "A Shell of a Friend": {
    "skills": {
@@ -59,19 +64,22 @@
    "quests": [
     "Priest in Peril"
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 2
   },
   "A Soul's Bane": {
    "fights": [
     "The ability to defeat level 45+ enemies."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "A Tail of Two Cats": {
    "quests": [
     "Icthlarin's Little Helper"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "A Taste of Hope": {
    "skills": {
@@ -84,7 +92,8 @@
    "quests": [
     "Darkness of Hallowvale"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Alfred Grimhand's Barcrawl": {
    "length": "Medium"
@@ -101,7 +110,8 @@
     "Ernest the Chicken",
     "Priest in Peril"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Another Slice of H.A.M.": {
    "skills": {
@@ -116,7 +126,8 @@
    "fights": [
     "The ability to defeat a level 64 (using any combat style) and two level 30 enemies using either Ranged or Magic."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Architectural Alliance": {
    "skills": {
@@ -137,7 +148,8 @@
     "Children of the Sun",
     "Eagles' Peak"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Barbarian Training": {
    "skills": {
@@ -160,7 +172,8 @@
   },
   "Below Ice Mountain": {
    "questPoints": 16,
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Beneath Cursed Sands": {
    "skills": {
@@ -171,7 +184,8 @@
    "quests": [
     "Contact!"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Between a Rock...": {
    "skills": {
@@ -186,7 +200,8 @@
    "fights": [
     "The ability to defeat a level 75-125 enemy (depends on how much gold you mine)"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Big Chompy Bird Hunting": {
    "skills": {
@@ -197,20 +212,23 @@
    "fights": [
     "The ability to defend against level 64 wolves and level 53 ogres"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Biohazard": {
    "quests": [
     "Plague City"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 3
   },
   "Black Knights' Fortress": {
    "questPoints": 12,
    "fights": [
     "The ability to evade level 33 Black Knights"
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 3
   },
   "Bone Voyage": {
    "quests": [
@@ -219,7 +237,8 @@
    "other": [
     "100 Kudos"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Burial at Sea": {
    "skills": {
@@ -243,22 +262,26 @@
     "Pirate's Treasure",
     "Rum Deal"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Children of the Sun": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Client of Kourend": {
    "quests": [
     "X Marks the Spot"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Clock Tower": {
    "fights": [
     "The ability to run past level 53 Ogres"
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Cold War": {
    "skills": {
@@ -271,24 +294,28 @@
    "other": [
     "Access to a crafting table 3"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Contact!": {
    "quests": [
     "Prince Ali Rescue",
     "Icthlarin's Little Helper"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Cook's Assistant": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Crab Quest": {
    "skills": {
     "sailing": 40,
     "fishing": 30
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Creature of Fenkenstrain": {
    "skills": {
@@ -302,7 +329,8 @@
    "fights": [
     "Able to defeat a level 51 monster and run past level 72 monsters"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Current Affairs": {
    "skills": {
@@ -312,7 +340,8 @@
    "quests": [
     "Pandemonium"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Curse of the Empty Lord": {
    "skills": {
@@ -325,7 +354,8 @@
    "length": "Medium"
   },
   "Daddy's Home": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Darkness of Hallowvale": {
    "skills": {
@@ -343,7 +373,8 @@
    "fights": [
     "The ability to withstand several melee attacks from a level 169 enemy."
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "Death on the Isle": {
    "skills": {
@@ -353,10 +384,12 @@
    "quests": [
     "Children of the Sun"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Death Plateau": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Death to the Dorgeshuun": {
    "skills": {
@@ -369,7 +402,8 @@
    "fights": [
     "The ability to defeat a level 50 enemy with Melee or Magic"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Defender of Varrock": {
    "skills": {
@@ -386,13 +420,15 @@
     "Romeo & Juliet",
     "Demon Slayer"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Demon Slayer": {
    "fights": [
     "The ability to defeat a level 27 demon aided by three level 20 Dark wizards and two level 7 Dark wizards using the Silverlight in melee."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 3
   },
   "Desert Treasure I": {
    "skills": {
@@ -412,7 +448,8 @@
    "other": [
     "Access to Morytania Graveyard"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 3
   },
   "Desert Treasure II - The Fallen Empire": {
    "skills": {
@@ -432,7 +469,8 @@
     "Below Ice Mountain",
     "His Faithful Servants"
    ],
-   "length": "Very Long"
+   "length": "Very Long",
+   "points": 5
   },
   "Devious Minds": {
    "skills": {
@@ -445,17 +483,20 @@
     "Troll Stronghold",
     "Doric's Quest"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Doric's Quest": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Dragon Slayer I": {
    "questPoints": 32,
    "fights": [
     "The ability to defeat a level 83 dragon"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Dragon Slayer II": {
    "skills": {
@@ -479,7 +520,8 @@
     "Client of Kourend",
     "Barbarian Training"
    ],
-   "length": "Very Long"
+   "length": "Very Long",
+   "points": 5
   },
   "Dream Mentor": {
    "combat": 85,
@@ -490,13 +532,16 @@
    "fights": [
     "The ability to defeat 4 powerful monsters without the use of prayer"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Druidic Ritual": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 4
   },
   "Dwarf Cannon": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Eadgar's Ruse": {
    "skills": {
@@ -506,13 +551,15 @@
     "Druidic Ritual",
     "Troll Stronghold"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Eagles' Peak": {
    "skills": {
     "hunter": 27
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Elemental Workshop I": {
    "skills": {
@@ -520,7 +567,8 @@
     "mining": 20,
     "smithing": 20
    },
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Elemental Workshop II": {
    "skills": {
@@ -530,7 +578,8 @@
    "quests": [
     "Elemental Workshop I"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Enakhra's Lament": {
    "skills": {
@@ -542,7 +591,8 @@
    "other": [
     "Must be on the standard spellbook"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Enlightened Journey": {
    "skills": {
@@ -551,7 +601,8 @@
     "firemaking": 20
    },
    "questPoints": 20,
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Enter the Abyss": {
    "quests": [
@@ -563,7 +614,8 @@
    "fights": [
     "The ability to defend from a level 22 Skeleton."
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 4
   },
   "Ethically Acquired Antiquities": {
    "skills": {
@@ -573,7 +625,8 @@
     "Children of the Sun",
     "Shield of Arrav"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Fairytale I - Growing Pains": {
    "quests": [
@@ -583,7 +636,8 @@
    "fights": [
     "The ability to defeat a level 111 Tanglefoot with limited weaponry"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Fairytale II - Cure a Queen": {
    "skills": {
@@ -594,7 +648,8 @@
    "quests": [
     "Fairytale I - Growing Pains"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Fairytale III - Nexus of Power": {},
   "Fallen From Grace": {
@@ -607,7 +662,8 @@
    "quests": [
     "Pandemonium"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Family Crest": {
    "skills": {
@@ -619,7 +675,8 @@
    "fights": [
     "The ability to defeat a level 170 demon (can be safespotted)"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Family Pest": {
    "quests": [
@@ -631,13 +688,15 @@
    "fights": [
     "The ability to defeat level 44, 63 and 137 enemies (all can be safespotted)"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Fishing Contest": {
    "skills": {
     "fishing": 10
    },
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Fool's Gold": {
    "quests": [
@@ -653,7 +712,8 @@
     "The Giant Dwarf",
     "Fishing Contest"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "Garden of Tranquillity": {
    "skills": {
@@ -662,17 +722,20 @@
    "quests": [
     "Creature of Fenkenstrain"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "Gertrude's Cat": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Getting Ahead": {
    "skills": {
     "crafting": 30,
     "construction": 26
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Ghosts Ahoy": {
    "skills": {
@@ -683,10 +746,12 @@
     "Priest in Peril",
     "The Restless Ghost"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Goblin Diplomacy": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 5
   },
   "Grim Tales": {
    "skills": {
@@ -702,7 +767,8 @@
    "fights": [
     "Ability to defeat a level 138 cloud giant—Glod"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Haunted Mine": {
    "skills": {
@@ -717,13 +783,15 @@
    "fights": [
     "The ability to defeat a level 95 enemy"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Hazeel Cult": {
    "fights": [
     "Able to defeat a level 13 cultist (this applies only if you're taking Ceril's side)"
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Heroes' Quest": {
    "skills": {
@@ -742,7 +810,8 @@
    "other": [
     "A partner"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "His Faithful Servants": {
    "quests": [
@@ -760,7 +829,8 @@
    "fights": [
     "Must be able to defeat a level 120 Black Knight Titan (can be safespotted or flinched)"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Hopespear's Will": {
    "skills": {
@@ -781,7 +851,8 @@
    "quests": [
     "Alfred Grimhand's Barcrawl"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Icthlarin's Little Helper": {
    "quests": [
@@ -790,10 +861,12 @@
    "fights": [
     "The ability to defeat a level 91 monster."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Imp Catcher": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "In Aid of the Myreque": {
    "skills": {
@@ -805,7 +878,8 @@
    "quests": [
     "In Search of the Myreque"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "In Search of Knowledge": {
    "length": "Medium"
@@ -820,7 +894,8 @@
    "fights": [
     "The ability to defeat a level 97 foe (safespottable)"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Into the Tombs": {
    "quests": [
@@ -838,7 +913,8 @@
    "fights": [
     "The ability to defend against level 53 Jogres and level 46 Harpie Bug Swarms."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "King's Ransom": {
    "skills": {
@@ -851,7 +927,8 @@
     "Murder Mystery",
     "One Small Favour"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Lair of Tarn Razorlor": {
    "skills": {
@@ -873,10 +950,12 @@
     "Another Slice of H.A.M.",
     "Fishing Contest"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Learning the Ropes": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Legends' Quest": {
    "skills": {
@@ -902,7 +981,8 @@
    "fights": [
     "The ability to defeat a level 187 demon"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 4
   },
   "Lost City": {
    "skills": {
@@ -912,7 +992,8 @@
    "fights": [
     "Ability to kill a level 101 Tree spirit with limited armour and weapons."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 3
   },
   "Lost Lover": {
    "length": "Very Short"
@@ -939,7 +1020,8 @@
    "fights": [
     "The ability to kill multiple level 111 monsters."
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "Mage Arena I": {
    "skills": {
@@ -972,35 +1054,41 @@
     "Cold War",
     "Romeo & Juliet"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Making History": {
    "quests": [
     "Priest in Peril",
     "The Restless Ghost"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 3
   },
   "Meat and Greet": {
    "quests": [
     "Children of the Sun"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Merlin's Crystal": {
    "fights": [
     "Must be able to defeat a level 39 enemy."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 6
   },
   "Misthalin Mystery": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Monk's Friend": {
    "fights": [
     "The ability to run past two level 14 thieves, and one level 26."
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Monkey Madness I": {
    "quests": [
@@ -1010,7 +1098,8 @@
    "fights": [
     "The ability to defeat a level 195 Jungle Demon"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 3
   },
   "Monkey Madness II": {
    "skills": {
@@ -1028,7 +1117,8 @@
     "Troll Stronghold",
     "Watchtower"
    ],
-   "length": "Very Long"
+   "length": "Very Long",
+   "points": 4
   },
   "Mountain Daughter": {
    "skills": {
@@ -1037,7 +1127,8 @@
    "fights": [
     "The ability to defeat a level 70 monster (can be safespotted)"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Mourning's End Part I": {
    "skills": {
@@ -1052,19 +1143,23 @@
    "fights": [
     "The ability to defeat a level 11 enemy with your combat stats set to 20 each."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Mourning's End Part II": {
    "quests": [
     "Mourning's End Part I"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "Mudfoot's Big Adventure": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Murder Mystery": {
-   "length": "Short"
+   "length": "Short",
+   "points": 3
   },
   "My Arm's Big Adventure": {
    "skills": {
@@ -1079,17 +1174,20 @@
    "other": [
     "At least 60% favour in the Tai Bwo Wannai Cleanup minigame before starting this quest - this will be subtracted from the total favour"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Nature Spirit": {
    "quests": [
     "Priest in Peril",
     "The Restless Ghost"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Observatory Quest": {
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Olaf's Quest": {
    "skills": {
@@ -1102,7 +1200,8 @@
    "fights": [
     "The ability to defeat a level 100 monster"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "One Small Favour": {
    "skills": {
@@ -1115,10 +1214,12 @@
     "Rune Mysteries",
     "Shilo Village"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "Pandemonium": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Perilous Moons": {
    "skills": {
@@ -1131,25 +1232,30 @@
    "quests": [
     "Twilight's Promise"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Pirate's Treasure": {
    "fights": [
     "Able to defeat or run away from a Combat level 4 gardener."
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 2
   },
   "Plague City": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Priest in Peril": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Prince Ali Rescue": {
    "fights": [
     "The ability to get past aggressive combat level 26 jail guards."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 3
   },
   "Prying Times": {
    "skills": {
@@ -1163,10 +1269,12 @@
    "other": [
     "One open port task slot"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Rag and Bone Man I": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Rag and Bone Man II": {
    "skills": {
@@ -1181,7 +1289,8 @@
    "fights": [
     "The ability to kill several high-level monsters"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Rag and Bone Man III": {
    "skills": {
@@ -1195,7 +1304,8 @@
     "Tower of Life",
     "A Soul's Bane"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 3
   },
   "Ratcatchers": {
    "quests": [
@@ -1205,7 +1315,8 @@
    "other": [
     "Access to Keldagrim"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Recipe for Disaster": {
    "skills": {
@@ -1242,7 +1353,8 @@
    "fights": [
     "The ability to defeat high levelled monsters, several of which have to be defeated without using Prayer"
    ],
-   "length": "Very Long"
+   "length": "Very Long",
+   "points": 10
   },
   "Recipe for Disaster - Another Cook's Quest": {
    "skills": {
@@ -1373,7 +1485,8 @@
     "Black Knights' Fortress",
     "Druidic Ritual"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Regicide": {
    "skills": {
@@ -1386,7 +1499,8 @@
    "fights": [
     "The ability to defeat a level 110 Tyras guard (can be safespotted)"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 3
   },
   "Rogue Trader": {
    "quests": [
@@ -1397,7 +1511,8 @@
    "length": "Short - Medium"
   },
   "Romeo & Juliet": {
-   "length": "Short"
+   "length": "Short",
+   "points": 5
   },
   "Roving Elves": {
    "skills": {
@@ -1410,7 +1525,8 @@
    "fights": [
     "The ability to defeat a level 84 enemy unarmed, with heavy restrictions"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Royal Trouble": {
    "skills": {
@@ -1420,7 +1536,8 @@
    "quests": [
     "Throne of Miscellania"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Rum Deal": {
    "skills": {
@@ -1437,10 +1554,12 @@
    "fights": [
     "The ability to kill a combat level 150 monster (can be safespotted)"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Rune Mysteries": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Scorpion Catcher": {
    "skills": {
@@ -1452,7 +1571,8 @@
    "fights": [
     "The ability to run past level 172 black demons and level 64 poison spiders"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Scrambled!": {
    "skills": {
@@ -1463,13 +1583,15 @@
    "quests": [
     "Children of the Sun"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Sea Slug": {
    "skills": {
     "firemaking": 30
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Secrets of the North": {
    "skills": {
@@ -1483,7 +1605,8 @@
     "Devious Minds",
     "Hazeel Cult"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Shades of Mort'ton": {
    "skills": {
@@ -1501,7 +1624,8 @@
     "Must be able to defeat 5 level-40 Loar Shades.",
     "Must be able to survive an onslaught when rebuilding the Temple (Being surrounded by many players makes this much easier)."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 3
   },
   "Shadow of the Storm": {
    "skills": {
@@ -1514,7 +1638,8 @@
    "fights": [
     "The ability to defeat a level 100 demon"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Shadows of Custodia": {
    "skills": {
@@ -1526,19 +1651,23 @@
    "quests": [
     "Children of the Sun"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Sheep Herder": {
-   "length": "Short"
+   "length": "Short",
+   "points": 4
   },
   "Sheep Shearer": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Shield of Arrav": {
    "other": [
     "A trustworthy friend or partner. Players can join the official chat-channel \"OSRS SOA\" to look for a partner."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Shilo Village": {
    "skills": {
@@ -1551,7 +1680,8 @@
    "fights": [
     "Must be able to defend from many Undead ones (level 61-73) and able to defeat three monsters that are about level 90."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Sins of the Father": {
    "skills": {
@@ -1567,7 +1697,8 @@
     "Vampyre Slayer",
     "A Taste of Hope"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 2
   },
   "Skippy and the Mogres": {
    "skills": {
@@ -1579,7 +1710,8 @@
    "skills": {
     "smithing": 15
    },
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Song of the Elves": {
    "skills": {
@@ -1597,7 +1729,8 @@
     "Making History",
     "Druidic Ritual"
    ],
-   "length": "Very Long"
+   "length": "Very Long",
+   "points": 4
   },
   "Spirit of Adventure": {
    "length": "Very Short"
@@ -1612,7 +1745,8 @@
    "fights": [
     "Ability to defeat three level 75 golems"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Swan Song": {
    "skills": {
@@ -1631,7 +1765,8 @@
    "fights": [
     "The ability to defeat a combat level 170 monster, which is able to use Magic, Melee and can drain Prayer."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Tai Bwo Wannai Trio": {
    "skills": {
@@ -1642,7 +1777,8 @@
    "quests": [
     "Jungle Potion"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Tale of the Righteous": {
    "skills": {
@@ -1652,7 +1788,8 @@
    "quests": [
     "Client of Kourend"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Tears of Guthix": {
    "skills": {
@@ -1661,7 +1798,8 @@
     "mining": 20
    },
    "questPoints": 43,
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Temple of Ikov": {
    "skills": {
@@ -1671,7 +1809,8 @@
    "fights": [
     "The ability to defeat a level 84 enemy with Ranged"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Temple of the Eye": {
    "skills": {
@@ -1680,7 +1819,8 @@
    "quests": [
     "Enter the Abyss"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Ascent of Arceuus": {
    "skills": {
@@ -1689,10 +1829,12 @@
    "quests": [
     "Client of Kourend"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Birds and the Wasps": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Blood Moon Rises": {
    "skills": {
@@ -1711,7 +1853,8 @@
     "A Night at the Theatre",
     "Sins of the Father"
    ],
-   "length": "Very Long"
+   "length": "Very Long",
+   "points": 4
   },
   "The Chosen Commander": {
    "skills": {
@@ -1724,7 +1867,8 @@
    ]
   },
   "The Corsair Curse": {
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "The Curse of Arrav": {
    "skills": {
@@ -1739,7 +1883,8 @@
     "Defender of Varrock",
     "Troll Romance"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Depths of Despair": {
    "skills": {
@@ -1751,7 +1896,8 @@
    "fights": [
     "Ability to kill a level 36 Sand Snake"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Dig Site": {
    "skills": {
@@ -1759,7 +1905,8 @@
     "agility": 10,
     "herblore": 10
    },
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Enchanted Key": {
    "quests": [
@@ -1775,7 +1922,8 @@
    "quests": [
     "The Grand Tree"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Feud": {
    "skills": {
@@ -1784,7 +1932,8 @@
    "fights": [
     "The ability to kill a level 70 bandit and a level 75 Menaphite (both can be safespotted)."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "The Final Dawn": {
    "skills": {
@@ -1796,13 +1945,15 @@
     "The Heart of Darkness",
     "Perilous Moons"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 3
   },
   "The Forsaken Tower": {
    "quests": [
     "Client of Kourend"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Fractured Archive": {
    "quests": [
@@ -1825,7 +1976,8 @@
     "Mountain Daughter",
     "Heroes' Quest"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Fremennik Isles": {
    "skills": {
@@ -1837,14 +1989,16 @@
    "fights": [
     "The ability to kill a level 122 Troll King (Damage can be reduced) and, separately, 10 rock throwing ice trolls in a multicombat area."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "The Fremennik Trials": {
    "fights": [
     "Ability to defeat a level-69 Draugen",
     "Ability to defeat a fairly strong warrior without armour, weapons, or spells"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 3
   },
   "The Frozen Door": {
    "skills": {
@@ -1862,7 +2016,8 @@
    "skills": {
     "farming": 20
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The General's Shadow": {
    "quests": [
@@ -1878,14 +2033,16 @@
     "thieving": 14,
     "crafting": 12
    },
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Golem": {
    "skills": {
     "thieving": 25,
     "crafting": 20
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Grand Tree": {
    "skills": {
@@ -1894,7 +2051,8 @@
    "fights": [
     "The ability to defeat a level 172 Black demon (safespottable for Ranged and Magic or melee using a halberd)."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 5
   },
   "The Graveyard": {
    "skills": {
@@ -1908,7 +2066,8 @@
     "Olaf's Quest",
     "Pandemonium"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 3
   },
   "The Great Brain Robbery": {
    "skills": {
@@ -1927,14 +2086,16 @@
    "fights": [
     "Be able to kill a level 190 monster that can disable Prayers (can be safespotted without taking damage)."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Hand in the Sand": {
    "skills": {
     "crafting": 49,
     "thieving": 17
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Heart of Darkness": {
    "skills": {
@@ -1946,16 +2107,19 @@
    "quests": [
     "Twilight's Promise"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Ides of Milk": {
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Knight's Sword": {
    "skills": {
     "mining": 10
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Lost Tribe": {
    "skills": {
@@ -1967,7 +2131,8 @@
     "Goblin Diplomacy",
     "Rune Mysteries"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Path of Glouphrie": {
    "skills": {
@@ -1982,7 +2147,8 @@
     "Waterfall Quest",
     "Tree Gnome Village"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Queen of Thieves": {
    "skills": {
@@ -1991,7 +2157,8 @@
    "quests": [
     "Client of Kourend"
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "The Red Reef": {
    "skills": {
@@ -2001,13 +2168,15 @@
    "quests": [
     "Troubled Tortugans"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Restless Ghost": {
    "fights": [
     "Capable of killing or running away from a combat level 13 skeleton."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "The Ribbiting Tale of a Lily Pad Labour Dispute": {
    "skills": {
@@ -2016,7 +2185,8 @@
    "quests": [
     "Children of the Sun"
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "The Slug Menace": {
    "skills": {
@@ -2035,7 +2205,8 @@
    "fights": [
     "The ability to defeat a level 62 enemy with Melee."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "The Tourist Trap": {
    "skills": {
@@ -2045,39 +2216,45 @@
    "fights": [
     "The ability to defeat a level 47 enemy"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "The Writing's on the Wall": {
    "skills": {
     "agility": 22,
     "thieving": 20
    },
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Throne of Miscellania": {
    "quests": [
     "Heroes' Quest",
     "The Fremennik Trials"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Tower of Life": {
    "skills": {
     "construction": 10
    },
-   "length": "Medium"
+   "length": "Medium",
+   "points": 2
   },
   "Tree Gnome Village": {
    "fights": [
     "The ability to defeat a level 112 Khazard warlord"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Tribal Totem": {
    "skills": {
     "thieving": 21
    },
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Troll Romance": {
    "skills": {
@@ -2089,7 +2266,8 @@
    "fights": [
     "The ability to defeat a level 113 troll"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 2
   },
   "Troll Stronghold": {
    "skills": {
@@ -2101,7 +2279,8 @@
    "fights": [
     "The ability to defeat a level 113 Troll General (can be safespotted)"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Troubled Tortugans": {
    "skills": {
@@ -2115,13 +2294,15 @@
    "quests": [
     "Pandemonium"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Twilight's Promise": {
    "quests": [
     "Children of the Sun"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "Underground Pass": {
    "skills": {
@@ -2130,7 +2311,8 @@
    "quests": [
     "Biohazard"
    ],
-   "length": "Long"
+   "length": "Long",
+   "points": 5
   },
   "Vale Totems": {
    "skills": {
@@ -2145,7 +2327,8 @@
    "fights": [
     "Able to defeat a combat level 34 vampyre with a very high health recovery rate."
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 3
   },
   "Wanted!": {
    "questPoints": 32,
@@ -2158,7 +2341,8 @@
    "fights": [
     "The ability to defeat a level 32 Black Knight."
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 1
   },
   "Watchtower": {
    "skills": {
@@ -2171,13 +2355,15 @@
    "fights": [
     "The ability to defeat a level 68 Ogre and run past level 111 Blue dragons"
    ],
-   "length": "Medium"
+   "length": "Medium",
+   "points": 4
   },
   "Waterfall Quest": {
    "fights": [
     "The ability to withstand and evade attacks from level 86 Fire Giants and level 84 Moss Guardian without any equipment."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "What Lies Below": {
    "skills": {
@@ -2186,7 +2372,8 @@
    "quests": [
     "Rune Mysteries"
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   },
   "While Guthix Sleeps": {
    "skills": {
@@ -2213,19 +2400,23 @@
     "Nature Spirit",
     "A Tail of Two Cats"
    ],
-   "length": "Very Long"
+   "length": "Very Long",
+   "points": 5
   },
   "Witch's House": {
    "fights": [
     "The ability to defeat 4 monsters from level 19 to 53 without a break."
    ],
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 4
   },
   "Witch's Potion": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "X Marks the Spot": {
-   "length": "Very Short"
+   "length": "Very Short",
+   "points": 1
   },
   "Zogre Flesh Eaters": {
    "skills": {
@@ -2240,7 +2431,8 @@
    "fights": [
     "You must be able to defeat a level 111 enemy."
    ],
-   "length": "Short"
+   "length": "Short",
+   "points": 1
   }
  }
 }

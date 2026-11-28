@@ -143,9 +143,18 @@ into one ordered list of steps (`planRoute` in `recommender.js`):
    isn't a level or a quest ("100 Kudos", "Access to Keldagrim") is shown on its step; what you
    must be able to fight is kept in the file but not shown.
 2. Shared requirements become one step ("shared by 2"), and one skill's targets are trained in
-   order (Cooking to 90, then to 95, each timed from the one before).
+   order (Cooking to 90, then to 95, each timed from the one before). Each step says what asks
+   for it directly ("Train Crafting to 49 · Needed for The Hand in the Sand"), not only which
+   goal it's on the way to.
+   - A skill you can't train until a quest is done (`SKILL_UNLOCK_QUESTS`: Herblore needs Druidic
+     Ritual, Sailing needs Pandemonium) gets that quest before its first training step.
+   - **Reach N quest points** counts the quests earlier on the route that don't wait for the
+     points themselves, then adds the quickest quests you can start right now (every requirement
+     met) for the rest: fewest hours per point by the wiki's quest length, more points first on
+     a tie. The step says how the total is made up, and anything still short.
 3. Steps are ordered so every step comes after what it depends on, and among the steps that are
-   ready, the one on the way to the goal that's closest to done goes first. Goals therefore finish
+   ready, the one on the way to the goal that's closest to done goes first (quests weighed by
+   their wiki length). Goals therefore finish
    one by one instead of all at the end.
 
 Training steps show a time when the skill has wiki rates (`XP_RATES`); quests and other steps
@@ -161,9 +170,31 @@ are planned again on every load, so finished ones drop off and the count goes up
 A step counts as done only when the profile shows it (a level reached, a quest finished), so
 removing a goal from the route doesn't count its steps as done.
 
-The quest snapshot is refreshed by `scripts/update-quest-reqs.mjs` (`npm run quest-reqs`, also
-run by `Update-GameData.ps1`). It asks the wiki only when the game has a quest the file doesn't
-cover yet (`--full` asks anyway), in one request, and the file only changes when the requirements
+## Combat achievement planner
+
+**Plan a tier** (in the Combat tab, or **Pick bosses** on a CA tier goal) plans a combat
+achievement reward tier (`caTierPlan` in `recommender.js`):
+
+1. Pick a reward tier you haven't reached, and the hardest task tier to count (**Count tasks up
+   to**, the reward tier by default). Going for Elite counts Easy to Elite tasks only, so the
+   plan stays below Master and Grandmaster content; set it lower to stay further down.
+2. Every boss with unfinished tasks in that range is listed with its points, tasks by tier, an
+   effort label and any access gate (`CONTENT_REQS`). Tasks not tied to a boss ("Other") are one
+   row. Bosses are ordered by points for the work: each task costs more the harder its tier
+   (`CA_TASK_COST`) and each boss adds a fixed cost (`CA_BOSS_COST`), so a boss with several
+   tasks beats several bosses with one each. Locked bosses come last.
+3. **Pick for me** ticks the fewest bosses, in that order, that cover the points still needed
+   (dropping any the others make redundant); when even all of them fall short it ticks them all
+   and says by how much.
+4. **Add as goals and plan a route** adds the tier as a goal plus one goal per boss ("Every task
+   up to Elite at Vorkath", type `caboss`, remembering the tier it's for), reusing goals you
+   already have, and opens the route planner with them ticked. The route puts each boss's quest
+   and Slayer unlocks before it, and the tier goal after its bosses.
+
+The quest snapshot (requirements, length and quest point reward) is refreshed by
+`scripts/update-quest-reqs.mjs` (`npm run quest-reqs`, also run by `Update-GameData.ps1`). It asks
+the wiki only when the game has a quest the file doesn't cover yet (`--full` asks anyway), in three
+requests (the quest bucket, and the free-to-play and members quest lists for quest points), and the file only changes when the requirements
 did. `npm run check` warns when the hand tables (`QUESTS`, `QUEST_PREREQS`)
 disagree with it; the snapshot wins wherever it has the quest, and the hand tables are the
 fallback if it fails to load. The same snapshot drives the quest cards under **Within reach**.
