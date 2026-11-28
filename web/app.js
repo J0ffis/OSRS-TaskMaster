@@ -9,7 +9,7 @@ import {
   candidates, lockedContent, pickThree, pickMix, pickChallenge, fastestFirst, HUNT_CATEGORIES, slayerTask,
   goalProgress, goalTitle, analyse, completions, petInfo, itemIndex, fmt, xpForLevel,
   applyManual, withinReach, compactProfile, sinceLast, accountKind, missingSections,
-  planRoute, hoursRangeText, caTierPlan, SHOWCASE_KINDS, showcaseChoices, showcasePicks, showcaseSuggestion,
+  planRoute, hoursRangeText, caTierPlan, isGeneralCa, SHOWCASE_KINDS, showcaseChoices, showcasePicks, showcaseSuggestion,
 } from "./recommender.js";
 import { SKILLS, DIARIES, CA_TIERS } from "./knowledge-base.js";
 import { loadGameIcons, spriteUrl, itemUrl, iconImg, skullHTML, helmHTML } from "./game-icons.js";
@@ -67,6 +67,7 @@ const state = {
   content: JSON.parse(localStorage.getItem("tm.content") || "{}"),
   // "Fastest logs first": collection log and pet cards come quickest first (for clog hunters).
   fastest: localStorage.getItem("tm.fastest") === "1",
+  caGoalsOpen: localStorage.getItem("tm.caGoalsOpen") === "1", // combat achievement goals block open (closed by default)
   seed: 0, // bumped by Shuffle; the same seed gives the same picks
   excluded: new Set(), // suggestion ids the player swapped away
   hidden: {}, // suggestions marked "Not for me": { id: { until (time, or 0 for good), title, effort } }
@@ -1267,6 +1268,7 @@ function addGoalFrom(c) {
 }
 
 // Which category's icon a goal gets when it has no item, skill or tier of its own.
+const CA_GOAL_TYPES = new Set(["ca", "catask", "cabundle", "caboss"]);
 const GOAL_CATEGORY = { quest: "quests", diary: "diaries", ca: "combat", catask: "combat", cabundle: "combat", caboss: "combat", clog: "clog", pet: "pets", item: "clog", family: "clog" };
 
 function renderGoals() {
@@ -1282,8 +1284,7 @@ function renderGoals() {
     el.innerHTML = `<li class="muted small">${ro ? "No goals set." : `No goals yet. Add one below, or press "Make it a goal" on a suggestion.`}</li>`;
     return;
   }
-  el.innerHTML = state.goals.map((g) => {
-    const p = goalProgress(g, state.snap);
+  const item = (g, p) => {
     const custom = g.type === "custom" || p.manual;
     return `<li class="goal">
       <span class="t ${p.done ? "done" : ""}">${custom ? `<label><input type="checkbox" data-check="${esc(g.id)}" ${g.done ? "checked" : ""}${ro ? " disabled" : ""}> ` : cardIcon({ goal: g, category: GOAL_CATEGORY[g.type] })}${esc(goalTitle(g))}${custom ? "</label>" : ""}${p.done ? " ✓" : ""}</span>
@@ -1291,7 +1292,25 @@ function renderGoals() {
       ${!p.done && goalHint(g) ? `<span class="gd">${esc(goalHint(g))}</span>` : ""}
       <div class="bar" style="--c:${p.done ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
     </li>`;
-  }).join("");
+  };
+  const rows = state.goals.map((g) => ({ g, p: goalProgress(g, state.snap) }));
+  // Combat achievement goals ("Pick bosses" adds one per boss) fold into one block that opens
+  // and closes, so they don't push every other goal off the screen. Two or more only.
+  const ca = rows.filter((r) => CA_GOAL_TYPES.has(r.g.type));
+  if (ca.length < 2) { el.innerHTML = rows.map((r) => item(r.g, r.p)).join(""); return; }
+  const done = ca.filter((r) => r.p.done).length;
+  const avg = ca.reduce((s, r) => s + r.p.progress, 0) / ca.length;
+  const tier = ca.find((r) => r.g.type === "ca")?.g.tier;
+  const group = `<li class="goalgroup"><details data-goalgroup="ca"${state.caGoalsOpen ? " open" : ""}>
+      <summary class="goal">
+        <span class="t">${cardIcon({ goal: { type: "ca", tier }, category: "combat" })}Combat achievements</span>
+        <span class="l">${ca.length} goals${done ? ` · ${done} done` : ""} <span class="chev" aria-hidden="true">▾</span></span>
+        <div class="bar" style="--c:${done === ca.length ? "var(--good)" : "var(--c-goals)"}"><i style="width:${Math.round(avg * 100)}%"></i></div>
+      </summary>
+      <ul class="goals sub">${ca.map((r) => item(r.g, r.p)).join("")}</ul>
+    </details></li>`;
+  const first = rows.indexOf(ca[0]);
+  el.innerHTML = rows.map((r, i) => (i === first ? group : CA_GOAL_TYPES.has(r.g.type) ? "" : item(r.g, r.p))).join("");
 }
 
 /**
@@ -1836,6 +1855,42 @@ function pinnedRoute() {
   return { goals, plan, done, total: done + planned.size };
 }
 
+/** Bullets the "For" list starts with while it's collapsed. */
+const ROUTE_FOR_SHOWN = 3;
+/** Whether the route's "For" list is expanded (this page view only). */
+let routeForOpen = false;
+
+/**
+ * The goals a route is for, as bullets: "every task up to a tier" goals for two or more bosses
+ * fold into one bullet ("Every task up to Elite at 42 bosses") whose boss names show when the
+ * list is expanded. A toggle (bottom right) shows or hides the rest.
+ */
+function routeForHTML(goals) {
+  const items = [];
+  const groups = new Map();
+  for (const g of goals) {
+    if (g.type === "caboss" && !isGeneralCa(g.monster)) {
+      const k = g.tier;
+      if (!groups.has(k)) { groups.set(k, { tier: g.tier, bosses: [], goal: g }); items.push(groups.get(k)); }
+      groups.get(k).bosses.push(g.monster);
+    } else items.push({ goal: g });
+  }
+  const lines = items.map((it) => {
+    if (!it.bosses || it.bosses.length === 1) return { text: esc(goalTitle(it.goal)) };
+    const lead = it.tier === "Easy" ? "Every Easy task" : `Every task up to ${esc(it.tier)}`;
+    return { text: `${lead} at ${it.bosses.length} bosses`, sub: it.bosses.map((b) => `<li>${esc(b)}</li>`).join("") };
+  });
+  const open = routeForOpen;
+  const hidden = Math.max(0, lines.length - ROUTE_FOR_SHOWN);
+  const canToggle = hidden > 0 || lines.some((l) => l.sub);
+  const shown = open ? lines : lines.slice(0, ROUTE_FOR_SHOWN);
+  return `<div class="routefor">
+      <span class="muted small">For ${goals.length === 1 ? "1 goal" : `${goals.length} goals`}:</span>
+      <ul>${shown.map((l) => `<li>${l.text}${open && l.sub ? `<ul class="rfsub">${l.sub}</ul>` : ""}</li>`).join("")}</ul>
+      ${canToggle ? `<button type="button" class="btn tiny ghost rftoggle" data-route="for" aria-expanded="${open}">${open ? "Show less ▴" : hidden ? `+${hidden} more ▾` : "Show bosses ▾"}</button>` : ""}
+    </div>`;
+}
+
 function renderRoute() {
   const el = $("#route");
   const p = pinnedRoute();
@@ -1845,9 +1900,9 @@ function renderRoute() {
   const head = (extra = "") => `
     <div class="panelhead">
       <h3 id="route-h">${ro ? "Their route" : "Your route"}</h3>
-      <span class="muted small">${p.goals.length ? `For: ${esc(p.goals.map(goalTitle).join(", "))}` : ""}</span>
       <span class="routeacts">${ro ? "" : `${extra}<button type="button" class="btn tiny ghost" data-route="unpin">Unpin</button>`}</span>
-    </div>`;
+    </div>
+    ${p.goals.length ? routeForHTML(p.goals) : ""}`;
   if (!p.goals.length) {
     el.innerHTML = `${head()}<p class="muted small">The goals this route was for have been removed. Plan a new one from your goals.</p>`;
     return;
@@ -1901,6 +1956,7 @@ $("#route").addEventListener("click", (e) => {
   const b = e.target.closest("[data-route]");
   if (!b) return;
   if (b.dataset.route === "unpin") { if (!isReadOnly()) { saveRoute(null); renderRoute(); } return; }
+  if (b.dataset.route === "for") { routeForOpen = !routeForOpen; renderRoute(); return; }
   openPlanner();
 });
 $("#plandlg").addEventListener("change", (e) => {
@@ -2071,6 +2127,12 @@ $("#goals").addEventListener("click", (e) => {
     saveGoals(); renderGoals(); renderCards(true);
   }
 });
+// Remember whether the combat achievement goals are open ("toggle" doesn't bubble: capture it).
+$("#goals").addEventListener("toggle", (e) => {
+  if (!e.target.matches?.("details[data-goalgroup=ca]")) return;
+  state.caGoalsOpen = e.target.open;
+  localStorage.setItem("tm.caGoalsOpen", state.caGoalsOpen ? "1" : "0");
+}, true);
 $("#goals").addEventListener("change", (e) => {
   const c = e.target.closest("[data-check]");
   if (!c || isReadOnly()) return;

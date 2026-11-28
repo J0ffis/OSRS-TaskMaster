@@ -100,6 +100,13 @@ final class PickProgress
 					}
 					return any;
 				}
+				case "catier": // a goal of reaching a CA tier: "catier:Elite"
+				{
+					JsonObject ca = obj(profile, "combatAchievements");
+					JsonObject thresholds = obj(ca, "thresholds");
+					JsonElement need = thresholds == null ? null : thresholds.get(rest);
+					return need != null && need.getAsInt() > 0 && ca.get("points").getAsInt() >= need.getAsInt();
+				}
 				case "clog":
 				case "pet":
 					return obtained(profile, Integer.parseInt(rest));
@@ -168,7 +175,7 @@ final class PickProgress
 		return false;
 	}
 
-	private static JsonObject obj(JsonObject o, String key)
+	static JsonObject obj(JsonObject o, String key)
 	{
 		if (o == null)
 		{
@@ -178,13 +185,13 @@ final class PickProgress
 		return e != null && e.isJsonObject() ? e.getAsJsonObject() : null;
 	}
 
-	private static JsonArray arr(JsonObject o, String key)
+	static JsonArray arr(JsonObject o, String key)
 	{
 		JsonElement e = o == null ? null : o.get(key);
 		return e != null && e.isJsonArray() ? e.getAsJsonArray() : new JsonArray();
 	}
 
-	private static String str(JsonObject o, String key)
+	static String str(JsonObject o, String key)
 	{
 		JsonElement e = o.get(key);
 		return e != null && e.isJsonPrimitive() ? e.getAsString() : null;

@@ -50,8 +50,10 @@ browser, with your goals.
   "Goal ✓", and the website shows it next time it loads).
   **Refresh** shows different suggestions from the same tier (5 at a time, up to 15).
   **Sync** uploads your progress now and fetches the website's latest list; anything you've
-  finished in game drops off straight away. The list itself is made by the website, so opening
-  the website gives you a fresh one.
+  finished in game drops off straight away ("Get any missing …" rows once you log one of them).
+  Bars and counts on log, combat achievement, level and goal rows follow your progress too.
+  The list itself is made by the website, so opening the website gives you a fresh one; the
+  panel picks it up within 5 minutes.
   With **Fastest logs first** switched on on the website, collection log and pet rows come
   quickest first and show a rough time ("Collection log · ~12 h"); Refresh steps on to the next
   quickest. The list also gets a **Collection log** choice: log and pet rows only, from every
@@ -60,6 +62,11 @@ browser, with your goals.
   next 4 steps in order (the first marked **Next**), how many are done, and what each step is for.
   Steps you finish in game (a level reached, a quest done) drop off at once; click a step to open
   the route on the website, where you change or unpin it.
+- **Completed!** When you finish one of your goals, or a suggestion or route step from the
+  panel, "85 Slayer completed!" rises above your character and the chat box says
+  *TaskMaster: Goal completed: 85 Slayer* (or *Suggestion completed*). Only things you finish
+  while playing count, each once. A few goal kinds aren't checked in game (pets and items
+  you named, "any missing piece", goals you tick by hand).
 - Your profile is **private** by default: only people with your link can see it.
   **Copy share link** (here or on the website) gives friends a view-only link: they see your
   suggestions and goals but can't change anything.
@@ -76,6 +83,11 @@ browser, with your goals.
 
 - **Website**: the page opened by *Open website*.
 - **Keep profile up to date**: refresh your profile on login and when your progress changes.
+- **Chat message when done**, **Pop-up when done**: the *Completed!* alerts above. Both on by
+  default. Goal and suggestion alerts need Automatic upload, because that's how the plugin gets
+  your goals. Finishing a **Slayer task** works without it: "Abyssal demons task completed!"
+  rises in red, and the chat box says *TaskMaster: Slayer task completed: 150 Abyssal demons
+  (25 in a row)*. Wilderness tasks from Krystilia count too.
 - **Automatic upload**, **Show my profile publicly**: see above. Both off by default, in a
   section that stays closed until Automatic upload is live.
 - **Upload server**: leave as it is unless you run your own copy of the service.

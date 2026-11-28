@@ -62,6 +62,32 @@ public interface TaskMasterConfig extends Config
 		return 5;
 	}
 
+	// Goal and suggestion alerts need the website's list, so they work with Automatic upload (or
+	// Test Auto-Upload.bat) only. Slayer task alerts need nothing but the game.
+	@ConfigItem(
+		keyName = "completionChat",
+		name = "Chat message when done",
+		description = "Say in the chat box when you finish a Slayer task, one of your goals or a suggestion"
+			+ " from the panel (goals and suggestions need Automatic upload).",
+		position = 4
+	)
+	default boolean completionChat()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "completionPopup",
+		name = "Pop-up when done",
+		description = "Show \"... completed!\" above your character when you finish a Slayer task, one of your"
+			+ " goals or a suggestion from the panel (goals and suggestions need Automatic upload).",
+		position = 5
+	)
+	default boolean completionPopup()
+	{
+		return true;
+	}
+
 	// Wording and closed-by-default follow UPLOAD_LIVE (constant expressions, so they work here).
 	@ConfigSection(
 		name = UPLOAD_LIVE ? "Automatic upload" : "Automatic upload (not live yet)",

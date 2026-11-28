@@ -139,8 +139,11 @@ class TaskMasterPanel extends PluginPanel
 	private static final int ROUTE_SHOWN = 4;
 	private static final Color ROUTE_GOLD = new Color(0xE0B04A);
 	private static final Color ROUTE_GOAL = new Color(0x8BBF5A);
-	/** Suggestions finished since the website made the list (from the plugin's own profile). */
-	private java.util.function.Predicate<String> isDone = id -> false;
+	/**
+	 * The player's progress (the plugin's own profile and the website's goals): drops suggestions
+	 * finished since the website made the list and keeps the rest's bars and counts current.
+	 */
+	private LiveProgress live = LiveProgress.NONE;
 	private Function<String, BufferedImage> skillIcons = skill -> null;
 	private BiConsumer<Integer, JLabel> itemIcons = (id, label) -> { };
 	/** Interface sprites from the game: "skull" and one per category ("quests", "diaries", ...). */
@@ -281,7 +284,9 @@ class TaskMasterPanel extends PluginPanel
 		picksSection.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		picksSection.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
 
-		JPanel head = new JPanel(new BorderLayout(6, 0));
+		// Title on its own row and the buttons on the next: side by side, a narrow panel (or a
+		// bigger font) cut the title to "Your next g...".
+		JPanel head = new JPanel(new BorderLayout(0, 6));
 		head.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		JLabel title = new JLabel("Your next grinds");
 		title.setFont(FontManager.getRunescapeBoldFont());
@@ -304,8 +309,8 @@ class TaskMasterPanel extends PluginPanel
 		buttons.setOpaque(false);
 		buttons.add(nextButton);
 		buttons.add(sync);
-		head.add(title, BorderLayout.CENTER);
-		head.add(buttons, BorderLayout.EAST);
+		head.add(title, BorderLayout.NORTH);
+		head.add(buttons, BorderLayout.CENTER);
 
 		tierBox.setToolTipText("Which tier of suggestions to show");
 		tierBox.addActionListener(e -> renderPicks());
@@ -363,12 +368,12 @@ class TaskMasterPanel extends PluginPanel
 		});
 	}
 
-	/** How to tell a suggestion is finished; the list redraws with it. */
-	void setDoneCheck(java.util.function.Predicate<String> isDone)
+	/** The latest progress; the list redraws with it. */
+	void setProgress(LiveProgress live)
 	{
 		SwingUtilities.invokeLater(() ->
 		{
-			this.isDone = isDone;
+			this.live = live == null ? LiveProgress.NONE : live;
 			renderPicks();
 		});
 	}
@@ -421,7 +426,7 @@ class TaskMasterPanel extends PluginPanel
 		List<Picks.Step> open = new java.util.ArrayList<>();
 		for (Picks.Step s : r.steps())
 		{
-			if (!isDone.test(s.key))
+			if (!live.isDone(s))
 			{
 				open.add(s);
 			}
@@ -547,9 +552,9 @@ class TaskMasterPanel extends PluginPanel
 			List<Picks.Pick> open = new java.util.ArrayList<>();
 			for (Picks.Pick p : all)
 			{
-				if (!isDone.test(p.id))
+				if (!live.isDone(p))
 				{
-					open.add(p);
+					open.add(live.refresh(p));
 				}
 			}
 			int finished = all.size() - open.size();

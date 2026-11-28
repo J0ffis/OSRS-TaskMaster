@@ -146,14 +146,7 @@ public class SnapshotCollector
 			t.put("name", slayerTaskName(target, client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID)));
 			t.put("boss", target == TARGET_BOSS);
 			t.put("remaining", remaining);
-			int initial = client.getVarpValue(VarPlayerID.SLAYER_COUNT_ORIGINAL);
-			// A task-size modifier changes the assigned amount after the original count was set.
-			if (client.getVarbitValue(VarbitID.SLAYER_MODIFIER_ID) == MODIFIER_SIZE)
-			{
-				int v = client.getVarbitValue(VarbitID.SLAYER_MODIFIER_VALUE);
-				initial += client.getVarbitValue(VarbitID.SLAYER_MODIFIER_NEGATIVE) == 1 ? -v : v;
-			}
-			t.put("initial", Math.max(initial, remaining));
+			t.put("initial", currentSlayerTaskSize());
 			t.put("location", slayerArea(client.getVarpValue(VarPlayerID.SLAYER_AREA)));
 			t.put("wilderness", master == MASTER_KRYSTILIA);
 			out.put("task", t);
@@ -197,6 +190,24 @@ public class SnapshotCollector
 			return null;
 		}
 		return slayerTaskName(client.getVarpValue(VarPlayerID.SLAYER_TARGET), client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID));
+	}
+
+	/** How many the current Slayer task was for (0 without a task). Client thread. */
+	public int currentSlayerTaskSize()
+	{
+		int remaining = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
+		if (remaining <= 0)
+		{
+			return 0;
+		}
+		int initial = client.getVarpValue(VarPlayerID.SLAYER_COUNT_ORIGINAL);
+		// A task-size modifier changes the assigned amount after the original count was set.
+		if (client.getVarbitValue(VarbitID.SLAYER_MODIFIER_ID) == MODIFIER_SIZE)
+		{
+			int v = client.getVarbitValue(VarbitID.SLAYER_MODIFIER_VALUE);
+			initial += client.getVarbitValue(VarbitID.SLAYER_MODIFIER_NEGATIVE) == 1 ? -v : v;
+		}
+		return Math.max(initial, remaining);
 	}
 
 	private String slayerTaskName(int target, int bossId)

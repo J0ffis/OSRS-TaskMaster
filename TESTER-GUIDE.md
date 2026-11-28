@@ -72,6 +72,10 @@ profile. For fresh suggestions later, click **Copy my profile** again, then on t
 Goals you add on the website are saved in that browser. Using a different browser or PC means
 pasting your profile again.
 
+**Worth trying:** finish a Slayer task. "… task completed!" should rise above your character in
+red, and the chat box should say *TaskMaster: Slayer task completed: …*. This works in both ways
+of testing.
+
 **For a complete collection log:** open the collection log in game and click **Search** once.
 Then click **Copy my profile** again and use **Update profile** on the website.
 
@@ -102,7 +106,8 @@ tier at a time) and **Reset my links**. Once you pin a route on the website, **Y
 above the suggestions. The website opens at `http://127.0.0.1:8790/#id=…`, and your name shows
 *Uploaded … ago* and **Owner**. Links only work on this PC.
 
-**Worth trying:** add and finish goals, **Not for me**, **Make it a goal** from the panel
+**Worth trying:** add and finish goals (finishing one in game, say a level, should show
+"... completed!" above your character and a line in the chat box), **Not for me**, **Make it a goal** from the panel
 (right-click a suggestion), **Copy share link** (open it in a private window: it's view only),
 **See it as others do** on your own page, **Reset my links** (your old link should stop working)
 and **Delete my uploaded data**. Note anything that seems wrong, slow or confusing, and roughly

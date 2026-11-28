@@ -32,6 +32,12 @@ import net.runelite.api.GameState;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.StatChanged;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.ScriptPreFired;
@@ -107,6 +113,17 @@ public class TaskMasterPlugin extends Plugin
 	@Inject private SnapshotCollector collector;
 	@Inject private ProgressStore store;
 	@Inject private ScheduledExecutorService executor;
+	@Inject private OverlayManager overlayManager;
+	@Inject private ChatMessageManager chatMessageManager;
+	@Inject private CompletionOverlay completionOverlay;
+
+	/** Game messages after which something may be finished: quests, diaries, CAs, log slots. */
+	private static final Pattern MAYBE_DONE = Pattern.compile(
+		"(?i)congratulations|well done|collection log");
+	private final CompletionTracker completions = new CompletionTracker();
+	private final SlayerTaskWatch slayerWatch = new SlayerTaskWatch();
+	private final Map<Skill, Integer> lastLevels = new java.util.EnumMap<>(Skill.class);
+	private int ticksUntilCompletionCheck = -1;
 
 	private TaskMasterPanel panel;
 	private NavigationButton navButton;
@@ -116,6 +133,11 @@ public class TaskMasterPlugin extends Plugin
 	private boolean dirty;
 	private long lastSyncAt;
 	private volatile boolean inFlight;
+	/** The website saves a new list whenever it's open; the panel asks for it this often too. */
+	private static final long PICKS_REFRESH_MS = 5 * 60_000L;
+	private long lastPicksFetchAt;
+	/** The latest profile and goals, as the panel and the completion alerts judge them. Client thread. */
+	private LiveProgress live = LiveProgress.NONE;
 
 	// Set by "Test Auto-Upload.bat" for that run of RuneLite only (see build.gradle's run task): the
 	// local test service and website, with Automatic upload on, without changing saved settings, so
@@ -161,6 +183,7 @@ public class TaskMasterPlugin extends Plugin
 			.panel(panel)
 			.build();
 		clientToolbar.addNavigation(navButton);
+		overlayManager.add(completionOverlay);
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
 			clientThread.invokeLater(this::onLogin);
@@ -171,6 +194,8 @@ public class TaskMasterPlugin extends Plugin
 	protected void shutDown()
 	{
 		clientToolbar.removeNavigation(navButton);
+		overlayManager.remove(completionOverlay);
+		resetCompletions();
 		loadedAccount = -1;
 	}
 
@@ -190,6 +215,7 @@ public class TaskMasterPlugin extends Plugin
 		{
 			loadedAccount = account;
 			store.load();
+			resetCompletions();
 			// Varps arrive over the first few ticks after login; wait before the first snapshot.
 			ticksUntilLoginSync = 8;
 		}
@@ -199,6 +225,10 @@ public class TaskMasterPlugin extends Plugin
 	public void onGameTick(GameTick t)
 	{
 		readSlayerRewards();
+		if (ticksUntilCompletionCheck > 0 && --ticksUntilCompletionCheck == 0)
+		{
+			checkCompletions();
+		}
 		// A collection log page whose kill counts weren't drawn yet when it was read: once more.
 		if (clogRetryTitle != null)
 		{
@@ -212,6 +242,10 @@ public class TaskMasterPlugin extends Plugin
 		}
 		if (ticksUntilLoginSync > 0 && --ticksUntilLoginSync == 0)
 		{
+			// The login's varbits are in: from now on a higher task count is a finished task.
+			slayerWatch.baseline(client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED),
+				client.getVarbitValue(VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED));
+			noteSlayerTask();
 			if (config.autoSync())
 			{
 				sync(false);
@@ -226,6 +260,13 @@ public class TaskMasterPlugin extends Plugin
 		if (dirty && config.autoSync() && System.currentTimeMillis() - lastSyncAt >= minGap)
 		{
 			sync(false);
+		}
+		// A list the website saved since the last upload (it was opened, or redrew its cards)
+		// would otherwise wait for the next upload or a Sync click.
+		else if (ticksUntilLoginSync <= 0 && !inFlight && autoUpload()
+			&& System.currentTimeMillis() - lastPicksFetchAt >= PICKS_REFRESH_MS)
+		{
+			fetchPicks();
 		}
 	}
 
@@ -424,6 +465,10 @@ public class TaskMasterPlugin extends Plugin
 			return;
 		}
 		String msg = Text.removeTags(e.getMessage());
+		if (MAYBE_DONE.matcher(msg).find())
+		{
+			scheduleCompletionCheck();
+		}
 		Matcher m = KC_PATTERN.matcher(msg);
 		if (m.find())
 		{
@@ -452,6 +497,41 @@ public class TaskMasterPlugin extends Plugin
 			|| varp == VarPlayerID.SLAYER_AREA || varp == VarPlayerID.SLAYER_STORED_VARP)
 		{
 			dirty = true;
+		}
+		if (varp == VarPlayerID.SLAYER_COUNT || varp == VarPlayerID.SLAYER_TARGET)
+		{
+			noteSlayerTask();
+		}
+		int varbit = e.getVarbitId();
+		if (varbit == VarbitID.SLAYER_TASKS_COMPLETED || varbit == VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED)
+		{
+			SlayerTaskWatch.Done done = slayerWatch.streakChanged(varbit == VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED, e.getValue());
+			if (done != null)
+			{
+				announceSlayerTask(done);
+			}
+		}
+	}
+
+	/** Remember the task while it's being done: by the time it counts as finished, it's gone. */
+	private void noteSlayerTask()
+	{
+		if (client.getVarpValue(VarPlayerID.SLAYER_COUNT) > 0)
+		{
+			slayerWatch.taskSeen(collector.currentSlayerTaskName(), collector.currentSlayerTaskSize());
+		}
+	}
+
+	/** "Abyssal demons task completed!" above the player, and a chat line. Needs no upload. */
+	private void announceSlayerTask(SlayerTaskWatch.Done done)
+	{
+		if (config.completionChat())
+		{
+			chatLine("Slayer task completed: " + done.chatText());
+		}
+		if (config.completionPopup())
+		{
+			completionOverlay.show(done.popupLabel(), CompletionOverlay.SLAYER_COLOR);
 		}
 	}
 
@@ -642,8 +722,7 @@ public class TaskMasterPlugin extends Plugin
 		lastSyncAt = System.currentTimeMillis();
 		writeExport(gson.toJson(snap));
 		// The panel drops suggestions this profile shows finished, without waiting for the website.
-		com.google.gson.JsonObject profile = gson.toJsonTree(snap).getAsJsonObject();
-		panel.setDoneCheck(id -> PickProgress.isDone(id, profile));
+		applyProfile(gson.toJsonTree(snap).getAsJsonObject());
 		if (autoUpload())
 		{
 			upload(snap, manual);
@@ -652,6 +731,113 @@ public class TaskMasterPlugin extends Plugin
 		{
 			panel.setStatus("Profile up to date (" + now() + "). Click Copy my profile to use it on the website.", true);
 		}
+	}
+
+	// ---- Completion alerts -----------------------------------------------------------------
+	//
+	// "X completed!" above the player's head and in the chat box when one of their goals, or a
+	// suggestion or route step in the panel, is finished. The list comes with the picks, so this
+	// works with Automatic upload only. A check reads the profile a couple of ticks after a level
+	// or XP target is reached, or after a game message that may mean something was finished.
+
+	@Subscribe
+	public void onStatChanged(StatChanged e)
+	{
+		Integer before = lastLevels.put(e.getSkill(), e.getLevel());
+		boolean levelUp = before != null && e.getLevel() > before;
+		if (levelUp || completions.xpTargetReached(e.getSkill().getName().toLowerCase(), e.getXp()))
+		{
+			scheduleCompletionCheck();
+		}
+	}
+
+	private boolean completionAlertsOn()
+	{
+		return config.completionChat() || config.completionPopup();
+	}
+
+	private void scheduleCompletionCheck()
+	{
+		if (!completions.isEmpty() && completionAlertsOn() && ticksUntilCompletionCheck <= 0)
+		{
+			ticksUntilCompletionCheck = 2; // let the varbits that go with it arrive
+		}
+	}
+
+	private void checkCompletions()
+	{
+		Map<String, Object> snap = snapshot();
+		if (snap != null)
+		{
+			applyProfile(gson.toJsonTree(snap).getAsJsonObject());
+		}
+	}
+
+	/** New progress: the panel drops what it shows finished, and anything just finished is announced. */
+	private void applyProfile(com.google.gson.JsonObject profile)
+	{
+		live = live.withProfile(profile);
+		LiveProgress now = live;
+		panel.setProgress(now);
+		announce(completions.check(now::isDone));
+	}
+
+	/** The latest goals, and the goals and suggestions to watch. Client thread. */
+	private void watchForCompletions(List<Map<String, Object>> goals, List<CompletionTracker.Item> watch)
+	{
+		completions.setTracked(watch);
+		live = live.withGoals(goals);
+		LiveProgress now = live;
+		panel.setProgress(now);
+		// Before the first profile everything would look unfinished, then be announced at login.
+		if (now.hasProfile())
+		{
+			announce(completions.check(now::isDone));
+		}
+	}
+
+	private void announce(List<CompletionTracker.Item> done)
+	{
+		for (CompletionTracker.Item i : done)
+		{
+			if (config.completionChat())
+			{
+				chatLine((i.goal ? "Goal completed: " : "Suggestion completed: ") + i.label);
+			}
+			if (config.completionPopup())
+			{
+				completionOverlay.show(i.label, i.goal ? CompletionOverlay.GOAL_COLOR : CompletionOverlay.PICK_COLOR);
+			}
+		}
+	}
+
+	/** "TaskMaster: <text>" in the chat box. */
+	private void chatLine(String text)
+	{
+		String message = new ChatMessageBuilder()
+			.append(ChatColorType.HIGHLIGHT)
+			.append("TaskMaster: ")
+			.append(ChatColorType.NORMAL)
+			.append(text)
+			.build();
+		chatMessageManager.queue(QueuedMessage.builder()
+			.type(ChatMessageType.GAMEMESSAGE)
+			.runeLiteFormattedMessage(message)
+			.build());
+	}
+
+	private void resetCompletions()
+	{
+		completions.reset();
+		slayerWatch.reset();
+		completionOverlay.clear();
+		live = LiveProgress.NONE;
+		if (panel != null)
+		{
+			panel.setProgress(live);
+		}
+		lastLevels.clear();
+		ticksUntilCompletionCheck = -1;
 	}
 
 	// ---- Automatic upload ----------------------------------------------------------------
@@ -859,6 +1045,7 @@ public class TaskMasterPlugin extends Plugin
 	/** Fetch the suggestions the website last saved for this account. Client thread. */
 	private void fetchPicks()
 	{
+		lastPicksFetchAt = System.currentTimeMillis();
 		String key = autoUpload() ? uploadKey(false) : null;
 		if (key == null)
 		{
@@ -899,6 +1086,9 @@ public class TaskMasterPlugin extends Plugin
 					if (reply != null)
 					{
 						panel.setPicks(reply.picks, reply.picksAt == null ? 0 : reply.picksAt);
+						List<CompletionTracker.Item> watch = CompletionTracker.watchList(reply);
+						List<Map<String, Object>> goals = reply.goals;
+						clientThread.invokeLater(() -> watchForCompletions(goals, watch));
 					}
 				}
 				catch (IOException | RuntimeException ex)
