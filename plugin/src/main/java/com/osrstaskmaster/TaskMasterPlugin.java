@@ -32,6 +32,12 @@ import net.runelite.api.GameState;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.StatChanged;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.ScriptPreFired;
@@ -107,6 +113,18 @@ public class TaskMasterPlugin extends Plugin
 	@Inject private SnapshotCollector collector;
 	@Inject private ProgressStore store;
 	@Inject private ScheduledExecutorService executor;
+	@Inject private OverlayManager overlayManager;
+	@Inject private ChatMessageManager chatMessageManager;
+	@Inject private CompletionOverlay completionOverlay;
+
+	/** Game messages after which something may be finished: quests, diaries, CAs, log slots. */
+	private static final Pattern MAYBE_DONE = Pattern.compile(
+		"(?i)congratulations|well done|collection log");
+	private final CompletionTracker completions = new CompletionTracker();
+	/** The latest progress, as JSON, for checking a newly fetched list. Client thread. */
+	private com.google.gson.JsonObject lastProfile;
+	private final Map<Skill, Integer> lastLevels = new java.util.EnumMap<>(Skill.class);
+	private int ticksUntilCompletionCheck = -1;
 
 	private TaskMasterPanel panel;
 	private NavigationButton navButton;
@@ -161,6 +179,7 @@ public class TaskMasterPlugin extends Plugin
 			.panel(panel)
 			.build();
 		clientToolbar.addNavigation(navButton);
+		overlayManager.add(completionOverlay);
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
 			clientThread.invokeLater(this::onLogin);
@@ -171,6 +190,8 @@ public class TaskMasterPlugin extends Plugin
 	protected void shutDown()
 	{
 		clientToolbar.removeNavigation(navButton);
+		overlayManager.remove(completionOverlay);
+		resetCompletions();
 		loadedAccount = -1;
 	}
 
@@ -190,6 +211,7 @@ public class TaskMasterPlugin extends Plugin
 		{
 			loadedAccount = account;
 			store.load();
+			resetCompletions();
 			// Varps arrive over the first few ticks after login; wait before the first snapshot.
 			ticksUntilLoginSync = 8;
 		}
@@ -199,6 +221,10 @@ public class TaskMasterPlugin extends Plugin
 	public void onGameTick(GameTick t)
 	{
 		readSlayerRewards();
+		if (ticksUntilCompletionCheck > 0 && --ticksUntilCompletionCheck == 0)
+		{
+			checkCompletions();
+		}
 		// A collection log page whose kill counts weren't drawn yet when it was read: once more.
 		if (clogRetryTitle != null)
 		{
@@ -424,6 +450,10 @@ public class TaskMasterPlugin extends Plugin
 			return;
 		}
 		String msg = Text.removeTags(e.getMessage());
+		if (MAYBE_DONE.matcher(msg).find())
+		{
+			scheduleCompletionCheck();
+		}
 		Matcher m = KC_PATTERN.matcher(msg);
 		if (m.find())
 		{
@@ -642,8 +672,7 @@ public class TaskMasterPlugin extends Plugin
 		lastSyncAt = System.currentTimeMillis();
 		writeExport(gson.toJson(snap));
 		// The panel drops suggestions this profile shows finished, without waiting for the website.
-		com.google.gson.JsonObject profile = gson.toJsonTree(snap).getAsJsonObject();
-		panel.setDoneCheck(id -> PickProgress.isDone(id, profile));
+		applyProfile(gson.toJsonTree(snap).getAsJsonObject());
 		if (autoUpload())
 		{
 			upload(snap, manual);
@@ -652,6 +681,98 @@ public class TaskMasterPlugin extends Plugin
 		{
 			panel.setStatus("Profile up to date (" + now() + "). Click Copy my profile to use it on the website.", true);
 		}
+	}
+
+	// ---- Completion alerts -----------------------------------------------------------------
+	//
+	// "X completed!" above the player's head and in the chat box when one of their goals, or a
+	// suggestion or route step in the panel, is finished. The list comes with the picks, so this
+	// works with Automatic upload only. A check reads the profile a couple of ticks after a level
+	// or XP target is reached, or after a game message that may mean something was finished.
+
+	@Subscribe
+	public void onStatChanged(StatChanged e)
+	{
+		Integer before = lastLevels.put(e.getSkill(), e.getLevel());
+		boolean levelUp = before != null && e.getLevel() > before;
+		if (levelUp || completions.xpTargetReached(e.getSkill().getName().toLowerCase(), e.getXp()))
+		{
+			scheduleCompletionCheck();
+		}
+	}
+
+	private boolean completionAlertsOn()
+	{
+		return config.completionChat() || config.completionPopup();
+	}
+
+	private void scheduleCompletionCheck()
+	{
+		if (!completions.isEmpty() && completionAlertsOn() && ticksUntilCompletionCheck <= 0)
+		{
+			ticksUntilCompletionCheck = 2; // let the varbits that go with it arrive
+		}
+	}
+
+	private void checkCompletions()
+	{
+		Map<String, Object> snap = snapshot();
+		if (snap != null)
+		{
+			applyProfile(gson.toJsonTree(snap).getAsJsonObject());
+		}
+	}
+
+	/** New progress: the panel drops what it shows finished, and anything just finished is announced. */
+	private void applyProfile(com.google.gson.JsonObject profile)
+	{
+		lastProfile = profile;
+		panel.setDoneCheck(id -> PickProgress.isDone(id, profile));
+		announce(completions.check(id -> PickProgress.isDone(id, profile)));
+	}
+
+	/** The latest goals and suggestions to watch. Client thread. */
+	private void watchForCompletions(List<CompletionTracker.Item> watch)
+	{
+		completions.setTracked(watch);
+		com.google.gson.JsonObject profile = lastProfile;
+		if (profile != null)
+		{
+			announce(completions.check(id -> PickProgress.isDone(id, profile)));
+		}
+	}
+
+	private void announce(List<CompletionTracker.Item> done)
+	{
+		for (CompletionTracker.Item i : done)
+		{
+			if (config.completionChat())
+			{
+				String message = new ChatMessageBuilder()
+					.append(ChatColorType.HIGHLIGHT)
+					.append("TaskMaster: ")
+					.append(ChatColorType.NORMAL)
+					.append((i.goal ? "Goal completed: " : "Suggestion completed: ") + i.label)
+					.build();
+				chatMessageManager.queue(QueuedMessage.builder()
+					.type(ChatMessageType.GAMEMESSAGE)
+					.runeLiteFormattedMessage(message)
+					.build());
+			}
+			if (config.completionPopup())
+			{
+				completionOverlay.show(i.label, i.goal);
+			}
+		}
+	}
+
+	private void resetCompletions()
+	{
+		completions.reset();
+		completionOverlay.clear();
+		lastProfile = null;
+		lastLevels.clear();
+		ticksUntilCompletionCheck = -1;
 	}
 
 	// ---- Automatic upload ----------------------------------------------------------------
@@ -899,6 +1020,8 @@ public class TaskMasterPlugin extends Plugin
 					if (reply != null)
 					{
 						panel.setPicks(reply.picks, reply.picksAt == null ? 0 : reply.picksAt);
+						List<CompletionTracker.Item> watch = CompletionTracker.watchList(reply);
+						clientThread.invokeLater(() -> watchForCompletions(watch));
 					}
 				}
 				catch (IOException | RuntimeException ex)

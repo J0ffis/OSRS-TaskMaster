@@ -60,6 +60,11 @@ browser, with your goals.
   next 4 steps in order (the first marked **Next**), how many are done, and what each step is for.
   Steps you finish in game (a level reached, a quest done) drop off at once; click a step to open
   the route on the website, where you change or unpin it.
+- **Completed!** When you finish one of your goals, or a suggestion or route step from the
+  panel, "85 Slayer completed!" rises above your character and the chat box says
+  *TaskMaster: Goal completed: 85 Slayer* (or *Suggestion completed*). Only things you finish
+  while playing count, each once. A few goal kinds aren't checked in game (pets and items
+  you named, "any missing piece", goals you tick by hand).
 - Your profile is **private** by default: only people with your link can see it.
   **Copy share link** (here or on the website) gives friends a view-only link: they see your
   suggestions and goals but can't change anything.
@@ -76,6 +81,8 @@ browser, with your goals.
 
 - **Website**: the page opened by *Open website*.
 - **Keep profile up to date**: refresh your profile on login and when your progress changes.
+- **Chat message when done**, **Pop-up when done**: the *Completed!* alerts above. Both on by
+  default; they need Automatic upload, because that's how the plugin gets your goals.
 - **Automatic upload**, **Show my profile publicly**: see above. Both off by default, in a
   section that stays closed until Automatic upload is live.
 - **Upload server**: leave as it is unless you run your own copy of the service.

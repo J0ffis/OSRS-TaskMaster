@@ -100,6 +100,13 @@ final class PickProgress
 					}
 					return any;
 				}
+				case "catier": // a goal of reaching a CA tier: "catier:Elite"
+				{
+					JsonObject ca = obj(profile, "combatAchievements");
+					JsonObject thresholds = obj(ca, "thresholds");
+					JsonElement need = thresholds == null ? null : thresholds.get(rest);
+					return need != null && need.getAsInt() > 0 && ca.get("points").getAsInt() >= need.getAsInt();
+				}
 				case "clog":
 				case "pet":
 					return obtained(profile, Integer.parseInt(rest));
