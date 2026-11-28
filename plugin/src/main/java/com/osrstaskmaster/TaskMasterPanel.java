@@ -139,8 +139,11 @@ class TaskMasterPanel extends PluginPanel
 	private static final int ROUTE_SHOWN = 4;
 	private static final Color ROUTE_GOLD = new Color(0xE0B04A);
 	private static final Color ROUTE_GOAL = new Color(0x8BBF5A);
-	/** Suggestions finished since the website made the list (from the plugin's own profile). */
-	private java.util.function.Predicate<String> isDone = id -> false;
+	/**
+	 * The player's progress (the plugin's own profile and the website's goals): drops suggestions
+	 * finished since the website made the list and keeps the rest's bars and counts current.
+	 */
+	private LiveProgress live = LiveProgress.NONE;
 	private Function<String, BufferedImage> skillIcons = skill -> null;
 	private BiConsumer<Integer, JLabel> itemIcons = (id, label) -> { };
 	/** Interface sprites from the game: "skull" and one per category ("quests", "diaries", ...). */
@@ -365,12 +368,12 @@ class TaskMasterPanel extends PluginPanel
 		});
 	}
 
-	/** How to tell a suggestion is finished; the list redraws with it. */
-	void setDoneCheck(java.util.function.Predicate<String> isDone)
+	/** The latest progress; the list redraws with it. */
+	void setProgress(LiveProgress live)
 	{
 		SwingUtilities.invokeLater(() ->
 		{
-			this.isDone = isDone;
+			this.live = live == null ? LiveProgress.NONE : live;
 			renderPicks();
 		});
 	}
@@ -423,7 +426,7 @@ class TaskMasterPanel extends PluginPanel
 		List<Picks.Step> open = new java.util.ArrayList<>();
 		for (Picks.Step s : r.steps())
 		{
-			if (!isDone.test(s.key))
+			if (!live.isDone(s))
 			{
 				open.add(s);
 			}
@@ -549,9 +552,9 @@ class TaskMasterPanel extends PluginPanel
 			List<Picks.Pick> open = new java.util.ArrayList<>();
 			for (Picks.Pick p : all)
 			{
-				if (!isDone.test(p.id))
+				if (!live.isDone(p))
 				{
-					open.add(p);
+					open.add(live.refresh(p));
 				}
 			}
 			int finished = all.size() - open.size();

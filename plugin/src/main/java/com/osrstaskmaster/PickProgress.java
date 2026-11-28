@@ -175,7 +175,7 @@ final class PickProgress
 		return false;
 	}
 
-	private static JsonObject obj(JsonObject o, String key)
+	static JsonObject obj(JsonObject o, String key)
 	{
 		if (o == null)
 		{
@@ -185,13 +185,13 @@ final class PickProgress
 		return e != null && e.isJsonObject() ? e.getAsJsonObject() : null;
 	}
 
-	private static JsonArray arr(JsonObject o, String key)
+	static JsonArray arr(JsonObject o, String key)
 	{
 		JsonElement e = o == null ? null : o.get(key);
 		return e != null && e.isJsonArray() ? e.getAsJsonArray() : new JsonArray();
 	}
 
-	private static String str(JsonObject o, String key)
+	static String str(JsonObject o, String key)
 	{
 		JsonElement e = o.get(key);
 		return e != null && e.isJsonPrimitive() ? e.getAsString() : null;

@@ -121,8 +121,6 @@ public class TaskMasterPlugin extends Plugin
 	private static final Pattern MAYBE_DONE = Pattern.compile(
 		"(?i)congratulations|well done|collection log");
 	private final CompletionTracker completions = new CompletionTracker();
-	/** The latest progress, as JSON, for checking a newly fetched list. Client thread. */
-	private com.google.gson.JsonObject lastProfile;
 	private final Map<Skill, Integer> lastLevels = new java.util.EnumMap<>(Skill.class);
 	private int ticksUntilCompletionCheck = -1;
 
@@ -134,6 +132,11 @@ public class TaskMasterPlugin extends Plugin
 	private boolean dirty;
 	private long lastSyncAt;
 	private volatile boolean inFlight;
+	/** The website saves a new list whenever it's open; the panel asks for it this often too. */
+	private static final long PICKS_REFRESH_MS = 5 * 60_000L;
+	private long lastPicksFetchAt;
+	/** The latest profile and goals, as the panel and the completion alerts judge them. Client thread. */
+	private LiveProgress live = LiveProgress.NONE;
 
 	// Set by "Test Auto-Upload.bat" for that run of RuneLite only (see build.gradle's run task): the
 	// local test service and website, with Automatic upload on, without changing saved settings, so
@@ -252,6 +255,13 @@ public class TaskMasterPlugin extends Plugin
 		if (dirty && config.autoSync() && System.currentTimeMillis() - lastSyncAt >= minGap)
 		{
 			sync(false);
+		}
+		// A list the website saved since the last upload (it was opened, or redrew its cards)
+		// would otherwise wait for the next upload or a Sync click.
+		else if (ticksUntilLoginSync <= 0 && !inFlight && autoUpload()
+			&& System.currentTimeMillis() - lastPicksFetchAt >= PICKS_REFRESH_MS)
+		{
+			fetchPicks();
 		}
 	}
 
@@ -726,19 +736,23 @@ public class TaskMasterPlugin extends Plugin
 	/** New progress: the panel drops what it shows finished, and anything just finished is announced. */
 	private void applyProfile(com.google.gson.JsonObject profile)
 	{
-		lastProfile = profile;
-		panel.setDoneCheck(id -> PickProgress.isDone(id, profile));
-		announce(completions.check(id -> PickProgress.isDone(id, profile)));
+		live = live.withProfile(profile);
+		LiveProgress now = live;
+		panel.setProgress(now);
+		announce(completions.check(now::isDone));
 	}
 
-	/** The latest goals and suggestions to watch. Client thread. */
-	private void watchForCompletions(List<CompletionTracker.Item> watch)
+	/** The latest goals, and the goals and suggestions to watch. Client thread. */
+	private void watchForCompletions(List<Map<String, Object>> goals, List<CompletionTracker.Item> watch)
 	{
 		completions.setTracked(watch);
-		com.google.gson.JsonObject profile = lastProfile;
-		if (profile != null)
+		live = live.withGoals(goals);
+		LiveProgress now = live;
+		panel.setProgress(now);
+		// Before the first profile everything would look unfinished, then be announced at login.
+		if (now.hasProfile())
 		{
-			announce(completions.check(id -> PickProgress.isDone(id, profile)));
+			announce(completions.check(now::isDone));
 		}
 	}
 
@@ -770,7 +784,11 @@ public class TaskMasterPlugin extends Plugin
 	{
 		completions.reset();
 		completionOverlay.clear();
-		lastProfile = null;
+		live = LiveProgress.NONE;
+		if (panel != null)
+		{
+			panel.setProgress(live);
+		}
 		lastLevels.clear();
 		ticksUntilCompletionCheck = -1;
 	}
@@ -980,6 +998,7 @@ public class TaskMasterPlugin extends Plugin
 	/** Fetch the suggestions the website last saved for this account. Client thread. */
 	private void fetchPicks()
 	{
+		lastPicksFetchAt = System.currentTimeMillis();
 		String key = autoUpload() ? uploadKey(false) : null;
 		if (key == null)
 		{
@@ -1021,7 +1040,8 @@ public class TaskMasterPlugin extends Plugin
 					{
 						panel.setPicks(reply.picks, reply.picksAt == null ? 0 : reply.picksAt);
 						List<CompletionTracker.Item> watch = CompletionTracker.watchList(reply);
-						clientThread.invokeLater(() -> watchForCompletions(watch));
+						List<Map<String, Object>> goals = reply.goals;
+						clientThread.invokeLater(() -> watchForCompletions(goals, watch));
 					}
 				}
 				catch (IOException | RuntimeException ex)

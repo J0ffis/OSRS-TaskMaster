@@ -50,8 +50,10 @@ browser, with your goals.
   "Goal ✓", and the website shows it next time it loads).
   **Refresh** shows different suggestions from the same tier (5 at a time, up to 15).
   **Sync** uploads your progress now and fetches the website's latest list; anything you've
-  finished in game drops off straight away. The list itself is made by the website, so opening
-  the website gives you a fresh one.
+  finished in game drops off straight away ("Get any missing …" rows once you log one of them).
+  Bars and counts on log, combat achievement, level and goal rows follow your progress too.
+  The list itself is made by the website, so opening the website gives you a fresh one; the
+  panel picks it up within 5 minutes.
   With **Fastest logs first** switched on on the website, collection log and pet rows come
   quickest first and show a rough time ("Collection log · ~12 h"); Refresh steps on to the next
   quickest. The list also gets a **Collection log** choice: log and pet rows only, from every
